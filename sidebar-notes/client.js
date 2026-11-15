@@ -99,7 +99,12 @@ window.__ModuleLoader__.load({
 --dsh-guide-sheen:rgba(255,255,255,.30);
 box-sizing:border-box;
 display:grid;
-width:100%;
+/* fit-content, not 100%: the track count must follow the number of cards, not
+   the panel width. With a full-width box auto-fit sizes tracks from the panel
+   (four tracks in a four-track-wide panel) and a shorter row looks left-aligned;
+   shrinking the box to its content keeps three cards three tracks, and
+   margin-inline:auto centres the group. */
+width:fit-content;
 min-width:0;
 grid-template-columns:repeat(auto-fit,minmax(var(--dsh-guide-tile-min),var(--dsh-guide-tile-max)));
 justify-content:center;
@@ -107,7 +112,7 @@ align-content:center;
 gap:var(--dsh-guide-tile-gap);
 min-height:100%;
 padding:24px 20px;
-max-width:calc(4 * var(--dsh-guide-tile-max) + 3 * var(--dsh-guide-tile-gap) + 40px);
+max-width:min(100%,calc(4 * var(--dsh-guide-tile-max) + 3 * var(--dsh-guide-tile-gap) + 40px));
 margin-inline:auto;
 }
 [data-sidebar-right-guide][data-sidebar-right-guide]::after{content:none;}
