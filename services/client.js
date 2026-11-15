@@ -39,6 +39,10 @@ window.__ModuleLoader__.load({
       'menu.search': '搜索脚本…',
       'menu.noMatch': '没有匹配的脚本。',
       'run.title': '运行中',
+      'run.running': '运行中',
+      'run.stopping': '停止中',
+      'run.exited': '已结束',
+      'run.hide': '收起',
       'run.finished': '已结束',
       'run.clear': '清理',
       'run.stop': '停止',
@@ -68,6 +72,10 @@ window.__ModuleLoader__.load({
       'menu.search': 'Search scripts…',
       'menu.noMatch': 'No matching scripts.',
       'run.title': 'Running',
+      'run.running': 'running',
+      'run.stopping': 'stopping',
+      'run.exited': 'exited',
+      'run.hide': 'Hide',
       'run.finished': 'finished',
       'run.clear': 'Clear',
       'run.stop': 'Stop',
@@ -263,6 +271,11 @@ window.__ModuleLoader__.load({
 .dsh-svc-count{margin-left:auto;flex:none;padding:0 5px;border-radius:999px;background:var(--dsw-alias-bg-layer-2);font-size:10px;font-variant-numeric:tabular-nums;}
 .dsh-svc-notice{margin:0;padding:0 12px;font-size:10px;line-height:1.5;color:var(--dsw-alias-state-error-primary);overflow-wrap:anywhere;}
 .dsh-svc-busy{margin:0;padding:0 12px;font-size:10px;line-height:1.5;color:var(--dsw-alias-label-secondary);overflow-wrap:anywhere;}
+.dsh-svc-entry-block{display:flex;flex-direction:column;gap:4px;}
+.dsh-svc-chip{flex:none;padding:1px 6px;border-radius:999px;background:var(--dsw-alias-bg-layer-2);font-size:9px;line-height:1.6;color:var(--dsw-alias-label-secondary);white-space:nowrap;}
+.dsh-svc-chip.is-running{background:color-mix(in srgb,var(--dsw-alias-state-success-primary) 18%,transparent);color:var(--dsw-alias-state-success-primary);}
+.dsh-svc-chip.is-done{background:color-mix(in srgb,var(--dsw-alias-state-warn-primary) 16%,transparent);color:var(--dsw-alias-state-warn-primary);}
+.dsh-svc-row.is-running{border-left-color:var(--dsw-alias-state-success-primary);}
 .dsh-svc-run{margin:0;padding:2px 12px 0;display:flex;flex-direction:column;gap:4px;}
 .dsh-svc-run-head{display:flex;align-items:center;justify-content:space-between;font-size:10px;letter-spacing:.04em;text-transform:uppercase;color:var(--dsw-alias-label-secondary);}
 .dsh-svc-run-row{box-sizing:border-box;display:flex;align-items:center;gap:6px;padding:5px 8px;border:1px solid var(--dsw-alias-border-l1);border-radius:8px;background:var(--dsw-alias-bg-base);font-size:11px;}
@@ -449,9 +462,13 @@ window.__ModuleLoader__.load({
       return services;
     }
 
-    /** A started service's collected output, polled while its view is open. */
+    /**
+     * A started service's collected output, polled while its view is open. The
+     * fetch status is shown instead of an empty box, so a refusal is diagnosable.
+     */
     function OutputView({ sessionId, id }) {
       const [text, setText] = React.useState('');
+      const [issue, setIssue] = React.useState('');
       React.useEffect(() => {
         let alive = true;
         const tick = async () => {
@@ -459,11 +476,18 @@ window.__ModuleLoader__.load({
             const response = await fetch(
               OUTPUT_ROUTE + encodeURIComponent(String(sessionId)) + '?id=' + encodeURIComponent(String(id)),
             );
-            if (!response.ok) return;
+            if (!response.ok) {
+              if (alive) setIssue('HTTP ' + response.status + ' · id=' + String(id));
+              return;
+            }
             const data = await response.json();
-            if (alive && typeof data?.text === 'string') setText(data.text);
-          } catch {
-            /* keep the last text */
+            if (!alive) return;
+            if (typeof data?.text === 'string') {
+              setText(data.text);
+              setIssue('');
+            }
+          } catch (error) {
+            if (alive) setIssue(String(error?.message ?? error));
           }
         };
         void tick();
@@ -475,7 +499,11 @@ window.__ModuleLoader__.load({
       }, [sessionId, id]);
       const lines = text.split(/\r?\n/);
       const tail = lines.slice(Math.max(0, lines.length - 200)).join('\n');
-      return h('pre', { className: 'dsh-svc-output' }, tail === '' ? t('output.waiting') : tail);
+      return h(
+        'pre',
+        { className: 'dsh-svc-output' },
+        issue !== '' ? issue : tail === '' ? t('output.waiting') : tail,
+      );
     }
 
 
@@ -718,121 +746,136 @@ window.__ModuleLoader__.load({
         }
 
         /** Right-sidebar tab: the list, with its directory and a refresh control. */
-        /** Started services of this Session: state, output and stop. */
-        function RunningBlock(props) {
-          const services = useServices(props.sessionId);
-          const [openId, setOpenId] = React.useState('');
-          // A launch from the dropdown asks the panel to reveal that service.
-          const focused = store.focusServiceId;
-          React.useEffect(() => {
-            if (focused === '') return;
-            setOpenId(focused);
-            store.focusServiceId = '';
-          }, [focused]);
-          if (services.length === 0) return null;
-          const rows = services.map((service) => {
-            const stateClass =
-              service.state === 'running'
-                ? ' is-running'
-                : service.state === 'failed'
-                  ? ' is-failed'
-                  : service.state === 'exited'
-                    ? ' is-exited'
-                    : '';
-            return h(
-              'div',
-              { key: service.id, className: 'dsh-svc-run-row', title: service.command },
-              h('span', { className: 'dsh-svc-dot' + stateClass }),
-              h(
-                'span',
-                { className: 'dsh-svc-run-name' },
-                service.state === 'exited' || service.state === 'failed'
-                  ? service.name + ' · ' + (service.exitCode ?? service.state)
-                  : service.name,
-              ),
-              h(
-                'button',
-                {
-                  type: 'button',
-                  className: 'dsh-svc-run-button',
-                  onClick: () => setOpenId(openId === service.id ? '' : service.id),
-                },
-                t('run.output'),
-              ),
-              service.state === 'running'
-                ? h(
-                    'button',
-                    {
-                      type: 'button',
-                      className: 'dsh-svc-run-button',
-                      onClick: () => {
-                        void postJson(STOP_ROUTE + encodeURIComponent(String(props.sessionId)), {
-                          id: service.id,
-                        }).catch(() => {});
-                      },
-                    },
-                    t('run.stop'),
-                  )
-                : null,
-            );
-          });
-          const runningCount = services.filter((service) => service.state === 'running').length;
-          const finishedCount = services.length - runningCount;
-          return h(
-            'div',
-            { className: 'dsh-svc-run' },
-            h(
-              'div',
-              { className: 'dsh-svc-run-head' },
-              h(
-                'span',
-                null,
-                t('run.title') +
-                  ' · ' +
-                  String(runningCount) +
-                  (finishedCount === 0 ? '' : '   ' + t('run.finished') + ' · ' + String(finishedCount)),
-              ),
-              finishedCount === 0
-                ? null
-                : h(
-                    'button',
-                    {
-                      type: 'button',
-                      className: 'dsh-svc-run-button',
-                      onClick: () => {
-                        void postJson(CLEAR_ROUTE + encodeURIComponent(String(props.sessionId)), {}).catch(
-                          () => {},
-                        );
-                      },
-                    },
-                    t('run.clear'),
-                  ),
-            ),
-            rows,
-            openId === '' ? null : h(OutputView, { sessionId: props.sessionId, id: openId }),
-          );
-        }
-
+        /**
+         * The panel lists scripts and, under each one, the service that script
+         * started: its state, a stop control while it runs, and its output
+         * inline. A service belongs to its script, so it is not a separate block.
+         */
         function PanelBody(props) {
           useLocaleRevision();
           useStoreRevision();
           const sessionId = props?.sessionId ?? store.sessionId;
           const [state, load] = useScripts(sessionId);
           const [collapsed, toggleGroup] = useCollapsedGroups();
+          const services = useServices(sessionId);
+          const [openKey, setOpenKey] = React.useState('');
 
-          const content =
-            state.phase === 'loading'
-              ? h(
-                  'div',
-                  { className: 'dsh-svc-empty', key: 'loading' },
-                  h('span', { className: 'dsh-svc-spinner' }),
-                  t('panel.loading'),
-                )
-              : state.phase === 'error'
-                ? h('p', { className: 'dsh-svc-empty', key: 'error' }, t('panel.error'))
-                : state.phase === 'empty'
-                  ? h('p', { className: 'dsh-svc-empty', key: 'empty' }, t('panel.empty'))
-                  : panelSections(state.groups, collapsed, toggleGroup);
+          // Latest service per (command, dir): one script row shows its own run.
+          const latest = new Map();
+          for (const service of services) {
+            const key = String(service.command) + '\u0000' + String(service.dir ?? '');
+            const previous = latest.get(key);
+            if (previous === undefined || previous.startedAt <= service.startedAt) latest.set(key, service);
+          }
+
+          const statusChip = (service) => {
+            if (service === undefined) return null;
+            if (service.state === 'running') {
+              return h('span', { className: 'dsh-svc-chip is-running' }, t('run.running'));
+            }
+            if (service.state === 'stopping') {
+              return h('span', { className: 'dsh-svc-chip' }, t('run.stopping'));
+            }
+            return h(
+              'span',
+              { className: 'dsh-svc-chip is-done' },
+              t('run.exited') + ' ' + String(service.exitCode ?? '?'),
+            );
+          };
+
+          const rowFor = (group, script, index) => {
+            const key = String(script.command) + '\u0000' + String(group.dir ?? '');
+            const service = latest.get(key);
+            const open = openKey === key;
+            return h(
+              'div',
+              { key: 'entry-' + index, className: 'dsh-svc-entry-block' },
+              h(
+                'div',
+                {
+                  className: 'dsh-svc-row is-button' + (service?.state === 'running' ? ' is-running' : ''),
+                  role: 'button',
+                  tabIndex: 0,
+                  title: script.command,
+                  onClick: () => {
+                    void launch(script, group.dir);
+                  },
+                  onKeyDown: (event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      void launch(script, group.dir);
+                    }
+                  },
+                },
+                RuntimeBadge(script.command, 'badge'),
+                h(
+                  'span',
+                  { className: 'dsh-svc-row-text', key: 'text' },
+                  h('span', { className: 'dsh-svc-name', key: 'name' }, script.name),
+                  h('span', { className: 'dsh-svc-command', key: 'command' }, script.command),
+                ),
+                statusChip(service),
+                service?.state === 'running'
+                  ? h(
+                      'button',
+                      {
+                        key: 'stop',
+                        type: 'button',
+                        className: 'dsh-svc-run-button',
+                        onClick: (event) => {
+                          event.stopPropagation();
+                          void stopService(sessionId, service.id);
+                        },
+                      },
+                      t('run.stop'),
+                    )
+                  : null,
+                service === undefined
+                  ? null
+                  : h(
+                      'button',
+                      {
+                        key: 'output',
+                        type: 'button',
+                        className: 'dsh-svc-run-button',
+                        onClick: (event) => {
+                          event.stopPropagation();
+                          setOpenKey(open ? '' : key);
+                        },
+                      },
+                      open ? t('run.hide') : t('run.output'),
+                    ),
+              ),
+              open && service !== undefined
+                ? h(OutputView, { key: 'output-view', sessionId, id: service.id })
+                : null,
+            );
+          };
+
+          const finished = services.filter((service) => service.state !== 'running').length;
+          const sections = [];
+          if (state.phase === 'loading') {
+            sections.push(
+              h(
+                'div',
+                { className: 'dsh-svc-empty', key: 'loading' },
+                h('span', { className: 'dsh-svc-spinner' }),
+                t('panel.loading'),
+              ),
+            );
+          } else if (state.phase === 'error') {
+            sections.push(h('div', { className: 'dsh-svc-empty', key: 'error' }, t('panel.error')));
+          } else if (state.phase === 'empty') {
+            sections.push(h('div', { className: 'dsh-svc-empty', key: 'empty' }, t('panel.empty')));
+          } else {
+            state.groups.forEach((group, groupIndex) => {
+              sections.push(groupHeading(group, false, collapsed, toggleGroup));
+              if (collapsed.has(group.id)) return;
+              sortScripts(group.scripts).forEach((script, index) => {
+                sections.push(rowFor(group, script, groupIndex + '-' + index));
+              });
+            });
+          }
 
           return h(
             'div',
@@ -841,26 +884,31 @@ window.__ModuleLoader__.load({
             h(
               'div',
               { className: 'dsh-svc-head', key: 'head' },
-              h(
-                'span',
-                { className: 'dsh-svc-dir', title: state.dir },
-                (state.dir === '' ? '' : '…') + state.dir,
-              ),
+              h('span', { className: 'dsh-svc-dir', title: state.dir }, state.dir),
               h(
                 'button',
-                {
-                  className: 'dsh-svc-refresh',
-                  key: 'refresh',
-                  type: 'button',
-                  onClick: load,
-                },
+                { className: 'dsh-svc-refresh', key: 'refresh', type: 'button', onClick: load },
                 t('panel.refresh'),
               ),
+              finished === 0
+                ? null
+                : h(
+                    'button',
+                    {
+                      className: 'dsh-svc-refresh',
+                      key: 'clear',
+                      type: 'button',
+                      onClick: () => {
+                        void postJson(CLEAR_ROUTE + encodeURIComponent(String(sessionId)), {}).catch(() => {});
+                      },
+                    },
+                    t('run.clear'),
+                  ),
             ),
-            h('p', { className: 'dsh-svc-note', key: 'note' }, t('panel.note')),
-            h(RunningBlock, { key: 'running', sessionId }),
-
-            h('div', { className: 'dsh-svc-list', key: 'list' }, content),
+            store.notice === ''
+              ? null
+              : h('p', { className: 'dsh-svc-notice', key: 'notice' }, store.notice),
+            h('div', { className: 'dsh-svc-list', key: 'list' }, sections),
           );
         }
 
