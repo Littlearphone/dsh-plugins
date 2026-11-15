@@ -760,21 +760,14 @@ window.__ModuleLoader__.load({
 
         /**
          * Two-step stop: the first press arms one service, the second confirms.
-         * The arm expires on its own so a stale confirm cannot fire later.
+         * The arm stays until the user confirms, cancels, or arms another row —
+         * it never expires on a timer, because a confirm that vanishes on its own
+         * is the opposite of a confirmation.
          */
         function useArmedStop() {
           const [armed, setArmed] = React.useState('');
-          const timer = React.useRef(undefined);
-          const arm = React.useCallback((id) => {
-            setArmed(id);
-            clearTimeout(timer.current);
-            timer.current = setTimeout(() => setArmed(''), 3000);
-          }, []);
-          const disarm = React.useCallback(() => {
-            clearTimeout(timer.current);
-            setArmed('');
-          }, []);
-          React.useEffect(() => () => clearTimeout(timer.current), []);
+          const arm = React.useCallback((id) => setArmed(id), []);
+          const disarm = React.useCallback(() => setArmed(''), []);
           return [armed, arm, disarm];
         }
 
@@ -807,6 +800,15 @@ window.__ModuleLoader__.load({
           const services = useServices(sessionId);
           const [openKey, setOpenKey] = React.useState('');
           const [armedStop, armStop, disarmStop] = useArmedStop();
+          // An arm belongs to one running service; once it is gone there is
+          // nothing left to confirm, so drop it (no timer involved).
+          React.useEffect(() => {
+            if (armedStop === '') return;
+            const live = services.some(
+              (service) => service.id === armedStop && service.state === 'running',
+            );
+            if (!live) disarmStop();
+          }, [services, armedStop, disarmStop]);
 
           // Latest service per (command, dir): one script row shows its own run.
           const latest = new Map();
