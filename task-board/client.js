@@ -96,20 +96,19 @@ window.__ModuleLoader__.load({
     ];
 
     /**
-     * One identity colour per lane, from the product's own state tokens. The
-     * families they resolve to are neutral, deepseek blue, violet, amber, red
-     * and green. Red is deliberately unused: it belongs to a real problem, not
-     * to the ordinary wait for a verdict. "Ready" borrows a lighter blue so it
-     * reads as "about to become active" next to the active lane's full blue.
-     * Note `--dsw-alias-brand-primary` is ink (near-black/white), not a hue.
+     * One saturated colour per lane so none of them reads as "faded" next to a
+     * neighbour. Values come from the product's static scales (the same hexes
+     * its semantic tokens resolve to): deepseek blue, blue, amber, violet,
+     * green, plus a neutral for the not-started lane. Red stays unused — it
+     * belongs to a real problem, not to the ordinary wait for a verdict.
      */
     const LANE_ACCENT = {
-      backlog: 'var(--dsw-alias-state-idle-primary)',
-      design: 'var(--dsw-alias-state-done-primary)',
-      ready: 'color-mix(in srgb, var(--dsw-alias-state-business-primary) 55%, var(--dsw-alias-bg-layer-1))',
-      doing: 'var(--dsw-alias-state-business-primary)',
-      review: 'var(--dsw-alias-state-warn-primary)',
-      done: 'var(--dsw-alias-state-success-primary)',
+      backlog: 'var(--dsw-static-neutral-400)',
+      design: 'var(--dsw-static-deepseek-400)',
+      ready: 'var(--dsw-static-blue-600)',
+      doing: 'var(--dsw-static-amber-500)',
+      review: 'var(--dsw-static-violet-600)',
+      done: 'var(--dsw-static-green-500)',
     };
 
     const CSS = `
