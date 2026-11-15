@@ -36,6 +36,7 @@ window.__ModuleLoader__.load({
       'menu.empty': '没有可用的脚本。',
       'menu.search': '搜索脚本…',
       'menu.noMatch': '没有匹配的脚本。',
+      'menu.starting': '正在启动终端…',
       'menu.hint': '点击一项，命令会填进输入框并发送。',
       'menu.open': '在侧栏打开',
     };
@@ -55,6 +56,7 @@ window.__ModuleLoader__.load({
       'menu.empty': 'No scripts available.',
       'menu.search': 'Search scripts…',
       'menu.noMatch': 'No matching scripts.',
+      'menu.starting': 'Starting terminal…',
       'menu.hint': 'Clicking a script fills the composer and sends it.',
       'menu.open': 'Open in sidebar',
     };
@@ -292,6 +294,8 @@ window.__ModuleLoader__.load({
       sessionId: undefined,
       actions: undefined,
       notice: '',
+      busy: false,
+      diag: '',
       revision: 0,
       listeners: new Set(),
     };
@@ -379,11 +383,14 @@ window.__ModuleLoader__.load({
         }
         return { ok: false, detail };
       }
+      // Temporary: the arities tell which call shape this build actually uses.
+      store.diag =
+        'create/' + api.create.length + ' attach/' + (typeof api.attach === 'function' ? api.attach.length : '?');
+      emit();
       const id = 'svc-' + Math.random().toString(36).slice(2, 12);
       const lifetime = new AbortController();
       try {
-        const info = await api.create({ id, cols: 120, rows: 30 }, lifetime.signal);
-        const terminalId = info?.id ?? id;
+        const info = await api.create({ id, cols: 120, rows: 30 }, lifetime.signal);        const terminalId = info?.id ?? id;
 
         let release;
         const ready = new Promise((resolve) => {
@@ -396,6 +403,8 @@ window.__ModuleLoader__.load({
           await new Promise((resolve) => setTimeout(resolve, 400));
         }
         const stream = api.attach(terminalId, uplink(), lifetime.signal);
+        // If no frame ever arrives, type anyway rather than hanging forever.
+        setTimeout(() => release(), 2500);
         void (async () => {
           try {
             for await (const item of stream) {
@@ -444,25 +453,30 @@ window.__ModuleLoader__.load({
          * silently doing something else.
          */
         async function launch(script) {
+          store.notice = '';
+          store.busy = true;
+          store.diag = '';
+          emit();
           let outcome;
           try {
             outcome = await runInTerminal(ctx.remote, script.command);
           } catch (error) {
-            outcome = { ok: false, detail: String(error?.message ?? error) };
+            outcome = { ok: false, detail: 'launch threw: ' + String(error?.message ?? error) };
           }
+          store.busy = false;
           if (outcome.ok === false) {
             store.notice = outcome.detail;
             emit();
             return;
           }
-          store.notice = '';
-          emit();
           try {
             controller?.openTab('terminal', { params: { terminalId: outcome.terminalId } });
+            store.notice = '';
+            setOpen(false);
           } catch (error) {
-            store.notice = String(error?.message ?? error);
-            emit();
+            store.notice = 'openTab failed: ' + String(error?.message ?? error);
           }
+          emit();
         }
 
         function row(script, key, interactive) {
@@ -560,7 +574,6 @@ window.__ModuleLoader__.load({
                     className: 'dsh-svc-item',
                     title: script.command,
                     onClick: () => {
-                      setOpen(false);
                       void launch(script);
                     },
                   },
@@ -829,6 +842,13 @@ window.__ModuleLoader__.load({
               }),
             ),
             h('div', { className: 'dsh-svc-menu-list' }, items),
+            store.busy
+              ? h(
+                  'p',
+                  { className: 'dsh-svc-notice', key: 'busy' },
+                  t('menu.starting') + (store.diag === '' ? '' : ' · ' + store.diag),
+                )
+              : null,
             store.notice === ''
               ? null
               : h('p', { className: 'dsh-svc-notice', key: 'notice' }, store.notice),
