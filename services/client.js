@@ -39,6 +39,8 @@ window.__ModuleLoader__.load({
       'menu.search': '搜索脚本…',
       'menu.noMatch': '没有匹配的脚本。',
       'run.title': '运行中',
+      'run.finished': '已结束',
+      'run.clear': '清理',
       'run.stop': '停止',
       'run.output': '输出',
       'run.starting': '正在启动…',
@@ -66,6 +68,8 @@ window.__ModuleLoader__.load({
       'menu.search': 'Search scripts…',
       'menu.noMatch': 'No matching scripts.',
       'run.title': 'Running',
+      'run.finished': 'finished',
+      'run.clear': 'Clear',
       'run.stop': 'Stop',
       'run.output': 'Output',
       'run.starting': 'Starting…',
@@ -391,6 +395,7 @@ window.__ModuleLoader__.load({
     const STATE_ROUTE = '/services/state/';
     const START_ROUTE = '/services/start/';
     const STOP_ROUTE = '/services/stop/';
+    const CLEAR_ROUTE = '/services/clear/';
     const OUTPUT_ROUTE = '/services/output/';
 
     /** Stop one started service; failures are silent because the next poll shows state. */
@@ -432,7 +437,7 @@ window.__ModuleLoader__.load({
           }
         };
         void tick();
-        const timer = setInterval(tick, 1500);
+        const timer = setInterval(tick, 1000);
         return () => {
           alive = false;
           clearInterval(timer);
@@ -735,10 +740,38 @@ window.__ModuleLoader__.load({
                 : null,
             );
           });
+          const runningCount = services.filter((service) => service.state === 'running').length;
+          const finishedCount = services.length - runningCount;
           return h(
             'div',
             { className: 'dsh-svc-run' },
-            h('div', { className: 'dsh-svc-run-head' }, t('run.title') + ' · ' + String(services.length)),
+            h(
+              'div',
+              { className: 'dsh-svc-run-head' },
+              h(
+                'span',
+                null,
+                t('run.title') +
+                  ' · ' +
+                  String(runningCount) +
+                  (finishedCount === 0 ? '' : '   ' + t('run.finished') + ' · ' + String(finishedCount)),
+              ),
+              finishedCount === 0
+                ? null
+                : h(
+                    'button',
+                    {
+                      type: 'button',
+                      className: 'dsh-svc-run-button',
+                      onClick: () => {
+                        void postJson(CLEAR_ROUTE + encodeURIComponent(String(props.sessionId)), {}).catch(
+                          () => {},
+                        );
+                      },
+                    },
+                    t('run.clear'),
+                  ),
+            ),
             rows,
             openId === '' ? null : h(OutputView, { sessionId: props.sessionId, id: openId }),
           );

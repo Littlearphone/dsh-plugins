@@ -412,7 +412,7 @@ function createHandler(ctx) {
     const slash = rest.indexOf('/');
     const action = slash === -1 ? rest : rest.slice(0, slash);
     const rawId = slash === -1 ? '' : rest.slice(slash + 1);
-    const ACTIONS = ['list', 'start', 'stop', 'state', 'output'];
+    const ACTIONS = ['list', 'start', 'stop', 'state', 'output', 'clear'];
     if (!ACTIONS.includes(action)) {
       reply(response, 404, { error: 'not-found' });
       return;
@@ -460,6 +460,19 @@ function createHandler(ctx) {
         return;
       }
       reply(response, 200, { text });
+      return;
+    }
+
+    if (action === 'clear') {
+      const prefix = `${sessionId}\u0000`;
+      let removed = 0;
+      for (const [key, record] of RUNNING) {
+        if (!key.startsWith(prefix)) continue;
+        if (record.state === 'running' || record.state === 'stopping') continue;
+        RUNNING.delete(key);
+        removed += 1;
+      }
+      reply(response, 200, { removed });
       return;
     }
 
