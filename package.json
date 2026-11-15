@@ -1,0 +1,9 @@
+{
+  "name": "dsh-plugins",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Local DSH Web GUI plugins: sidebar notes, task board, services.",
+  "scripts": {
+    "check": "node scripts/check.mjs"
+  }
+}

@@ -8,8 +8,12 @@
 
 | 目录 | 包名 | 说明 |
 |---|---|---|
-| [`sidebar-notes`](sidebar-notes/README.md) | `@local/sidebar-notes` | 右侧栏便签面板：会话头部入口 + 指南页卡片，笔记存 Host 侧（$DSH_HOME），不依赖 localStorage |
+| [`sidebar-notes`](sidebar-notes/README.md) | `@local/sidebar-notes` | 便签的 Host 存储 + 同源路由参考实现（入口已移除），另带右侧栏指南页的方块网格样式 |
 | [`task-board`](task-board/README.md) | `@local/task-board` | 按状态分轨道的任务板（交互原型）：轨道内排序 + 跨轨道拖拽，入口在会话头部右侧工具区 |
+| [`services`](services/README.md) | `@local/services` | 工作区启动脚本：右侧栏「服务」面板 + 会话头部下拉，点一项把命令发到对话执行 |
+
+仓库根有一个 `package.json`，只提供 `npm run check`（逐个 `node --check` 三个插件的
+Host/Client 半并校验 locale JSON），不参与插件安装。
 
 ## 安装
 
