@@ -246,6 +246,7 @@ window.__ModuleLoader__.load({
 .dsh-svc-group-dir{min-width:0;font-size:10px;font-family:var(--dsh-font-family-code,monospace);opacity:.7;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .dsh-svc-count{margin-left:auto;flex:none;padding:0 5px;border-radius:999px;background:var(--dsw-alias-bg-layer-2);font-size:10px;font-variant-numeric:tabular-nums;}
 .dsh-svc-notice{margin:0;padding:0 12px;font-size:10px;line-height:1.5;color:var(--dsw-alias-state-error-primary);overflow-wrap:anywhere;}
+.dsh-svc-busy{margin:0;padding:0 12px;font-size:10px;line-height:1.5;color:var(--dsw-alias-label-secondary);overflow-wrap:anywhere;}
 .dsh-svc-list{display:flex;flex:1 1 auto;flex-direction:column;gap:4px;min-height:0;padding:2px 12px 12px;overflow-y:auto;}
 .dsh-svc-row{box-sizing:border-box;display:flex;align-items:center;gap:8px;padding:7px 9px;border:1px solid var(--dsw-alias-border-l1);border-left:3px solid var(--dsw-alias-state-business-primary);border-radius:8px;background:var(--dsw-alias-bg-base);text-align:left;}
 .dsh-svc-row-text{display:flex;flex-direction:column;gap:1px;min-width:0;}
@@ -391,6 +392,15 @@ window.__ModuleLoader__.load({
         // attach(sessionId, id, signal) -> handle (async frames + handle.send(input))
         const info = await api.create(sessionId, { id, cols: 80, rows: 24 });
         const terminalId = info?.id ?? id;
+        // Ask the Host what it actually holds, so a mismatch is visible instead
+        // of surfacing later as "this terminal no longer exists".
+        let listed = '';
+        try {
+          const terminals = await api.list(sessionId);
+          listed = Array.isArray(terminals) ? terminals.map((item) => String(item?.id)).join(',') : 'n/a';
+        } catch (error) {
+          listed = 'list failed: ' + String(error?.message ?? error);
+        }
         const handle = api.attach(sessionId, terminalId, lifetime.signal);
 
         let sequence = 0;
@@ -421,9 +431,10 @@ window.__ModuleLoader__.load({
             }
           })();
         });
-        // Release input control so the tab can take it; the process keeps running.
-        lifetime.abort();
-        return { ok: true, terminalId, typed };
+        // Release input control after the tab has had time to attach, so the tab
+        // is the owner when it renders; the process keeps running either way.
+        setTimeout(() => lifetime.abort(), 3000);
+        return { ok: true, terminalId, typed, listed };
       } catch (error) {
         lifetime.abort();
         return { ok: false, detail: 'terminal failed: ' + String(error?.message ?? error) };
@@ -488,9 +499,10 @@ window.__ModuleLoader__.load({
           }
           try {
             controller?.openTab('terminal', { params: { terminalId: outcome.terminalId } });
+            // Keep the created id and what the Host listed on screen: if the tab
+            // still complains, the two ids tell us which side disagrees.
             store.notice =
-              outcome.typed === false ? t('menu.notTyped') : '';
-            setOpen(false);
+              'terminal=' + outcome.terminalId + ' listed=[' + outcome.listed + '] typed=' + String(outcome.typed);
           } catch (error) {
             store.notice = 'openTab failed: ' + String(error?.message ?? error);
           }
@@ -863,7 +875,7 @@ window.__ModuleLoader__.load({
             store.busy
               ? h(
                   'p',
-                  { className: 'dsh-svc-notice', key: 'busy' },
+                  { className: 'dsh-svc-busy', key: 'busy' },
                   t('menu.starting') + (store.diag === '' ? '' : ' · ' + store.diag),
                 )
               : null,
