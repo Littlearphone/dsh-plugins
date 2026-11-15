@@ -377,36 +377,6 @@ min-width:0;font:inherit;font-size:9px;line-height:1;color:inherit;
         }
 
         /**
-         * The way in: one quiet button beside the Session's other header actions.
-         * It only navigates — the tab type above decides what the panel is.
-         */
-        function HeaderEntry() {
-          useLocaleRevision();
-          if (controller === undefined) return null;
-          return h(
-            React.Fragment,
-            null,
-            h('style', { key: 'css' }, CSS),
-            h(
-              'button',
-              {
-                key: 'button',
-                type: 'button',
-                className: 'dsh-notes-entry',
-                onClick: () => {
-                  try {
-                    controller.openTab(KIND);
-                  } catch (error) {
-                    console.error('[sidebar-notes] cannot open the notes tab', error);
-                  }
-                },
-              },
-              t('entry.label'),
-            ),
-          );
-        }
-
-        /**
          * A frame-wide stylesheet holder. An installed bundle gets no
          * `styles.insert()` — that symbol belongs to evaluated dynamic packages —
          * so a mounted component with no visible output carries global CSS.
@@ -422,14 +392,6 @@ min-width:0;font:inherit;font-size:9px;line-height:1;color:inherit;
           // A type from outside the product: the band that outranks shipped viewers.
           priority: 'extension',
           title: () => t('tab.title'),
-          guide: [
-            {
-              id: 'notes',
-              order: 30,
-              title: () => t('guide.title'),
-              description: () => t('guide.description'),
-            },
-          ],
         };
 
         ctx.effect(() => registry.register(definition), 'sidebar-notes: notes tab type');
@@ -438,12 +400,6 @@ min-width:0;font:inherit;font-size:9px;line-height:1;color:inherit;
         );
         slots.inject('sidebar.right.pane.tab.title', () =>
           slots.register({ name: 'sidebar.right.pane.tab.title', key: PACKAGE }, NotesTitle),
-        );
-        slots.inject('conversation.session.header.actions', () =>
-          slots.register(
-            { name: 'conversation.session.header.actions', id: 'sidebar-notes', order: 30 },
-            HeaderEntry,
-          ),
         );
         // The guide's restyle is a global sheet, so it rides a frame-wide seat
         // rather than a Session-scoped one.

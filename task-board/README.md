@@ -5,8 +5,11 @@
 
 ## 怎么看到它
 
-会话头部**右侧**的工具区（`conversation.session.header.utilities`，右侧栏展开按钮左侧）会出现
-「任务板」按钮；点它打开右侧栏的任务板标签页。
+会话头部**右侧**的工具区（`conversation.session.header.utilities`）会出现一个图标按钮：28×28、
+带边框、图标是三列看板，悬浮提示「任务板」（`title`/`aria-label`）。它排在最右那个「更多」
+菜单（`session-log-download`，默认 order 0）**左边**——本插件取 order -1。
+
+点它打开右侧栏的任务板标签页。
 
 四条轨道：设计中 / 等待实现 / 正在实现 / 已完成。拖任意卡片：
 

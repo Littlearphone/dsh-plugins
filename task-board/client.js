@@ -90,8 +90,9 @@ window.__ModuleLoader__.load({
 .dsh-board-card-tag{align-self:flex-start;font-size:9px;line-height:1;padding:3px 6px;border-radius:999px;color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-bg-layer-2);}
 .dsh-board-marker{height:2px;border-radius:1px;background:var(--dsw-alias-brand-primary);}
 .dsh-board-empty{height:40px;border:1px dashed var(--dsw-alias-border-l1);border-radius:8px;}
-.dsh-board-entry{appearance:none;border:0;border-radius:8px;background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;font-size:12px;line-height:1;padding:6px 8px;cursor:pointer;}
-.dsh-board-entry:hover{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary);}
+.dsh-board-entry{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;flex:none;padding:0;border:1px solid var(--dsw-alias-border-l1);border-radius:8px;background:transparent;color:var(--dsw-alias-label-secondary);cursor:pointer;}
+.dsh-board-entry:hover{background:var(--dsw-alias-bg-layer-2);border-color:var(--dsw-alias-border-l2);color:var(--dsw-alias-label-primary);}
+.dsh-board-entry svg{width:15px;height:15px;display:block;}
 `;
 
     /** Insertion index under the pointer: how many card midpoints the pointer has passed. */
@@ -254,10 +255,15 @@ window.__ModuleLoader__.load({
           return h('span', null, t('tab.title'));
         }
 
-        /** The way in, beside the Session's other right-aligned utilities. */
+        /**
+         * The way in: an icon-only button in the Session header's right-hand
+         * utilities. Order -1 puts it immediately left of the header's More
+         * menu (the session-log menu sits at the default order 0).
+         */
         function HeaderEntry() {
           useLocaleRevision();
           if (controller === undefined) return null;
+          const label = t('entry.label');
           return h(
             React.Fragment,
             null,
@@ -268,6 +274,8 @@ window.__ModuleLoader__.load({
                 key: 'button',
                 type: 'button',
                 className: 'dsh-board-entry',
+                title: label,
+                'aria-label': label,
                 onClick: () => {
                   try {
                     controller.openTab(KIND);
@@ -276,7 +284,35 @@ window.__ModuleLoader__.load({
                   }
                 },
               },
-              t('entry.label'),
+              h(
+                'svg',
+                {
+                  viewBox: '0 0 16 16',
+                  width: 15,
+                  height: 15,
+                  'aria-hidden': true,
+                  fill: 'none',
+                },
+                h('rect', {
+                  x: 1.6,
+                  y: 2.4,
+                  width: 3.4,
+                  height: 11.2,
+                  rx: 1,
+                  stroke: 'currentColor',
+                  strokeWidth: 1.2,
+                }),
+                h('rect', {
+                  x: 6.3,
+                  y: 2.4,
+                  width: 3.4,
+                  height: 11.2,
+                  rx: 1,
+                  stroke: 'currentColor',
+                  strokeWidth: 1.2,
+                }),
+                h('rect', { x: 11, y: 2.4, width: 3.4, height: 11.2, rx: 1, fill: 'currentColor' }),
+              ),
             ),
           );
         }
@@ -299,7 +335,7 @@ window.__ModuleLoader__.load({
         );
         slots.inject('conversation.session.header.utilities', () =>
           slots.register(
-            { name: 'conversation.session.header.utilities', id: 'task-board', order: 10 },
+            { name: 'conversation.session.header.utilities', id: 'task-board', order: -1 },
             HeaderEntry,
           ),
         );
