@@ -283,9 +283,9 @@ window.__ModuleLoader__.load({
 .dsh-svc-notice{margin:0;padding:0 12px;font-size:10px;line-height:1.5;color:var(--dsw-alias-state-error-primary);overflow-wrap:anywhere;}
 .dsh-svc-busy{margin:0;padding:0 12px;font-size:10px;line-height:1.5;color:var(--dsw-alias-label-secondary);overflow-wrap:anywhere;}
 .dsh-svc-entry-block{display:flex;flex-direction:column;gap:4px;}
-.dsh-svc-chip{flex:none;padding:1px 6px;border-radius:999px;background:var(--dsw-alias-bg-layer-2);font-size:9px;line-height:1.6;color:var(--dsw-alias-label-secondary);white-space:nowrap;}
-.dsh-svc-chip.is-running{background:color-mix(in srgb,var(--dsw-alias-state-success-primary) 18%,transparent);color:var(--dsw-alias-state-success-primary);}
-.dsh-svc-chip.is-done{background:color-mix(in srgb,var(--dsw-alias-state-warn-primary) 16%,transparent);color:var(--dsw-alias-state-warn-primary);}
+.dsh-svc-chip{flex:none;font-size:9px;line-height:1.6;color:var(--dsw-alias-label-secondary);white-space:nowrap;}
+.dsh-svc-chip.is-running{color:var(--dsw-alias-state-success-primary);}
+.dsh-svc-chip.is-done{color:var(--dsw-alias-state-warn-primary);}
 .dsh-svc-row.is-running{border-left-color:var(--dsw-alias-state-success-primary);}
 .dsh-svc-run{margin:0;padding:2px 12px 0;display:flex;flex-direction:column;gap:4px;}
 .dsh-svc-run-head{display:flex;align-items:center;justify-content:space-between;font-size:10px;letter-spacing:.04em;text-transform:uppercase;color:var(--dsw-alias-label-secondary);}
@@ -310,13 +310,16 @@ window.__ModuleLoader__.load({
 .dsh-svc-drawer-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--dsh-font-family-code,monospace);}
 .dsh-svc-output{box-sizing:border-box;margin:0;padding:6px 8px;max-height:220px;overflow:auto;border:1px solid var(--dsw-alias-border-l1);border-radius:8px;background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary);font-family:var(--dsh-font-family-code,monospace);font-size:10px;line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere;}
 .dsh-svc-list{display:flex;flex:1 1 auto;flex-direction:column;gap:4px;min-height:0;padding:2px 12px 12px;overflow-y:auto;}
-.dsh-svc-row{box-sizing:border-box;display:flex;align-items:center;gap:8px;padding:7px 9px;border:1px solid var(--dsw-alias-border-l1);border-left:3px solid var(--dsw-alias-state-business-primary);border-radius:8px;background:var(--dsw-alias-bg-base);text-align:left;}
-.dsh-svc-row-text{display:flex;flex-direction:column;gap:1px;min-width:0;}
+.dsh-svc-row{box-sizing:border-box;display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--dsw-alias-border-l1);border-left:3px solid var(--dsw-alias-state-business-primary);border-radius:8px;background:var(--dsw-alias-bg-base);text-align:left;}
+.dsh-svc-row-text{display:flex;flex:1 1 auto;flex-direction:column;gap:3px;min-width:0;}
+.dsh-svc-name-line{display:flex;align-items:center;gap:6px;min-width:0;}
+.dsh-svc-actions{display:flex;flex:none;align-items:center;gap:4px;margin-left:auto;}
+.dsh-svc-lastline{min-width:0;font-family:var(--dsh-font-family-code,monospace);font-size:10px;line-height:1.4;color:var(--dsw-alias-label-secondary);opacity:.85;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .dsh-svc-row:hover{background:var(--dsw-alias-bg-layer-2);}
 .dsh-svc-icon{flex:none;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;width:20px;height:20px;padding:0;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm);background:var(--dsw-specific-menu);color:var(--dsw-alias-label-secondary);cursor:pointer;}
 .dsh-svc-icon:hover{border-color:var(--dsw-alias-border-l3);color:var(--dsw-alias-label-primary);}
 .dsh-svc-icon svg{width:11px;height:11px;display:block;}
-.dsh-svc-chip{background:transparent;padding:0 2px;}
+.dsh-svc-chip{background:transparent;padding:0;}
 .dsh-svc-name{font-size:12px;line-height:1.3;font-weight:500;}
 .dsh-svc-command{font-size:10px;line-height:1.4;color:var(--dsw-alias-label-secondary);font-family:var(--dsh-font-family-code,monospace);overflow-wrap:anywhere;}
 .dsh-svc-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:22px 0;font-size:11px;line-height:1.6;color:var(--dsw-alias-label-secondary);text-align:center;}
@@ -848,6 +851,83 @@ window.__ModuleLoader__.load({
             const service = latest.get(key);
             const open = openKey === key;
             const running = service?.state === 'running';
+            const actions = [];
+            if (!running) {
+              actions.push(
+                h(
+                  'button',
+                  {
+                    key: 'start',
+                    type: 'button',
+                    className: 'dsh-svc-icon',
+                    title: t('run.start'),
+                    'aria-label': t('run.start'),
+                    onClick: () => {
+                      void launch(script, group.dir, group.kind);
+                    },
+                  },
+                  h(
+                    'svg',
+                    { viewBox: '0 0 16 16', 'aria-hidden': true },
+                    h('path', { d: 'M5.5 3.5 12 8l-6.5 4.5z', fill: 'currentColor' }),
+                  ),
+                ),
+              );
+            } else {
+              actions.push(
+                h(
+                  'button',
+                  {
+                    key: 'stop',
+                    type: 'button',
+                    className: 'dsh-svc-stop' + (armedStop === service.id ? ' is-armed' : ''),
+                    title: armedStop === service.id ? t('run.confirmStop') : t('run.stop'),
+                    'aria-label': armedStop === service.id ? t('run.confirmStop') : t('run.stop'),
+                    onClick: () => {
+                      if (armedStop === service.id) {
+                        disarmStop();
+                        void stopService(sessionId, service.id);
+                        return;
+                      }
+                      armStop(service.id);
+                    },
+                  },
+                  armedStop === service.id
+                    ? h('span', { className: 'dsh-svc-stop-label' }, t('run.confirmStop'))
+                    : h(
+                        'svg',
+                        { viewBox: '0 0 16 16', 'aria-hidden': true },
+                        h('rect', { x: 4, y: 4, width: 8, height: 8, rx: 1.5, fill: 'currentColor' }),
+                      ),
+                ),
+              );
+            }
+            if (service !== undefined) {
+              actions.push(
+                h(
+                  'button',
+                  {
+                    key: 'output',
+                    type: 'button',
+                    className: 'dsh-svc-icon',
+                    title: open ? t('run.hide') : t('run.output'),
+                    'aria-label': open ? t('run.hide') : t('run.output'),
+                    onClick: () => setOpenKey(open ? '' : key),
+                  },
+                  h(
+                    'svg',
+                    { viewBox: '0 0 16 16', 'aria-hidden': true, fill: 'none' },
+                    h('path', {
+                      d: open ? 'M4 10l4-4 4 4' : 'M4 6l4 4 4-4',
+                      stroke: 'currentColor',
+                      strokeWidth: 1.4,
+                      strokeLinecap: 'round',
+                      strokeLinejoin: 'round',
+                    }),
+                  ),
+                ),
+              );
+            }
             return h(
               'div',
               { key: 'entry-' + index, className: 'dsh-svc-entry-block' },
@@ -861,81 +941,18 @@ window.__ModuleLoader__.load({
                 h(
                   'span',
                   { className: 'dsh-svc-row-text', key: 'text' },
-                  h('span', { className: 'dsh-svc-name', key: 'name' }, script.name),
+                  h(
+                    'span',
+                    { className: 'dsh-svc-name-line', key: 'name-line' },
+                    h('span', { className: 'dsh-svc-name', key: 'name' }, script.name),
+                    statusChip(service),
+                  ),
                   h('span', { className: 'dsh-svc-command', key: 'command' }, script.command),
+                  service === undefined || service.lastLine === ''
+                    ? null
+                    : h('span', { className: 'dsh-svc-lastline', key: 'last' }, service.lastLine),
                 ),
-                statusChip(service),
-                running
-                  ? null
-                  : h(
-                      'button',
-                      {
-                        key: 'start',
-                        type: 'button',
-                        className: 'dsh-svc-icon',
-                        title: t('run.start'),
-                        'aria-label': t('run.start'),
-                        onClick: () => {
-                          void launch(script, group.dir, group.kind);
-                        },
-                      },
-                      h(
-                        'svg',
-                        { viewBox: '0 0 16 16', 'aria-hidden': true },
-                        h('path', { d: 'M5.5 3.5 12 8l-6.5 4.5z', fill: 'currentColor' }),
-                      ),
-                    ),
-                running
-                  ? h(
-                      'button',
-                      {
-                        key: 'stop',
-                        type: 'button',
-                        className: 'dsh-svc-stop' + (armedStop === service.id ? ' is-armed' : ''),
-                        title: armedStop === service.id ? t('run.confirmStop') : t('run.stop'),
-                        'aria-label': armedStop === service.id ? t('run.confirmStop') : t('run.stop'),
-                        onClick: () => {
-                          if (armedStop === service.id) {
-                            disarmStop();
-                            void stopService(sessionId, service.id);
-                            return;
-                          }
-                          armStop(service.id);
-                        },
-                      },
-                      armedStop === service.id
-                        ? h('span', { className: 'dsh-svc-stop-label' }, t('run.confirmStop'))
-                        : h(
-                            'svg',
-                            { viewBox: '0 0 16 16', 'aria-hidden': true },
-                            h('rect', { x: 4, y: 4, width: 8, height: 8, rx: 1.5, fill: 'currentColor' }),
-                          ),
-                    )
-                  : null,
-                service === undefined
-                  ? null
-                  : h(
-                      'button',
-                      {
-                        key: 'output',
-                        type: 'button',
-                        className: 'dsh-svc-icon',
-                        title: open ? t('run.hide') : t('run.output'),
-                        'aria-label': open ? t('run.hide') : t('run.output'),
-                        onClick: () => setOpenKey(open ? '' : key),
-                      },
-                      h(
-                        'svg',
-                        { viewBox: '0 0 16 16', 'aria-hidden': true, fill: 'none' },
-                        h('path', {
-                          d: open ? 'M4 10l4-4 4 4' : 'M4 6l4 4 4-4',
-                          stroke: 'currentColor',
-                          strokeWidth: 1.4,
-                          strokeLinecap: 'round',
-                          strokeLinejoin: 'round',
-                        }),
-                      ),
-                    ),
+                h('span', { className: 'dsh-svc-actions', key: 'actions' }, actions),
               ),
               open && service !== undefined
                 ? h(OutputView, {

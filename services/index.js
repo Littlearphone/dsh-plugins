@@ -417,6 +417,26 @@ async function spawnService(ctx, sessionId, request, root) {
   return { record };
 }
 
+/** The last non-empty output line of one service, for the row's summary line. */
+function lastOutputLine(record) {
+  if (record.handle === undefined) return '';
+  const collected = record.handle.collected;
+  const read = (reader) => {
+    if (reader === undefined) return '';
+    try {
+      return reader.readFrom(0).text;
+    } catch {
+      return '';
+    }
+  };
+  const text = read(collected.stdout) + read(collected.stderr);
+  if (text === '') return '';
+  const lines = text.split(/\r?\n/).filter((line) => line.trim() !== '');
+  if (lines.length === 0) return '';
+  const last = lines[lines.length - 1].trim();
+  return last.length > 200 ? '…' + last.slice(-200) : last;
+}
+
 /** Running and recently finished services of one Session, newest first. */
 function listServices(sessionId) {
   const prefix = `${sessionId}\u0000`;
@@ -432,6 +452,7 @@ function listServices(sessionId) {
       state: record.state,
       exitCode: record.exitCode,
       startedAt: record.startedAt,
+      lastLine: lastOutputLine(record),
     });
   }
   return items.sort((left, right) => right.startedAt - left.startedAt);
