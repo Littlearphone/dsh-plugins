@@ -20,6 +20,8 @@ window.__ModuleLoader__.load({
     const KIND = 'services';
     const NS = 'services';
     const ROUTE = '/services/list/';
+    /** Shown on the refresh control so a stale page is recognisable at a glance. */
+    const BUILD = 'services 0.1.1';
 
     const ZH = {
       'tab.title': '服务',
@@ -50,6 +52,7 @@ window.__ModuleLoader__.load({
       'run.starting': '正在启动…',
       'run.failed': '启动失败：',
       'output.waiting': '（还没有输出）',
+      'output.reading': '（正在读取输出…）',
       'menu.hint': '点击一项，命令会填进输入框并发送。',
       'menu.open': '在侧栏打开',
     };
@@ -83,6 +86,7 @@ window.__ModuleLoader__.load({
       'run.starting': 'Starting…',
       'run.failed': 'Start failed: ',
       'output.waiting': '(no output yet)',
+      'output.reading': '(reading output…)',
       'menu.hint': 'Clicking a script fills the composer and sends it.',
       'menu.open': 'Open in sidebar',
     };
@@ -286,6 +290,9 @@ window.__ModuleLoader__.load({
 .dsh-svc-run-name{min-width:0;flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .dsh-svc-run-button{flex:none;height:20px;padding:0 6px;border:1px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm);background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;font-size:10px;cursor:pointer;}
 .dsh-svc-run-button:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary);}
+.dsh-svc-drawer{display:flex;flex-direction:column;gap:4px;padding:6px 8px;border:1px solid var(--dsw-alias-border-l1);border-radius:8px;background:var(--dsw-alias-bg-layer-2);}
+.dsh-svc-drawer-head{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:10px;color:var(--dsw-alias-label-secondary);}
+.dsh-svc-drawer-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--dsh-font-family-code,monospace);}
 .dsh-svc-output{box-sizing:border-box;margin:0;padding:6px 8px;max-height:220px;overflow:auto;border:1px solid var(--dsw-alias-border-l1);border-radius:8px;background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary);font-family:var(--dsh-font-family-code,monospace);font-size:10px;line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere;}
 .dsh-svc-list{display:flex;flex:1 1 auto;flex-direction:column;gap:4px;min-height:0;padding:2px 12px 12px;overflow-y:auto;}
 .dsh-svc-row{box-sizing:border-box;display:flex;align-items:center;gap:8px;padding:7px 9px;border:1px solid var(--dsw-alias-border-l1);border-left:3px solid var(--dsw-alias-state-business-primary);border-radius:8px;background:var(--dsw-alias-bg-base);text-align:left;}
@@ -463,31 +470,34 @@ window.__ModuleLoader__.load({
     }
 
     /**
-     * A started service's collected output, polled while its view is open. The
-     * fetch status is shown instead of an empty box, so a refusal is diagnosable.
+     * A started service's collected output, polled while its view is open. It
+     * carries its own header and close control, so leaving it never depends on
+     * finding the row again, and the id/status make an empty result diagnosable.
      */
-    function OutputView({ sessionId, id }) {
+    function OutputView({ sessionId, id, name, onClose }) {
       const [text, setText] = React.useState('');
       const [issue, setIssue] = React.useState('');
+      const [loaded, setLoaded] = React.useState(false);
       React.useEffect(() => {
         let alive = true;
         const tick = async () => {
+          const url =
+            OUTPUT_ROUTE + encodeURIComponent(String(sessionId)) + '?id=' + encodeURIComponent(String(id));
           try {
-            const response = await fetch(
-              OUTPUT_ROUTE + encodeURIComponent(String(sessionId)) + '?id=' + encodeURIComponent(String(id)),
-            );
+            const response = await fetch(url);
             if (!response.ok) {
-              if (alive) setIssue('HTTP ' + response.status + ' · id=' + String(id));
+              if (alive) setIssue('HTTP ' + response.status + ' · ' + url);
               return;
             }
             const data = await response.json();
             if (!alive) return;
+            setLoaded(true);
             if (typeof data?.text === 'string') {
               setText(data.text);
               setIssue('');
             }
           } catch (error) {
-            if (alive) setIssue(String(error?.message ?? error));
+            if (alive) setIssue(String(error?.message ?? error) + ' · ' + url);
           }
         };
         void tick();
@@ -499,10 +509,28 @@ window.__ModuleLoader__.load({
       }, [sessionId, id]);
       const lines = text.split(/\r?\n/);
       const tail = lines.slice(Math.max(0, lines.length - 200)).join('\n');
+      const body = issue !== '' ? issue : tail !== '' ? tail : loaded ? t('output.waiting') : t('output.reading');
       return h(
-        'pre',
-        { className: 'dsh-svc-output' },
-        issue !== '' ? issue : tail === '' ? t('output.waiting') : tail,
+        'div',
+        { className: 'dsh-svc-drawer' },
+        h(
+          'div',
+          { className: 'dsh-svc-drawer-head' },
+          h('span', { className: 'dsh-svc-drawer-title' }, (name ?? '') + ' · ' + String(id)),
+          h(
+            'button',
+            {
+              type: 'button',
+              className: 'dsh-svc-run-button',
+              onClick: (event) => {
+                event.stopPropagation();
+                if (typeof onClose === 'function') onClose();
+              },
+            },
+            t('run.hide'),
+          ),
+        ),
+        h('pre', { className: 'dsh-svc-output' }, body),
       );
     }
 
@@ -847,7 +875,7 @@ window.__ModuleLoader__.load({
                     ),
               ),
               open && service !== undefined
-                ? h(OutputView, { key: 'output-view', sessionId, id: service.id })
+                ? h(OutputView, { key: 'output-view', sessionId, id: service.id, name: script.name, onClose: () => setOpenKey('') })
                 : null,
             );
           };
@@ -887,7 +915,7 @@ window.__ModuleLoader__.load({
               h('span', { className: 'dsh-svc-dir', title: state.dir }, state.dir),
               h(
                 'button',
-                { className: 'dsh-svc-refresh', key: 'refresh', type: 'button', onClick: load },
+                { className: 'dsh-svc-refresh', key: 'refresh', type: 'button', title: BUILD, onClick: load },
                 t('panel.refresh'),
               ),
               finished === 0
@@ -1072,6 +1100,7 @@ window.__ModuleLoader__.load({
                   h(
                     'div',
                     { key: 'state', className: 'dsh-svc-empty' },
+                    state.phase === 'loading' ? h('span', { className: 'dsh-svc-spinner' }) : null,
                     state.phase === 'loading' ? t('panel.loading') : t('menu.empty'),
                   ),
                 ];
