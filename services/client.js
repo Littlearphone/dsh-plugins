@@ -57,30 +57,198 @@ window.__ModuleLoader__.load({
      * Which tool will run a script, guessed from the command line. One entry per
      * tool, matched by the earliest occurrence so a wrapper prefix does not win
      * over the real runner ("npm run build" is npm, "vite build" is node).
-     * Extending this list is the whole "add another runtime" story.
+     * `glyph` names a pictogram in GLYPHS; extending this list is the whole
+     * "add another runtime" story.
      */
     const RUNTIMES = [
-      { id: 'npm', label: 'npm', tint: '#CB3837', pattern: /(^|[\s/\\])npm\b/ },
-      { id: 'pnpm', label: 'pnpm', tint: '#F69220', pattern: /(^|[\s/\\])pnpm\b/ },
-      { id: 'yarn', label: 'yarn', tint: '#2C8EBB', pattern: /(^|[\s/\\])yarn\b/ },
+      { id: 'npm', label: 'npm', tint: '#CB3837', glyph: 'box', pattern: /(^|[\s/\\])npm\b/ },
+      { id: 'pnpm', label: 'pnpm', tint: '#F69220', glyph: 'box', pattern: /(^|[\s/\\])pnpm\b/ },
+      { id: 'yarn', label: 'yarn', tint: '#2C8EBB', glyph: 'box', pattern: /(^|[\s/\\])yarn\b/ },
       {
         id: 'node',
         label: 'node',
         tint: '#5FA04E',
+        glyph: 'hexagon',
         pattern: /(^|[\s/\\])(node|tsx|ts-node|nodemon|vite|next|webpack|rollup|esbuild|jest|vitest|mocha)\b/,
       },
-      { id: 'maven', label: 'mvn', tint: '#C71A36', pattern: /(^|[\s/\\])(mvn|mvnd)\b/ },
-      { id: 'gradle', label: 'gradle', tint: '#0F8A6A', pattern: /(^|[\s/\\])(gradle|gradlew)\b/ },
-      { id: 'java', label: 'java', tint: '#5382A1', pattern: /(^|[\s/\\])java\b/ },
+      { id: 'maven', label: 'mvn', tint: '#C71A36', glyph: 'gear', pattern: /(^|[\s/\\])(mvn|mvnd)\b/ },
+      {
+        id: 'gradle',
+        label: 'gradle',
+        tint: '#0F8A6A',
+        glyph: 'layers',
+        pattern: /(^|[\s/\\])(gradle|gradlew)\b/,
+      },
+      { id: 'java', label: 'java', tint: '#5382A1', glyph: 'cup', pattern: /(^|[\s/\\])java\b/ },
       {
         id: 'python',
         label: 'py',
         tint: '#3776AB',
+        glyph: 'snake',
         pattern: /(^|[\s/\\])(python|python3|uv|poetry|pipenv|pytest|django-admin)\b/,
       },
-      { id: 'docker', label: 'docker', tint: '#2496ED', pattern: /(^|[\s/\\])docker(-compose)?\b/ },
-      { id: 'dotnet', label: '.net', tint: '#512BD4', pattern: /(^|[\s/\\])dotnet\b/ },
+      {
+        id: 'docker',
+        label: 'docker',
+        tint: '#2496ED',
+        glyph: 'whale',
+        pattern: /(^|[\s/\\])docker(-compose)?\b/,
+      },
+      { id: 'dotnet', label: '.net', tint: '#512BD4', glyph: 'dot', pattern: /(^|[\s/\\])dotnet\b/ },
     ];
+
+    /**
+     * Pictograms on a 16px grid, drawn with currentColor so the runtime tint
+     * carries the only colour. Each is a shape a person can name without a
+     * caption: a hexagonal node, a package crate, a gear, stacked layers, a
+     * coffee cup, a snake, a whale and a dot.
+     */
+    const GLYPHS = {
+      hexagon: () => [
+        h('path', {
+          key: 'body',
+          d: 'M8 1.9 13.2 4.9v6.2L8 14.1 2.8 11.1V4.9z',
+          stroke: 'currentColor',
+          strokeWidth: 1.3,
+          strokeLinejoin: 'round',
+        }),
+        h('path', { key: 'core', d: 'M8 5.6v4.8', stroke: 'currentColor', strokeWidth: 1.2, strokeLinecap: 'round' }),
+      ],
+      box: () => [
+        h('path', {
+          key: 'front',
+          d: 'M4.2 6h7.6v6.9H4.2z',
+          stroke: 'currentColor',
+          strokeWidth: 1.25,
+          strokeLinejoin: 'round',
+        }),
+        h('path', {
+          key: 'lid',
+          d: 'M4.2 6 6.1 3.4h4.4L12.4 6',
+          stroke: 'currentColor',
+          strokeWidth: 1.25,
+          strokeLinejoin: 'round',
+        }),
+        h('path', { key: 'seam', d: 'M6.6 3.6v2.2M9.8 3.6v2.2', stroke: 'currentColor', strokeWidth: 1.1 }),
+      ],
+      gear: () => [
+        h('circle', { key: 'hub', cx: 8, cy: 8, r: 2.3, stroke: 'currentColor', strokeWidth: 1.25 }),
+        h('path', {
+          key: 'teeth',
+          d: 'M8 1.9v1.8M8 12.3v1.8M2.5 8h1.8M11.7 8h1.8M4.1 4.1l1.3 1.3M10.6 10.6l1.3 1.3M11.9 4.1l-1.3 1.3M5.4 10.6l-1.3 1.3',
+          stroke: 'currentColor',
+          strokeWidth: 1.2,
+          strokeLinecap: 'round',
+        }),
+      ],
+      layers: () => [
+        h('path', {
+          key: 'top',
+          d: 'M8 2.4 13 5.2 8 8 3 5.2z',
+          stroke: 'currentColor',
+          strokeWidth: 1.25,
+          strokeLinejoin: 'round',
+        }),
+        h('path', {
+          key: 'mid',
+          d: 'M3 8 8 10.8 13 8',
+          stroke: 'currentColor',
+          strokeWidth: 1.25,
+          strokeLinejoin: 'round',
+        }),
+        h('path', {
+          key: 'bottom',
+          d: 'M3 10.8 8 13.6 13 10.8',
+          stroke: 'currentColor',
+          strokeWidth: 1.25,
+          strokeLinejoin: 'round',
+        }),
+      ],
+      cup: () => [
+        h('path', {
+          key: 'body',
+          d: 'M3.5 7h7.1v3.1a3.4 3.4 0 0 1-3.4 3.4h-.3a3.4 3.4 0 0 1-3.4-3.4z',
+          stroke: 'currentColor',
+          strokeWidth: 1.25,
+          strokeLinejoin: 'round',
+        }),
+        h('path', {
+          key: 'handle',
+          d: 'M10.6 7.9h1.5a1.6 1.6 0 0 1 0 3.2h-1.5',
+          stroke: 'currentColor',
+          strokeWidth: 1.25,
+        }),
+        h('path', {
+          key: 'steam',
+          d: 'M5.5 3.1c0 .9.9.9.9 1.8M8.1 3.1c0 .9.9.9.9 1.8',
+          stroke: 'currentColor',
+          strokeWidth: 1.1,
+          strokeLinecap: 'round',
+        }),
+      ],
+      snake: () => [
+        h('path', {
+          key: 'upper',
+          d: 'M8.2 2.4a2.4 2.4 0 0 1 2.4 2.4v2.6H6.2a2.2 2.2 0 0 0-2.2 2.2v.6',
+          stroke: 'currentColor',
+          strokeWidth: 1.25,
+          strokeLinecap: 'round',
+        }),
+        h('path', {
+          key: 'lower',
+          d: 'M7.8 13.6a2.4 2.4 0 0 1-2.4-2.4V8.6h4.4a2.2 2.2 0 0 0 2.2-2.2v-.6',
+          stroke: 'currentColor',
+          strokeWidth: 1.25,
+          strokeLinecap: 'round',
+        }),
+      ],
+      whale: () => [
+        h('path', {
+          key: 'body',
+          d: 'M2.4 8.4h9.8c.3 2.6-1.7 4.6-4.6 4.6H6.1C4 13 2.5 11.3 2.4 8.4z',
+          stroke: 'currentColor',
+          strokeWidth: 1.25,
+          strokeLinejoin: 'round',
+        }),
+        h('path', {
+          key: 'tail',
+          d: 'M12.2 8.4c.9-.9 2.2-.7 2.5-.2-.6.7-1.6 1-2.5.6',
+          stroke: 'currentColor',
+          strokeWidth: 1.2,
+          strokeLinejoin: 'round',
+        }),
+        h('path', {
+          key: 'crates',
+          d: 'M4.4 6.5h1.9V4.6H4.4zM6.7 6.5h1.9V4.6H6.7zM9 6.5h1.9V4.6H9z',
+          stroke: 'currentColor',
+          strokeWidth: 1.1,
+          strokeLinejoin: 'round',
+        }),
+      ],
+      dot: () => [
+        h('rect', {
+          key: 'frame',
+          x: 2.6,
+          y: 2.6,
+          width: 10.8,
+          height: 10.8,
+          rx: 3,
+          stroke: 'currentColor',
+          strokeWidth: 1.25,
+        }),
+        h('circle', { key: 'core', cx: 8, cy: 8, r: 2, fill: 'currentColor' }),
+      ],
+      play: () => [
+        h('path', {
+          key: 'glyph',
+          d: 'M5.6 3.7 11.5 8l-5.9 4.3z',
+          fill: 'currentColor',
+          stroke: 'currentColor',
+          strokeWidth: 1,
+          strokeLinejoin: 'round',
+        }),
+      ],
+    };
 
     /** Earliest-matching runtime for one command line, or undefined for the generic glyph. */
     function detectRuntime(command) {
@@ -99,35 +267,20 @@ window.__ModuleLoader__.load({
       return best;
     }
 
-    /** The badge that fronts one script row. */
+    /** The badge that fronts one script row: the runtime's glyph, tinted by the tool. */
     function RuntimeBadge(command, key) {
       const runtime = detectRuntime(command);
-      if (runtime === undefined) {
-        return h(
-          'span',
-          { key, className: 'dsh-svc-badge is-generic', title: 'run' },
-          h(
-            'svg',
-            { viewBox: '0 0 16 16', 'aria-hidden': true, fill: 'none' },
-            h('path', {
-              d: 'M5.5 3.6 11.4 8l-5.9 4.4z',
-              fill: 'currentColor',
-              stroke: 'currentColor',
-              strokeWidth: 1,
-              strokeLinejoin: 'round',
-            }),
-          ),
-        );
-      }
+      const tint = runtime?.tint ?? 'var(--dsw-alias-label-secondary)';
+      const glyph = GLYPHS[runtime?.glyph ?? 'play'] ?? GLYPHS.play;
       return h(
         'span',
         {
           key,
-          className: 'dsh-svc-badge',
-          style: { '--dsh-svc-tint': runtime.tint },
-          title: runtime.label,
+          className: 'dsh-svc-badge' + (runtime === undefined ? ' is-generic' : ''),
+          style: { '--dsh-svc-tint': tint },
+          title: runtime?.label ?? 'run',
         },
-        runtime.label,
+        h('svg', { viewBox: '0 0 16 16', fill: 'none', 'aria-hidden': true }, glyph()),
       );
     }
 
@@ -165,12 +318,12 @@ window.__ModuleLoader__.load({
 .dsh-svc-menu-foot{flex:none;padding-top:2px;border-top:1px solid var(--dsw-alias-border-l1);}
 .dsh-svc-foot-button{box-sizing:border-box;width:100%;padding:5px 7px;border:0;border-radius:var(--dsw-radius-md);background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;font-size:11px;text-align:left;cursor:pointer;}
 .dsh-svc-foot-button:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary);}
-/* Runtime badge: a monogram tile tinted by the tool that will run the script,
-   so a list of bare command lines still says node / npm / mvn / java at a
-   glance. Adding a tool is one entry in RUNTIMES. */
-.dsh-svc-badge{box-sizing:border-box;display:flex;flex:none;align-items:center;justify-content:center;width:20px;height:20px;border-radius:5px;font-size:9px;font-weight:600;line-height:1;letter-spacing:-.2px;text-transform:lowercase;background:color-mix(in srgb,var(--dsh-svc-tint,#8a8a8a) 16%,transparent);color:var(--dsh-svc-tint,#8a8a8a);}
+/* Runtime badge: the tool's own pictogram, tinted by that tool's colour, so a
+   list of bare command lines still says node / npm / mvn / java at a glance.
+   Adding a tool is one entry in RUNTIMES plus a glyph in GLYPHS. */
+.dsh-svc-badge{box-sizing:border-box;display:flex;flex:none;align-items:center;justify-content:center;width:22px;height:22px;border-radius:6px;background:color-mix(in srgb,var(--dsh-svc-tint,#8a8a8a) 15%,transparent);color:var(--dsh-svc-tint,#8a8a8a);}
 .dsh-svc-badge.is-generic{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);}
-.dsh-svc-badge svg{width:12px;height:12px;display:block;}
+.dsh-svc-badge svg{width:14px;height:14px;display:block;}
 .dsh-svc-entry{box-sizing:border-box;display:flex;align-items:center;justify-content:center;width:24px;height:24px;flex:none;margin:0;padding:0;border:1px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm);background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;line-height:0;vertical-align:middle;cursor:pointer;}
 .dsh-svc-entry:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary);}
 .dsh-svc-entry:active{background:var(--dsw-alias-interactive-bg-active);}

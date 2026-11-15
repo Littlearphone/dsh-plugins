@@ -31,24 +31,30 @@ Invoke-WebRequest http://127.0.0.1:63428/services/list/session-<uuid> -UseBasicP
 
 ## 运行时图标
 
-每条脚本前面有一个小方牌，显示**这条命令会由什么工具执行**。判断方式是扫描命令行里
-最先出现的已知程序名（所以 `npm run build` 判成 npm、`vite build` 判成 node），目前覆盖：
+每条脚本前面有一个小方牌，画的是**这条命令会由什么工具执行**的图形，颜色用该工具的品牌色。
+判断方式是扫描命令行里最先出现的已知程序名（所以 `npm run build` 判成 npm、`vite build` 判成 node）：
 
-| 牌子 | 匹配 |
-|---|---|
-| `npm` / `pnpm` / `yarn` | 对应包管理器 |
-| `node` | `node`、`tsx`、`ts-node`、`nodemon`、`vite`、`next`、`webpack`、`rollup`、`esbuild`、`jest`、`vitest`、`mocha` |
-| `mvn` | `mvn`、`mvnd` |
-| `gradle` | `gradle`、`gradlew` |
-| `java` | `java` |
-| `py` | `python`、`python3`、`uv`、`poetry`、`pipenv`、`pytest`、`django-admin` |
-| `docker` | `docker`、`docker-compose` |
-| `.net` | `dotnet` |
-| ▶（灰） | 其他，统一用播放图标 |
+| 图形 | 工具 | 匹配 |
+|---|---|---|
+| 六边形 | node | `node`、`tsx`、`ts-node`、`nodemon`、`vite`、`next`、`webpack`、`rollup`、`esbuild`、`jest`、`vitest`、`mocha` |
+| 货箱 | npm / pnpm / yarn | 对应包管理器（同形状，靠颜色区分：红 / 橙 / 蓝） |
+| 齿轮 | mvn | `mvn`、`mvnd` |
+| 叠层 | gradle | `gradle`、`gradlew` |
+| 咖啡杯 | java | `java` |
+| 蛇 | python | `python`、`python3`、`uv`、`poetry`、`pipenv`、`pytest`、`django-admin` |
+| 鲸鱼 | docker | `docker`、`docker-compose` |
+| 方中一点 | .net | `dotnet` |
+| ▶ | 其他 | 兜底 |
 
-**加一个工具 = 在 `RUNTIMES` 里加一行**（`label` 显示在牌子上，`tint` 是它的品牌色，
-`pattern` 是匹配正则）。牌子底色是 `color-mix(tint 16%, transparent)`，所以在黑白两套主题里
-都跟着主题的底色走，不会在深色下糊掉。
+图形是我手画的 16px SVG（`GLYPHS`），用 `currentColor` 上色，所以只跟着 tint 变，不依赖外部资源。
+**加一个工具 = `RUNTIMES` 加一行 +（如需要）`GLYPHS` 加一个图形**：
+
+```js
+// RUNTIMES 里
+{ id: 'rust', label: 'cargo', tint: '#DEA584', glyph: 'gear', pattern: /(^|[\s/\\])cargo\b/ },
+```
+
+`glyph` 可以复用已有图形（比如 cargo 用齿轮），只有形状真的不一样时才需要新画一个。
 
 ## 为什么下拉的底色和别的不一样过
 
