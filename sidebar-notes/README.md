@@ -3,6 +3,18 @@
 一个装进当前 profile 的 DSH 插件（bundle），演示「Web GUI 右侧栏标签页 + 会话内入口 + 插件自管持久化」的骨架。
 功能本身是占位：给每个会话一块随手记的便签。真正要复用的是它把注册链路和存储链路跑通了，功能可以整段替换。
 
+## 安装
+
+安装命令、git 规格写法、更新与卸载，见仓库根 [README](../README.md)。两条最常用的：
+
+```
+# 本地开发（改代码即时生效）
+D:\DataCenter\Documents\IdeaProjects\dsh-plugins\sidebar-notes
+
+# 分发安装
+github:Littlearphone/dsh-plugins#path:/sidebar-notes
+```
+
 ## 怎么看到它
 
 1. 打开任意一个会话（右侧栏按会话存在，开始界面没有右侧栏）。
