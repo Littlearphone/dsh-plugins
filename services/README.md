@@ -60,7 +60,7 @@ Invoke-WebRequest http://127.0.0.1:63428/services/list/session-<uuid> -UseBasicP
 | 图形 | 工具 | 匹配 |
 |---|---|---|
 | Node.js 六边形 | node | `node`、`tsx`、`ts-node`、`nodemon`、`vite`、`next`、`webpack`、`rollup`、`esbuild`、`jest`、`vitest`、`mocha` |
-| npm / pnpm / yarn 官方标志 | npm / pnpm / yarn | 对应包管理器 |
+| npm 标志 | npm / pnpm / yarn | 三种包管理器共用一个图标，靠 tint 区分（红 / 橙 / 蓝） |
 | Maven 标志 | mvn | `mvn`、`mvnd` |
 | Gradle 标志 | gradle | `gradle`、`gradlew` |
 | OpenJDK 标志 | java | `java` |
