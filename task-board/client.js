@@ -90,11 +90,11 @@ window.__ModuleLoader__.load({
 .dsh-board-card-tag{align-self:flex-start;font-size:9px;line-height:1;padding:3px 6px;border-radius:999px;color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-bg-layer-2);}
 .dsh-board-marker{height:2px;border-radius:1px;background:var(--dsw-alias-brand-primary);}
 .dsh-board-empty{height:40px;border:1px dashed var(--dsw-alias-border-l1);border-radius:8px;}
-/* Exactly the shipped header Button's metrics: primitives Button takes
-   variant "ghost" and size "sm" by default, so the adjacent More button is
-   28x28, --dsw-radius-sm, with NO border — only the hover fill. A stroke here
-   is what made this button look heavier than its neighbour. */
-.dsh-board-entry{box-sizing:border-box;display:flex;align-items:center;justify-content:center;width:28px;height:28px;flex:none;padding:0;margin:0;border:0;border-radius:var(--dsw-radius-sm);background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;line-height:0;vertical-align:middle;cursor:pointer;}
+/* Header-button metrics, copied from the primitives stylesheet that ships with
+   the page. The neighbour shows a hairline outline, so this mirrors the
+   "outline" variant literally: a transparent half-pixel border plus the inset
+   hairline stroke, and the same 28px height / --dsw-radius-sm as size sm. */
+.dsh-board-entry{box-sizing:border-box;display:flex;align-items:center;justify-content:center;width:28px;height:28px;flex:none;padding:0;margin:0;border:.5px solid transparent;border-radius:var(--dsw-radius-sm);background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;line-height:0;vertical-align:middle;box-shadow:inset 0 0 0 var(--dsh-hairline-width,.5px) var(--dsw-alias-border-l3);cursor:pointer;}
 .dsh-board-entry:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary);}
 .dsh-board-entry:active{background:var(--dsw-alias-interactive-bg-active);}
 .dsh-board-entry svg{width:15px;height:15px;display:block;}
