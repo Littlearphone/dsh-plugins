@@ -92,8 +92,8 @@ window.__ModuleLoader__.load({
 .dsh-board-empty{height:40px;border:1px dashed var(--dsw-alias-border-l1);border-radius:8px;}
 /* Mirrors the shipped header Button (primitives, size sm, outline variant):
    28px tall, --dsw-radius-sm, and a hairline inset stroke rather than a 1px
-   border. `display:flex` + `line-height:0` keeps the slot wrapper from adding
-   baseline/descender space around it. */
+   border. A block-level flex box with line-height 0 keeps the slot wrapper from
+   adding baseline/descender space around it. */
 .dsh-board-entry{box-sizing:border-box;display:flex;align-items:center;justify-content:center;width:28px;height:28px;min-height:28px;flex:none;padding:0;margin:0;border:0;border-radius:var(--dsw-radius-sm);background:transparent;color:var(--dsw-alias-label-secondary);box-shadow:inset 0 0 0 var(--dsh-hairline-width,.5px) var(--dsw-alias-border-l3);line-height:0;vertical-align:middle;cursor:pointer;}
 .dsh-board-entry:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary);}
 .dsh-board-entry:active{background:var(--dsw-alias-interactive-bg-active);}
