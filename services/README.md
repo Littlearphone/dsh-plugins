@@ -52,6 +52,7 @@ Invoke-WebRequest http://127.0.0.1:63428/services/list/session-<uuid> -UseBasicP
 
 客户端的分组标题**一直显示**（它是唯一说明"这些脚本属于哪个包"的东西），并且是：
 
+- **没有脚本的包不出现**：Host 在返回前就过滤掉了空分组，客户端再过滤一次，所以不会看到空标题；
 - **吸顶**：`position: sticky`，滚动时停在列表顶部，同一组的脚本从它下面滑过；
 - **可折叠**：点标题折叠/展开该组，右侧显示该组脚本数量；折叠状态在刷新后保留；
 - 标题文字超长时省略，`title` 里带完整路径。
@@ -66,7 +67,7 @@ Invoke-WebRequest http://127.0.0.1:63428/services/list/session-<uuid> -UseBasicP
 | 图形 | 工具 | 匹配 |
 |---|---|---|
 | Node.js 六边形 | node | `node`、`tsx`、`ts-node`、`nodemon`、`vite`、`next`、`webpack`、`rollup`、`esbuild`、`jest`、`vitest`、`mocha` |
-| npm 标志 | npm / pnpm / yarn | 三种包管理器共用一个图标，靠 tint 区分（红 / 橙 / 蓝） |
+| npm 标志 | npm / pnpm / yarn | 三种包管理器共用 npm 的图标与 npm 红 `#CB3837`，只有右侧文字与 tooltip 区分 |
 | Maven 标志 | mvn | `mvn`、`mvnd` |
 | Gradle 标志 | gradle | `gradle`、`gradlew` |
 | OpenJDK 标志 | java | `java` |

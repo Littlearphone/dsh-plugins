@@ -212,7 +212,9 @@ function createHandler(ctx) {
       reply(response, 200, {
         dir,
         hasManifest: root !== undefined,
-        groups,
+        // A package without scripts is not a group: showing an empty heading only
+        // costs a click and says nothing.
+        groups: groups.filter((group) => group.scripts.length > 0),
         workspacePatterns: globs,
         skippedPatterns: skipped,
       });

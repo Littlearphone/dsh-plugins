@@ -64,8 +64,8 @@ window.__ModuleLoader__.load({
      */
     const RUNTIMES = [
       { id: 'npm', label: 'npm', tint: '#CB3837', icon: 'npm', pattern: /(^|[\s/\\])npm\b/ },
-      { id: 'pnpm', label: 'pnpm', tint: '#F69220', icon: 'npm', pattern: /(^|[\s/\\])pnpm\b/ },
-      { id: 'yarn', label: 'yarn', tint: '#2C8EBB', icon: 'npm', pattern: /(^|[\s/\\])yarn\b/ },
+      { id: 'pnpm', label: 'pnpm', tint: '#CB3837', icon: 'npm', pattern: /(^|[\s/\\])pnpm\b/ },
+      { id: 'yarn', label: 'yarn', tint: '#CB3837', icon: 'npm', pattern: /(^|[\s/\\])yarn\b/ },
       {
         id: 'node',
         label: 'node',
