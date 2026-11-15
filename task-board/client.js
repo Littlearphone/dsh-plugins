@@ -74,15 +74,18 @@ window.__ModuleLoader__.load({
     ];
 
     const CSS = `
-.dsh-board-root{box-sizing:border-box;height:100%;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:10px;padding:12px;color:var(--dsw-alias-label-primary);font-size:13px;}
-.dsh-board-hint{margin:0;font-size:11px;line-height:1.5;color:var(--dsw-alias-label-secondary);}
-.dsh-board-lanes{display:flex;flex-wrap:wrap;align-items:flex-start;gap:10px;min-height:0;}
-.dsh-board-lane{box-sizing:border-box;flex:1 1 168px;min-width:168px;display:flex;flex-direction:column;gap:8px;padding:8px;border:1px solid var(--dsw-alias-border-l1);border-radius:12px;background:var(--dsw-alias-bg-layer-1);}
+.dsh-board-root{box-sizing:border-box;display:flex;flex-direction:column;gap:10px;height:100%;min-height:0;min-width:0;padding:12px;overflow:hidden;color:var(--dsw-alias-label-primary);font-size:13px;}
+.dsh-board-hint{flex:none;margin:0;font-size:11px;line-height:1.5;color:var(--dsw-alias-label-secondary);}
+/* Lanes never wrap: each keeps a clamped share of the width and the row scrolls
+   sideways when they no longer fit, so a narrow panel shows a scrollbar instead
+   of pushing lanes onto a second line. */
+.dsh-board-lanes{display:flex;flex-wrap:nowrap;align-items:stretch;flex:1 1 auto;gap:10px;min-height:0;min-width:0;overflow-x:auto;overflow-y:hidden;}
+.dsh-board-lane{box-sizing:border-box;display:flex;flex:0 0 clamp(136px,42%,220px);flex-direction:column;gap:8px;min-height:0;padding:8px;border:1px solid var(--dsw-alias-border-l1);border-radius:12px;background:var(--dsw-alias-bg-layer-1);}
 .dsh-board-lane.is-source{border-color:var(--dsw-alias-border-l2);}
-.dsh-board-lane-head{display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:11px;color:var(--dsw-alias-label-secondary);}
+.dsh-board-lane-head{display:flex;flex:none;align-items:center;justify-content:space-between;gap:6px;font-size:11px;color:var(--dsw-alias-label-secondary);}
 .dsh-board-lane-title{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .dsh-board-count{font-variant-numeric:tabular-nums;padding:0 6px;border-radius:999px;background:var(--dsw-alias-bg-layer-2);}
-.dsh-board-list{display:flex;flex-direction:column;gap:6px;min-height:44px;}
+.dsh-board-list{display:flex;flex:1 1 auto;flex-direction:column;gap:6px;min-height:44px;overflow-y:auto;}
 .dsh-board-card{box-sizing:border-box;display:flex;flex-direction:column;gap:4px;padding:8px;border:1px solid var(--dsw-alias-border-l1);border-radius:8px;background:var(--dsw-alias-bg-base);cursor:grab;}
 .dsh-board-card:hover{border-color:var(--dsw-alias-border-l2);}
 .dsh-board-card.is-dragging{opacity:.45;}
