@@ -67,8 +67,11 @@ Go 没有 `package.json` 那样的脚本清单，它的可执行目标是 **`pac
 - `go.work` 存在 → 按它列出的模块扫；否则找根部的 `go.mod`；
 - 每个模块内做**有界**的广度遍历（深度 4、最多 1200 个目录），跳过
   `node_modules`/`vendor`/`testdata`/`dist`/`build`/点开头等目录；
-- 含 `package main` 的目录生成一条：名字取目录末段，命令是 `go run ./<相对路径>`（模块根部是 `go run .`）；
-- 一个模块就是一个分组，和 npm 包分组**同级**（不多套一层折叠），标题后面带 `go` 标记。
+- 含 `package main` 的目录生成一条，**全部 Go 程序放在同一个分组**里（一个模块一个分组会在
+  go.work 有十几个模块时把 npm 脚本挤到看不见）；
+- 包的关系靠**条目名和命令**体现：条目名是 `模块末段 · 程序名`（如 `ring · standalone`），
+  命令是工作区根目录起算的完整路径 `go run ./tools/ring/cmd/standalone`，所以既能看出属于哪个
+  模块，也能直接复制执行。
 
 没有 `package main` 的库模块（例如只有 `libs/codec` 这种）不会出现在面板里。
 
@@ -96,6 +99,7 @@ Makefile / Taskfile / justfile **目前不解析**：它们不是 Go 的约定�
 | Maven 标志 | mvn | `mvn`、`mvnd` |
 | Gradle 标志 | gradle | `gradle`、`gradlew` |
 | OpenJDK 标志 | java | `java` |
+| Go 标志 | go | `go run`、`go build`、`go test` |
 | Python 标志 | python | `python`、`python3`、`uv`、`poetry`、`pipenv`、`pytest`、`django-admin` |
 | Docker 标志 | docker | `docker`、`docker-compose` |
 | .NET 字标 | .net | `dotnet` |

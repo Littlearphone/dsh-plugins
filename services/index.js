@@ -196,16 +196,6 @@ async function goModuleDirs(root) {
   return [...new Set(dirs)];
 }
 
-async function moduleName(dir) {
-  try {
-    const text = await readFile(join(dir, 'go.mod'), 'utf8');
-    const match = /^module\s+(\S+)/m.exec(text);
-    return match === null ? '' : match[1];
-  } catch {
-    return '';
-  }
-}
-
 /** Relative directories holding a `package main`, breadth-first within a depth and visit budget. */
 async function mainPackages(base) {
   const found = [];
@@ -243,25 +233,32 @@ async function mainPackages(base) {
   return found;
 }
 
-/** One group per Go module that actually has runnable programs. */
-async function goGroups(root) {
-  const groups = [];
-  for (const moduleDir of await goModuleDirs(root)) {
+/**
+ * All Go programs in one group. A workspace can hold a dozen modules, and one
+ * collapsible group per module buries the npm scripts; the module relationship
+ * survives in each entry's label (`ring · standalone`) and in the command, which
+ * keeps the full path from the workspace root.
+ */
+async function goGroup(root) {
+  const modules = await goModuleDirs(root);
+  const scripts = [];
+  for (const moduleDir of modules) {
     const base = join(root, moduleDir);
-    const name = (await moduleName(base)) || moduleDir || 'go';
     const mains = await mainPackages(base);
     if (mains.length === 0) continue;
-    const scripts = mains.map((relative) => {
-      const last = relative === '' ? '' : relative.split('/').pop();
-      return {
-        name: last === '' ? 'main' : last,
-        command: relative === '' ? 'go run .' : `go run ./${relative}`,
+    const moduleLabel = moduleDir === '' ? 'root' : moduleDir.split('/').pop();
+    for (const relative of mains) {
+      const last = relative === '' ? 'main' : relative.split('/').pop();
+      const full = relative === '' ? moduleDir : moduleDir === '' ? relative : `${moduleDir}/${relative}`;
+      scripts.push({
+        name: `${moduleLabel} · ${last}`,
+        command: full === '' ? 'go run .' : `go run ./${full}`,
         category: 'go',
-      };
-    });
-    groups.push({ id: `go:${moduleDir}`, kind: 'go', name, dir: moduleDir, scripts });
+      });
+    }
   }
-  return groups;
+  if (scripts.length === 0) return undefined;
+  return { id: 'go', kind: 'go', name: 'Go', dir: '', scripts };
 }
 
 function createHandler(ctx) {
@@ -336,7 +333,8 @@ function createHandler(ctx) {
           scripts: manifest.scripts,
         });
       }
-      groups.push(...(await goGroups(dir)));
+      const go = await goGroup(dir);
+      if (go !== undefined) groups.push(go);
 
       // Root first, then by name, so a workspace keeps a stable, scannable order.
       groups.sort((left, right) => {
