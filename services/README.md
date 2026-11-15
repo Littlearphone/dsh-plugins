@@ -79,11 +79,22 @@ Makefile / Taskfile / justfile **目前不解析**：它们不是 Go 的约定�
 
 ## 排序与搜索
 
-- **按类型排序**：`dev/start/serve/watch` → `build/compile/package/release` → `test/e2e/coverage`
-  → `lint/check/format` → `size/report/audit` → 其他，同类型内按名称。这样 dev 和 build 不会被
-  e2e 之类穿插开。
+排序是**两级**的，先按"谁执行"，再按"干什么"：
+
+1. **工具**（看图标那一列）：`npm/pnpm/yarn` → `node` → `go` → `mvn` → `gradle` → `java`
+   → `python` → `docker` → `.net` → 未识别。这样 `pnpm --filter … dev` 不会被夹在一串
+   `node scripts/…` 中间；
+2. **用途**：`dev/start/serve/watch` → `build/compile/package/release` → `test/e2e/coverage`
+   → `lint/check/format` → `size/report/audit` → 其他；
+3. 最后按名称。
+
+工具判定用的是"命令行里最先出现的已知程序名"，和图标是同一套规则（`detectRuntime`），
+所以列表顺序、图标、tooltip 三者永远一致。
+
 - **下拉顶部有搜索框**：打开即聚焦，按脚本名**和命令内容**做大小写不敏感的过滤，组名不参与匹配；
   没有命中时显示「没有匹配的脚本」。每次打开都会清空上一次的输入。
+
+排序在**渲染时**也会重算（不只拉取时），所以 HMR 保留了旧 state 也不会显示成乱序。
 
 
 

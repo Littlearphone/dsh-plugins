@@ -162,10 +162,20 @@ window.__ModuleLoader__.load({
     }
 
     /**
-     * Scripts are sorted by what they do, not alphabetically: dev, build, test,
-     * check, report, then everything else. Interleaved kinds are what makes a
-     * long list unreadable.
+     * Scripts are ordered by the tool that runs them first — package managers,
+     * then node, go, the JVM tools, python, docker, .NET — so an `npm run` entry
+     * never sits in the middle of a run of `node` ones. Inside one tool, they are
+     * ordered by what they do (dev, build, test, check, report), then by name.
      */
+    const TOOL_ORDER = ['npm', 'node', 'go', 'maven', 'gradle', 'java', 'python', 'docker', 'dotnet'];
+
+    function toolRank(script) {
+      const runtime = detectRuntime(script?.command);
+      if (runtime === undefined) return TOOL_ORDER.length;
+      const index = TOOL_ORDER.indexOf(runtime.icon);
+      return index === -1 ? TOOL_ORDER.length : index;
+    }
+
     const SCRIPT_CATEGORIES = [
       [/^(dev|start|serve|watch|run)\b/i, 0],
       [/^(build|compile|bundle|package|dist|release)\b/i, 1],
@@ -184,6 +194,8 @@ window.__ModuleLoader__.load({
 
     function sortScripts(scripts) {
       return [...scripts].sort((left, right) => {
+        const tool = toolRank(left) - toolRank(right);
+        if (tool !== 0) return tool;
         const rank = scriptRank(left) - scriptRank(right);
         if (rank !== 0) return rank;
         return String(left.name ?? '').localeCompare(String(right.name ?? ''));
