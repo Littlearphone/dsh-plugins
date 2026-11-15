@@ -24,6 +24,8 @@ window.__ModuleLoader__.load({
     const ZH = {
       'tab.title': '服务',
       'entry.label': '启动脚本',
+      'guide.title': '服务',
+      'guide.description': '列出工作区的启动脚本与 Go 程序，启动后可看输出、可停止。',
       'panel.loading': '正在读取脚本…',
       'panel.empty': '这个工作区没有 package.json，或者里面没有 scripts。',
       'panel.error': '读取脚本失败。',
@@ -49,6 +51,8 @@ window.__ModuleLoader__.load({
     const EN = {
       'tab.title': 'Services',
       'entry.label': 'Start scripts',
+      'guide.title': 'Services',
+      'guide.description': 'Workspace start scripts and Go programs, with output and a stop control.',
       'panel.loading': 'Reading scripts…',
       'panel.empty': 'This workspace has no package.json, or it declares no scripts.',
       'panel.error': 'Could not read the scripts.',
@@ -287,6 +291,10 @@ window.__ModuleLoader__.load({
 .dsh-svc-menu-list{display:flex;flex-direction:column;gap:1px;min-height:0;padding:2px 0;overflow-y:auto;}
 .dsh-svc-item{box-sizing:border-box;display:flex;align-items:center;gap:8px;width:100%;padding:4px 7px;border:0;border-radius:var(--dsw-radius-md);background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer;}
 .dsh-svc-item:hover{background:var(--dsw-alias-interactive-bg-hover);}
+.dsh-svc-item:focus-visible{outline:1px solid var(--dsw-alias-state-business-primary);outline-offset:-1px;}
+.dsh-svc-item.is-running .dsh-svc-item-name{color:var(--dsw-alias-state-success-primary);}
+.dsh-svc-item-stop{flex:none;margin-left:auto;width:18px;height:18px;padding:0;border:0;border-radius:4px;background:transparent;color:var(--dsw-alias-state-warn-primary);font-size:9px;line-height:1;cursor:pointer;}
+.dsh-svc-item-stop:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-state-error-primary);}
 .dsh-svc-item-text{display:flex;flex-direction:column;gap:1px;min-width:0;}
 .dsh-svc-item-name{font-size:12px;line-height:1.3;}
 .dsh-svc-item-command{font-size:10px;line-height:1.3;color:var(--dsw-alias-label-secondary);font-family:var(--dsh-font-family-code,monospace);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
@@ -384,6 +392,15 @@ window.__ModuleLoader__.load({
     const START_ROUTE = '/services/start/';
     const STOP_ROUTE = '/services/stop/';
     const OUTPUT_ROUTE = '/services/output/';
+
+    /** Stop one started service; failures are silent because the next poll shows state. */
+    async function stopService(sessionId, id) {
+      try {
+        await postJson(STOP_ROUTE + encodeURIComponent(String(sessionId)), { id });
+      } catch {
+        /* the state poll reports what actually happened */
+      }
+    }
 
     async function postJson(url, body) {
       const response = await fetch(url, {
@@ -591,22 +608,34 @@ window.__ModuleLoader__.load({
           return nodes;
         }
 
-        function menuItems(groups, collapsed, toggle) {
+        /**
+         * Rows of the dropdown: click starts, and a running service exposes its
+         * stop right here so the common action needs no detour through the panel.
+         */
+        function menuItems(groups, collapsed, toggle, runningByCommand, stopService) {
           const nodes = [];
           groups.forEach((group, groupIndex) => {
             nodes.push(groupHeading(group, true, collapsed, toggle));
             if (collapsed.has(group.id)) return;
             sortScripts(group.scripts).forEach((script, index) => {
+              const runningId = runningByCommand.get(script.command);
               nodes.push(
                 h(
-                  'button',
+                  'div',
                   {
                     key: 'item-' + groupIndex + '-' + index,
-                    type: 'button',
-                    className: 'dsh-svc-item',
+                    className: 'dsh-svc-item' + (runningId === undefined ? '' : ' is-running'),
+                    role: 'button',
+                    tabIndex: 0,
                     title: script.command,
                     onClick: () => {
                       void launch(script, group.dir);
+                    },
+                    onKeyDown: (event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        void launch(script, group.dir);
+                      }
                     },
                   },
                   RuntimeBadge(script.command, 'badge'),
@@ -616,6 +645,23 @@ window.__ModuleLoader__.load({
                     h('span', { className: 'dsh-svc-item-name' }, script.name),
                     h('span', { className: 'dsh-svc-item-command' }, script.command),
                   ),
+                  runningId === undefined
+                    ? null
+                    : h(
+                        'button',
+                        {
+                          key: 'stop',
+                          type: 'button',
+                          className: 'dsh-svc-item-stop',
+                          title: t('run.stop'),
+                          'aria-label': t('run.stop'),
+                          onClick: (event) => {
+                            event.stopPropagation();
+                            void stopService(runningId);
+                          },
+                        },
+                        '■',
+                      ),
                 ),
               );
             });
@@ -739,9 +785,7 @@ window.__ModuleLoader__.load({
             ),
             h('p', { className: 'dsh-svc-note', key: 'note' }, t('panel.note')),
             h(RunningBlock, { key: 'running', sessionId }),
-            store.notice === ''
-              ? null
-              : h('p', { className: 'dsh-svc-notice', key: 'notice' }, store.notice),
+
             h('div', { className: 'dsh-svc-list', key: 'list' }, content),
           );
         }
@@ -833,6 +877,7 @@ window.__ModuleLoader__.load({
           const [anchor, setAnchor] = React.useState(null);
           const [state, load] = useScripts(store.open ? store.sessionId : undefined);
           const [collapsed, toggleGroup] = useCollapsedGroups();
+          const services = useServices(store.open ? store.sessionId : undefined);
 
           React.useEffect(() => {
             if (store.open === false) {
@@ -886,10 +931,20 @@ window.__ModuleLoader__.load({
           if (store.open === false || anchor === null) return null;
 
           const visible = filterGroups(state.groups, query);
+          const runningByCommand = new Map();
+          for (const running of services) {
+            if (running.state === 'running') runningByCommand.set(running.command, running.id);
+          }
           const items =
             state.phase === 'ready'
               ? visible.length > 0
-                ? menuItems(visible, collapsed, toggleGroup)
+                ? menuItems(
+                    visible,
+                    collapsed,
+                    toggleGroup,
+                    runningByCommand,
+                    (id) => void stopService(store.sessionId, id),
+                  )
                 : [h('div', { key: 'nomatch', className: 'dsh-svc-empty' }, t('menu.noMatch'))]
               : [
                   h(
@@ -935,16 +990,6 @@ window.__ModuleLoader__.load({
               }),
             ),
             h('div', { className: 'dsh-svc-menu-list' }, items),
-            store.busy
-              ? h(
-                  'p',
-                  { className: 'dsh-svc-busy', key: 'busy' },
-                  t('run.starting'),
-                )
-              : null,
-            store.notice === ''
-              ? null
-              : h('p', { className: 'dsh-svc-notice', key: 'notice' }, store.notice),
             h(
               'div',
               { className: 'dsh-svc-menu-foot' },
@@ -975,6 +1020,14 @@ window.__ModuleLoader__.load({
               kind: KIND,
               priority: 'extension',
               title: () => t('tab.title'),
+              guide: [
+                {
+                  id: 'services',
+                  order: 40,
+                  title: () => t('guide.title'),
+                  description: () => t('guide.description'),
+                },
+              ],
             }),
           'services: panel tab type',
         );

@@ -21,6 +21,8 @@ window.__ModuleLoader__.load({
 
     const ZH = {
       'tab.title': '任务板',
+      'guide.title': '任务板',
+      'guide.description': '按状态分轨道，拖拽卡片即可改状态。',
       'entry.label': '任务板',
       'board.hint': '原型：卡片写死，拖拽只改内存，刷新即复位。',
       'lane.backlog': '待办',
@@ -33,6 +35,8 @@ window.__ModuleLoader__.load({
 
     const EN = {
       'tab.title': 'Board',
+      'guide.title': 'Board',
+      'guide.description': 'Status lanes; drag a card to change its state.',
       'entry.label': 'Board',
       'board.hint': 'Prototype: hard-coded cards; drag edits memory only and resets on reload.',
       'lane.backlog': 'Backlog',
@@ -407,6 +411,14 @@ window.__ModuleLoader__.load({
               kind: KIND,
               priority: 'extension',
               title: () => t('tab.title'),
+              guide: [
+                {
+                  id: 'task-board',
+                  order: 50,
+                  title: () => t('guide.title'),
+                  description: () => t('guide.description'),
+                },
+              ],
             }),
           'task-board: board tab type',
         );
