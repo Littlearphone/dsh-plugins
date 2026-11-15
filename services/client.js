@@ -283,7 +283,9 @@ window.__ModuleLoader__.load({
 }
 .dsh-svc-name{font-size:12px;line-height:1.3;font-weight:500;}
 .dsh-svc-command{font-size:10px;line-height:1.4;color:var(--dsw-alias-label-secondary);font-family:var(--dsh-font-family-code,monospace);overflow-wrap:anywhere;}
-.dsh-svc-empty{padding:14px 0;font-size:11px;line-height:1.6;color:var(--dsw-alias-label-secondary);}
+.dsh-svc-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:22px 0;font-size:11px;line-height:1.6;color:var(--dsw-alias-label-secondary);text-align:center;}
+.dsh-svc-spinner{width:16px;height:16px;border-radius:50%;border:2px solid var(--dsw-alias-border-l2);border-top-color:var(--dsw-alias-state-business-primary);animation:dsh-svc-spin .8s linear infinite;}
+@keyframes dsh-svc-spin{to{transform:rotate(360deg);}}
 /* The overlay layer is click-through by design, so the dropdown opts back into
    pointer events. */
 /* Mirrors the shipped dropdown surface: it sits on bg-base (white in the light
@@ -329,6 +331,7 @@ window.__ModuleLoader__.load({
       actions: undefined,
       notice: '',
       busy: false,
+      focusServiceId: '',
       diag: '',
       revision: 0,
       listeners: new Set(),
@@ -519,13 +522,20 @@ window.__ModuleLoader__.load({
           store.busy = true;
           emit();
           try {
-            await postJson(START_ROUTE + encodeURIComponent(String(store.sessionId)), {
+            const created = await postJson(START_ROUTE + encodeURIComponent(String(store.sessionId)), {
               name: script.name,
               command: script.command,
               dir: groupDir ?? '',
             });
             store.busy = false;
             store.notice = '';
+            // Open the panel on the service that just started, with its output.
+            store.focusServiceId = String(created?.service?.id ?? '');
+            try {
+              controller?.openTab(KIND);
+            } catch (error) {
+              console.error('[services] cannot open the panel', error);
+            }
             setOpen(false);
           } catch (error) {
             store.busy = false;
@@ -561,6 +571,25 @@ window.__ModuleLoader__.load({
                 body,
               )
             : h('div', common, body);
+        }
+
+        /** Guide capsule glyph: a console window with a play marker. */
+        function GuideIcon(props) {
+          return h(
+            'svg',
+            { viewBox: '0 0 16 16', width: 16, height: 16, fill: 'none', 'aria-hidden': true, ...props },
+            h('rect', {
+              x: 1.8,
+              y: 2.8,
+              width: 12.4,
+              height: 10.4,
+              rx: 2,
+              stroke: 'currentColor',
+              strokeWidth: 1.2,
+            }),
+            h('path', { d: 'M1.8 6h12.4', stroke: 'currentColor', strokeWidth: 1.2 }),
+            h('path', { d: 'M6.3 8.3 9.9 10.2 6.3 12.1z', fill: 'currentColor' }),
+          );
         }
 
         /**
@@ -693,6 +722,13 @@ window.__ModuleLoader__.load({
         function RunningBlock(props) {
           const services = useServices(props.sessionId);
           const [openId, setOpenId] = React.useState('');
+          // A launch from the dropdown asks the panel to reveal that service.
+          const focused = store.focusServiceId;
+          React.useEffect(() => {
+            if (focused === '') return;
+            setOpenId(focused);
+            store.focusServiceId = '';
+          }, [focused]);
           if (services.length === 0) return null;
           const rows = services.map((service) => {
             const stateClass =
@@ -786,7 +822,12 @@ window.__ModuleLoader__.load({
 
           const content =
             state.phase === 'loading'
-              ? h('p', { className: 'dsh-svc-empty', key: 'loading' }, t('panel.loading'))
+              ? h(
+                  'div',
+                  { className: 'dsh-svc-empty', key: 'loading' },
+                  h('span', { className: 'dsh-svc-spinner' }),
+                  t('panel.loading'),
+                )
               : state.phase === 'error'
                 ? h('p', { className: 'dsh-svc-empty', key: 'error' }, t('panel.error'))
                 : state.phase === 'empty'
@@ -1059,6 +1100,7 @@ window.__ModuleLoader__.load({
                   order: 40,
                   title: () => t('guide.title'),
                   description: () => t('guide.description'),
+                  icon: GuideIcon,
                 },
               ],
             }),

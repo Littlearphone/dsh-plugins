@@ -404,6 +404,17 @@ window.__ModuleLoader__.load({
           );
         }
 
+        /** Guide capsule glyph: three status lanes. */
+        function GuideIcon(props) {
+          return h(
+            'svg',
+            { viewBox: '0 0 16 16', width: 16, height: 16, fill: 'none', 'aria-hidden': true, ...props },
+            h('rect', { x: 1.8, y: 2.6, width: 3.4, height: 10.8, rx: 1.2, stroke: 'currentColor', strokeWidth: 1.2 }),
+            h('rect', { x: 6.3, y: 2.6, width: 3.4, height: 10.8, rx: 1.2, stroke: 'currentColor', strokeWidth: 1.2 }),
+            h('rect', { x: 10.8, y: 2.6, width: 3.4, height: 10.8, rx: 1.2, fill: 'currentColor' }),
+          );
+        }
+
         ctx.effect(
           () =>
             registry.register({
@@ -417,6 +428,7 @@ window.__ModuleLoader__.load({
                   order: 50,
                   title: () => t('guide.title'),
                   description: () => t('guide.description'),
+                  icon: GuideIcon,
                 },
               ],
             }),
