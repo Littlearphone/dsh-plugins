@@ -93,22 +93,22 @@ window.__ModuleLoader__.load({
 
     const GUIDE_CSS = `
 [data-sidebar-right-guide][data-sidebar-right-guide]{
---dsh-guide-tile:104px;
+--dsh-guide-tile-min:88px;
+--dsh-guide-tile-max:112px;
 --dsh-guide-tile-gap:12px;
 --dsh-guide-sheen:rgba(255,255,255,.30);
 box-sizing:border-box;
 display:grid;
 width:100%;
 min-width:0;
-/* Fixed-size tracks, not a stretchy range: the track count is derived from the
-   panel width, empty tracks collapse, and the remaining tiles centre as a group
-   — so removing one card recentres the rest instead of leaving its slot empty. */
-grid-template-columns:repeat(auto-fit,var(--dsh-guide-tile));
+grid-template-columns:repeat(auto-fit,minmax(var(--dsh-guide-tile-min),var(--dsh-guide-tile-max)));
 justify-content:center;
 align-content:center;
 gap:var(--dsh-guide-tile-gap);
 min-height:100%;
 padding:24px 20px;
+max-width:calc(4 * var(--dsh-guide-tile-max) + 3 * var(--dsh-guide-tile-gap) + 40px);
+margin-inline:auto;
 }
 [data-sidebar-right-guide][data-sidebar-right-guide]::after{content:none;}
 [data-sidebar-right-guide] > span[aria-hidden="true"]{grid-column:1/-1;justify-self:center;margin:0 0 6px;}
