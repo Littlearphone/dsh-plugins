@@ -267,6 +267,22 @@ window.__ModuleLoader__.load({
          */
         function HeaderEntry() {
           useLocaleRevision();
+          const ref = React.useRef(null);
+
+          // Take the height of the header button beside us, measured live. The
+          // border, radius and fill stay ours; only the box height is borrowed,
+          // so whatever this build's header controls actually measure is what
+          // this button measures.
+          React.useEffect(() => {
+            const button = ref.current;
+            if (button === null) return;
+            const scope = button.closest('header') ?? document;
+            const neighbour = scope.querySelector('button[aria-haspopup="menu"]');
+            if (neighbour === null || neighbour === button) return;
+            const height = window.getComputedStyle(neighbour).height;
+            if (height !== '' && height !== 'auto') button.style.height = height;
+          });
+
           if (controller === undefined) return null;
           const label = t('entry.label');
           return h(
@@ -278,6 +294,7 @@ window.__ModuleLoader__.load({
               {
                 key: 'button',
                 type: 'button',
+                ref,
                 className: 'dsh-board-entry',
                 title: label,
                 'aria-label': label,
