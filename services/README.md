@@ -29,6 +29,29 @@ Invoke-WebRequest http://127.0.0.1:63428/services/list/session-<uuid> -UseBasicP
 
 不带前缀会 404（Host 里查不到会话），这是正常的。
 
+## 嵌套结构（monorepo）
+
+工作区如果声明了子包，会一并扫描，并按包分组显示：
+
+- 先看 `pnpm-workspace.yaml` 的 `packages:` 列表（只读这一段，够用）；
+- 没有再读根部 `package.json` 的 `workspaces`（数组，或 `{ packages: [...] }`）；
+- 支持 `packages/*` 和精确路径；带 `**` 的写法会被跳过并在响应的 `skippedPatterns` 里列出来，
+  而不是猜一个近似结果；
+- 以 `!` 开头的排除项忽略，`node_modules` 和点开头的目录不扫；
+- 上限 60 个包，防止异常 glob 把目录翻个底朝天。
+
+响应形状：
+
+```json
+{ "dir": "...", "hasManifest": true, "workspacePatterns": ["packages/*"],
+  "groups": [
+    { "id": "root", "name": "my-repo", "dir": "", "scripts": [...] },
+    { "id": "packages/web", "name": "@my/web", "dir": "packages/web", "scripts": [...] }
+  ] }
+```
+
+客户端只在**多于一个包**时才显示分组标题（包名 + 相对路径），单包项目仍然是平铺列表。
+
 ## 运行时图标
 
 每条脚本前面有一个小方牌，画的是**这条命令会由什么工具执行**的图形，颜色用该工具的品牌色。
@@ -36,25 +59,28 @@ Invoke-WebRequest http://127.0.0.1:63428/services/list/session-<uuid> -UseBasicP
 
 | 图形 | 工具 | 匹配 |
 |---|---|---|
-| 六边形 | node | `node`、`tsx`、`ts-node`、`nodemon`、`vite`、`next`、`webpack`、`rollup`、`esbuild`、`jest`、`vitest`、`mocha` |
-| 货箱 | npm / pnpm / yarn | 对应包管理器（同形状，靠颜色区分：红 / 橙 / 蓝） |
-| 齿轮 | mvn | `mvn`、`mvnd` |
-| 叠层 | gradle | `gradle`、`gradlew` |
-| 咖啡杯 | java | `java` |
-| 蛇 | python | `python`、`python3`、`uv`、`poetry`、`pipenv`、`pytest`、`django-admin` |
-| 鲸鱼 | docker | `docker`、`docker-compose` |
-| 方中一点 | .net | `dotnet` |
+| Node.js 六边形 | node | `node`、`tsx`、`ts-node`、`nodemon`、`vite`、`next`、`webpack`、`rollup`、`esbuild`、`jest`、`vitest`、`mocha` |
+| npm / pnpm / yarn 官方标志 | npm / pnpm / yarn | 对应包管理器 |
+| Maven 标志 | mvn | `mvn`、`mvnd` |
+| Gradle 标志 | gradle | `gradle`、`gradlew` |
+| OpenJDK 标志 | java | `java` |
+| Python 标志 | python | `python`、`python3`、`uv`、`poetry`、`pipenv`、`pytest`、`django-admin` |
+| Docker 标志 | docker | `docker`、`docker-compose` |
+| .NET 字标 | .net | `dotnet` |
 | ▶ | 其他 | 兜底 |
 
-图形是我手画的 16px SVG（`GLYPHS`），用 `currentColor` 上色，所以只跟着 tint 变，不依赖外部资源。
-**加一个工具 = `RUNTIMES` 加一行 +（如需要）`GLYPHS` 加一个图形**：
+图形是**官方品牌图形**，取自 [Simple Icons](https://simpleicons.org/)（CC0 路径数据，24×24 网格），
+不是我手画的近似形状；填充用 `currentColor`，所以颜色只由 tint 决定，不依赖外部图片资源。
+商标归各自所有者。
+
+**加一个工具 = `RUNTIMES` 加一行 +（如需要）`BRAND_ICONS` 加一条路径**：
 
 ```js
 // RUNTIMES 里
-{ id: 'rust', label: 'cargo', tint: '#DEA584', glyph: 'gear', pattern: /(^|[\s/\\])cargo\b/ },
+{ id: 'rust', label: 'cargo', tint: '#DEA584', icon: 'cargo', pattern: /(^|[\s/\\])cargo\b/ },
 ```
 
-`glyph` 可以复用已有图形（比如 cargo 用齿轮），只有形状真的不一样时才需要新画一个。
+`icon` 可以指向已有图形（比如新工具暂时复用 `gear`），只有它的商标确实是新的才需要加一条路径。
 
 ## 为什么下拉的底色和别的不一样过
 
