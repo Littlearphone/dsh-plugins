@@ -127,7 +127,9 @@ window.__ModuleLoader__.load({
 .dsh-board-lane-title{display:flex;align-items:center;gap:5px;min-width:0;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .dsh-board-lane-title::before{content:"";flex:none;width:6px;height:6px;border-radius:50%;background:var(--dsh-lane-accent,var(--dsw-alias-border-l2));}
 .dsh-board-count{font-variant-numeric:tabular-nums;padding:0 6px;border-radius:999px;background:var(--dsw-alias-bg-layer-2);}
-.dsh-board-list{display:flex;flex:1 1 auto;flex-direction:column;gap:6px;min-height:44px;overflow-y:auto;}
+/* The list is the scroll container, so its padding is what stops a hovered
+   card's 1px lift and shadow from being clipped at the first/last position. */
+.dsh-board-list{display:flex;flex:1 1 auto;flex-direction:column;gap:6px;min-height:44px;padding:3px 2px;overflow-y:auto;}
 .dsh-board-card{box-sizing:border-box;display:flex;flex-direction:column;gap:4px;padding:8px 8px 8px 10px;border:1px solid var(--dsw-alias-border-l2);border-left:3px solid var(--dsh-lane-accent,var(--dsw-alias-border-l2));border-radius:8px;background:var(--dsw-alias-bg-base);cursor:grab;transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease;}
 @media (hover:hover){
 .dsh-board-card:hover{transform:translateY(-1px);border-color:var(--dsh-lane-accent,var(--dsw-alias-border-l2));box-shadow:0 6px 16px rgba(0,0,0,.10);box-shadow:0 6px 16px color-mix(in srgb,var(--dsh-lane-accent,transparent) 24%,transparent);}
