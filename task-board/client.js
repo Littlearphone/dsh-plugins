@@ -90,15 +90,14 @@ window.__ModuleLoader__.load({
 .dsh-board-card-tag{align-self:flex-start;font-size:9px;line-height:1;padding:3px 6px;border-radius:999px;color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-bg-layer-2);}
 .dsh-board-marker{height:2px;border-radius:1px;background:var(--dsw-alias-brand-primary);}
 .dsh-board-empty{height:40px;border:1px dashed var(--dsw-alias-border-l1);border-radius:8px;}
-/* The stroke is ours and always on; only the size metrics are adopted from the
-   neighbouring header button at runtime (see HeaderEntry). Variant classes
-   (ghost/outline) are deliberately not copied — ghost carries no border, which
-   is why copying it kept erasing the outline. */
-.dsh-board-entry{box-sizing:border-box;display:flex;align-items:center;justify-content:center;flex:none;margin:0;padding:0;border:0;border-radius:var(--dsw-radius-sm);background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;line-height:0;vertical-align:middle;box-shadow:inset 0 0 0 var(--dsh-hairline-width,.5px) var(--dsw-alias-border-l3);cursor:pointer;}
+/* Border and radius follow the shipped menu surface, not the ghost Button
+   beside it: the dropdown uses border .5px solid --dsw-alias-border-l2 and its
+   items use --dsw-radius-md. A ghost Button carries no border at all, so
+   copying it can never produce the outlined look asked for here. */
+.dsh-board-entry{box-sizing:border-box;display:flex;align-items:center;justify-content:center;width:28px;height:28px;flex:none;margin:0;padding:0;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-md);background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;line-height:0;vertical-align:middle;cursor:pointer;}
 .dsh-board-entry:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary);}
 .dsh-board-entry:active{background:var(--dsw-alias-interactive-bg-active);}
 .dsh-board-entry svg{width:15px;height:15px;display:block;}
-.dsh-board-entry.is-standalone{width:28px;height:28px;}
 `;
 
     /** Insertion index under the pointer: how many card midpoints the pointer has passed. */
@@ -268,34 +267,6 @@ window.__ModuleLoader__.load({
          */
         function HeaderEntry() {
           useLocaleRevision();
-          const ref = React.useRef(null);
-
-          // Adopt the neighbour's own Button classes and box metrics instead of
-          // hard-coding them: the page may run a different build than the dist
-          // read offline, and this way height, radius, border and hover fill are
-          // whatever the product itself uses right now.
-          React.useEffect(() => {
-            const button = ref.current;
-            if (button === null) return;
-            const scope = button.closest('header') ?? document;
-            const neighbour = scope.querySelector('button[aria-haspopup="menu"]');
-            if (neighbour === null || neighbour === button) {
-              button.classList.add('is-standalone');
-              return;
-            }
-            button.classList.remove('is-standalone');
-            for (const name of Array.from(neighbour.classList)) {
-              // Size/base only: never the variant, which would drop our stroke.
-              if (/^_(?:button|sm|md|lg)_/.test(name)) button.classList.add(name);
-            }
-            const computed = window.getComputedStyle(neighbour);
-            button.style.boxSizing = 'border-box';
-            button.style.width = computed.width;
-            button.style.height = computed.height;
-            button.style.borderRadius = computed.borderRadius;
-            button.style.padding = '0';
-          });
-
           if (controller === undefined) return null;
           const label = t('entry.label');
           return h(
@@ -307,7 +278,6 @@ window.__ModuleLoader__.load({
               {
                 key: 'button',
                 type: 'button',
-                ref,
                 className: 'dsh-board-entry',
                 title: label,
                 'aria-label': label,
