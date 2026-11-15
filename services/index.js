@@ -40,6 +40,20 @@ const SKIP_DIRS = new Set([
 /** Workspace patterns are one level of nesting only; `**` is reported, not expanded. */
 const MAX_DEPTH_NOTE = '**';
 
+/** A request body larger than this is refused rather than buffered. */
+const MAX_BODY_BYTES = 64 * 1024;
+
+async function readBody(request) {
+  const chunks = [];
+  let total = 0;
+  for await (const chunk of request) {
+    total += chunk.length;
+    if (total > MAX_BODY_BYTES) throw new Error('body-too-large');
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks).toString('utf8');
+}
+
 function reply(response, status, payload) {
   const body = JSON.stringify(payload);
   response.writeHead(status, {
@@ -261,9 +275,124 @@ async function goGroup(root) {
   return { id: 'go', kind: 'go', name: 'Go', dir: '', scripts };
 }
 
+/**
+ * Started services, keyed by `<sessionId>\u0000<id>`. The Host owns the process,
+ * so it outlives a panel reload; the browser half only reads state and output.
+ */
+const RUNNING = new Map();
+
+function serviceKey(sessionId, id) {
+  return `${sessionId}\u0000${id}`;
+}
+
+/**
+ * One command line, wrapped in the flags the chosen shell actually understands.
+ * The default shell is not always pwsh — on Windows it is often cmd.exe, which
+ * rejects `-Command` and silently shows its banner instead.
+ */
+function shellArgv(shell, command) {
+  const name = String(shell).toLowerCase();
+  if (name.endsWith('cmd.exe') || name.endsWith('\\cmd')) return [shell, '/d', '/c', command];
+  if (name.endsWith('powershell.exe') || name.endsWith('pwsh.exe')) {
+    return [shell, '-NoLogo', '-NoProfile', '-Command', command];
+  }
+  if (name.endsWith('bash') || name.endsWith('sh') || name.endsWith('zsh') || name.endsWith('fish')) {
+    return [shell, '-lc', command];
+  }
+  return [shell, '-c', command];
+}
+
+/** One managed launch: argv built from the platform shell plus the script line. */
+async function spawnService(ctx, sessionId, request) {
+  const subprocess = ctx.get('subprocess');
+  if (subprocess === undefined) return { error: 'subprocess-unavailable' };
+  const environment = await subprocess.terminalEnvironment();
+  const command = String(request.command ?? '');
+  if (command === '') return { error: 'empty-command' };
+  const shell = environment.defaultShell;
+  if (shell === undefined) return { error: 'no-shell' };
+  const argv = shellArgv(shell, command);
+
+  const id = 'svc-' + Math.random().toString(36).slice(2, 10);
+  const key = serviceKey(sessionId, id);
+  const record = {
+    id,
+    name: String(request.name ?? 'script'),
+    command,
+    dir: String(request.dir ?? ''),
+    state: 'running',
+    exitCode: null,
+    startedAt: Date.now(),
+    handle: undefined,
+  };
+  RUNNING.set(key, record);
+  try {
+    const handle = subprocess.spawn({
+      argv,
+      cwd: request.cwd,
+      stdio: {
+        stdin: 'ignore',
+        stdout: { maxBytes: 256 * 1024 },
+        stderr: { maxBytes: 256 * 1024 },
+      },
+      graceMs: 1500,
+    });
+    record.handle = handle;
+    handle.done.then(
+      (outcome) => {
+        record.state = 'exited';
+        record.exitCode = outcome?.exitCode ?? null;
+      },
+      () => {
+        record.state = 'failed';
+        record.exitCode = null;
+      },
+    );
+  } catch (error) {
+    record.state = 'failed';
+    return { error: 'spawn-failed', detail: String(error?.message ?? error) };
+  }
+  return { record };
+}
+
+/** Running and recently finished services of one Session, newest first. */
+function listServices(sessionId) {
+  const prefix = `${sessionId}\u0000`;
+  const items = [];
+  for (const [key, record] of RUNNING) {
+    if (!key.startsWith(prefix)) continue;
+    items.push({
+      id: record.id,
+      name: record.name,
+      command: record.command,
+      dir: record.dir,
+      state: record.state,
+      exitCode: record.exitCode,
+      startedAt: record.startedAt,
+    });
+  }
+  return items.sort((left, right) => right.startedAt - left.startedAt);
+}
+
+/** The complete collected output of one service, from byte zero. */
+function serviceOutput(sessionId, id) {
+  const record = RUNNING.get(serviceKey(sessionId, id));
+  if (record === undefined || record.handle === undefined) return undefined;
+  const collected = record.handle.collected;
+  const read = (reader) => {
+    if (reader === undefined) return '';
+    try {
+      return reader.readFrom(0).text;
+    } catch {
+      return '';
+    }
+  };
+  return read(collected.stdout) + read(collected.stderr);
+}
+
 function createHandler(ctx) {
   return async function handle(request, response) {
-    // Same-origin only: another page must not read this machine's workspace.
+    // Same-origin only: another page must not read or start this machine's work.
     const origin = request.headers.origin;
     const host = request.headers.host;
     if (
@@ -280,14 +409,18 @@ function createHandler(ctx) {
     const rest = url.pathname.startsWith(ROUTE_PATH + '/')
       ? url.pathname.slice(ROUTE_PATH.length + 1)
       : '';
-    if (!rest.startsWith('list/')) {
+    const slash = rest.indexOf('/');
+    const action = slash === -1 ? rest : rest.slice(0, slash);
+    const rawId = slash === -1 ? '' : rest.slice(slash + 1);
+    const ACTIONS = ['list', 'start', 'stop', 'state', 'output'];
+    if (!ACTIONS.includes(action)) {
       reply(response, 404, { error: 'not-found' });
       return;
     }
 
     let sessionId;
     try {
-      sessionId = decodeURIComponent(rest.slice('list/'.length));
+      sessionId = decodeURIComponent(rawId);
     } catch (error) {
       reply(response, 400, { error: 'bad-session' });
       return;
@@ -313,6 +446,79 @@ function createHandler(ctx) {
       return;
     }
 
+    // --- process control -------------------------------------------------
+    if (action === 'state') {
+      reply(response, 200, { services: listServices(sessionId) });
+      return;
+    }
+
+    if (action === 'output') {
+      const id = url.searchParams.get('id') ?? '';
+      const text = serviceOutput(sessionId, id);
+      if (text === undefined) {
+        reply(response, 404, { error: 'unknown-service' });
+        return;
+      }
+      reply(response, 200, { text });
+      return;
+    }
+
+    if (action === 'start') {
+      let body = {};
+      try {
+        body = JSON.parse(await readBody(request));
+      } catch {
+        reply(response, 400, { error: 'bad-body' });
+        return;
+      }
+      const cwd = body.dir === undefined || body.dir === '' ? dir : join(dir, String(body.dir));
+      const started = await spawnService(ctx, sessionId, {
+        name: body.name,
+        command: body.command,
+        dir: body.dir,
+        cwd,
+      });
+      if (started.error !== undefined) {
+        reply(response, 500, started);
+        return;
+      }
+      const record = started.record;
+      reply(response, 200, {
+        service: {
+          id: record.id,
+          name: record.name,
+          command: record.command,
+          dir: record.dir,
+          state: record.state,
+        },
+      });
+      return;
+    }
+
+    if (action === 'stop') {
+      let body = {};
+      try {
+        body = JSON.parse(await readBody(request));
+      } catch {
+        reply(response, 400, { error: 'bad-body' });
+        return;
+      }
+      const record = RUNNING.get(serviceKey(sessionId, String(body.id ?? '')));
+      if (record === undefined) {
+        reply(response, 404, { error: 'unknown-service' });
+        return;
+      }
+      try {
+        record.handle?.terminate();
+        record.state = 'stopping';
+        reply(response, 200, { ok: true });
+      } catch (error) {
+        reply(response, 500, { error: 'stop-failed', detail: String(error?.message ?? error) });
+      }
+      return;
+    }
+
+    // --- discovery -------------------------------------------------------
     try {
       const root = await readManifest(dir);
       const globs = await workspaceGlobs(dir, root);
@@ -336,7 +542,6 @@ function createHandler(ctx) {
       const go = await goGroup(dir);
       if (go !== undefined) groups.push(go);
 
-      // Root first, then by name, so a workspace keeps a stable, scannable order.
       groups.sort((left, right) => {
         if (left.dir === '' && right.dir !== '') return -1;
         if (right.dir === '' && left.dir !== '') return 1;
@@ -346,8 +551,6 @@ function createHandler(ctx) {
       reply(response, 200, {
         dir,
         hasManifest: root !== undefined,
-        // A package without scripts is not a group: showing an empty heading only
-        // costs a click and says nothing.
         groups: groups.filter((group) => group.scripts.length > 0),
         workspacePatterns: globs,
         skippedPatterns: skipped,

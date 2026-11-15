@@ -31,13 +31,17 @@ window.__ModuleLoader__.load({
       'panel.dir': '目录',
       'group.root': '根包',
       'panel.send': '发送到对话',
-      'panel.note': '点击脚本名把命令发到对话里执行；执行本身仍由会话负责。',
+      'panel.note': '点击脚本在 Host 上启动进程；启动后在上方查看输出、可停止。',
       'menu.title': '启动脚本',
       'menu.empty': '没有可用的脚本。',
       'menu.search': '搜索脚本…',
       'menu.noMatch': '没有匹配的脚本。',
-      'menu.starting': '正在启动终端…',
-      'menu.notTyped': '终端已建立，但命令没写进去（可能会出现空提示符，手动粘贴即可）。',
+      'run.title': '运行中',
+      'run.stop': '停止',
+      'run.output': '输出',
+      'run.starting': '正在启动…',
+      'run.failed': '启动失败：',
+      'output.waiting': '（还没有输出）',
       'menu.hint': '点击一项，命令会填进输入框并发送。',
       'menu.open': '在侧栏打开',
     };
@@ -52,13 +56,17 @@ window.__ModuleLoader__.load({
       'panel.dir': 'Directory',
       'group.root': 'root',
       'panel.send': 'Send to chat',
-      'panel.note': 'Clicking a script sends its command to the conversation; execution stays with the Session.',
+      'panel.note': 'Clicking a script starts it as a Host process; watch its output above and stop it there.',
       'menu.title': 'Start scripts',
       'menu.empty': 'No scripts available.',
       'menu.search': 'Search scripts…',
       'menu.noMatch': 'No matching scripts.',
-      'menu.starting': 'Starting terminal…',
-      'menu.notTyped': 'The terminal was created but the command was not typed (an empty prompt may show; paste it manually).',
+      'run.title': 'Running',
+      'run.stop': 'Stop',
+      'run.output': 'Output',
+      'run.starting': 'Starting…',
+      'run.failed': 'Start failed: ',
+      'output.waiting': '(no output yet)',
       'menu.hint': 'Clicking a script fills the composer and sends it.',
       'menu.open': 'Open in sidebar',
     };
@@ -247,6 +255,17 @@ window.__ModuleLoader__.load({
 .dsh-svc-count{margin-left:auto;flex:none;padding:0 5px;border-radius:999px;background:var(--dsw-alias-bg-layer-2);font-size:10px;font-variant-numeric:tabular-nums;}
 .dsh-svc-notice{margin:0;padding:0 12px;font-size:10px;line-height:1.5;color:var(--dsw-alias-state-error-primary);overflow-wrap:anywhere;}
 .dsh-svc-busy{margin:0;padding:0 12px;font-size:10px;line-height:1.5;color:var(--dsw-alias-label-secondary);overflow-wrap:anywhere;}
+.dsh-svc-run{margin:0;padding:2px 12px 0;display:flex;flex-direction:column;gap:4px;}
+.dsh-svc-run-head{display:flex;align-items:center;justify-content:space-between;font-size:10px;letter-spacing:.04em;text-transform:uppercase;color:var(--dsw-alias-label-secondary);}
+.dsh-svc-run-row{box-sizing:border-box;display:flex;align-items:center;gap:6px;padding:5px 8px;border:1px solid var(--dsw-alias-border-l1);border-radius:8px;background:var(--dsw-alias-bg-base);font-size:11px;}
+.dsh-svc-dot{flex:none;width:7px;height:7px;border-radius:50%;background:var(--dsw-alias-state-idle-primary);}
+.dsh-svc-dot.is-running{background:var(--dsw-alias-state-success-primary);}
+.dsh-svc-dot.is-exited{background:var(--dsw-alias-state-warn-primary);}
+.dsh-svc-dot.is-failed{background:var(--dsw-alias-state-error-primary);}
+.dsh-svc-run-name{min-width:0;flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.dsh-svc-run-button{flex:none;height:20px;padding:0 6px;border:1px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm);background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;font-size:10px;cursor:pointer;}
+.dsh-svc-run-button:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary);}
+.dsh-svc-output{box-sizing:border-box;margin:0;padding:6px 8px;max-height:220px;overflow:auto;border:1px solid var(--dsw-alias-border-l1);border-radius:8px;background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary);font-family:var(--dsh-font-family-code,monospace);font-size:10px;line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere;}
 .dsh-svc-list{display:flex;flex:1 1 auto;flex-direction:column;gap:4px;min-height:0;padding:2px 12px 12px;overflow-y:auto;}
 .dsh-svc-row{box-sizing:border-box;display:flex;align-items:center;gap:8px;padding:7px 9px;border:1px solid var(--dsw-alias-border-l1);border-left:3px solid var(--dsw-alias-state-business-primary);border-radius:8px;background:var(--dsw-alias-bg-base);text-align:left;}
 .dsh-svc-row-text{display:flex;flex-direction:column;gap:1px;min-width:0;}
@@ -361,121 +380,79 @@ window.__ModuleLoader__.load({
       return [state, load];
     }
 
-    /**
-     * Run a command in a real sidebar terminal.
-     *
-     * The terminal plugin exposes no client service, so the only way in is the
-     * Host's generated `terminalController` Remote: create a terminal, attach to
-     * it (the attachment owns input), type the command once the first screen
-     * frame arrives, then drop the attachment so the tab takes over. The tab is
-     * opened by `terminalId`, which is the parameter the terminal tab documents.
-     */
-    /**
-     * Generated Remote methods answer with a result envelope (`{ ok, value }`),
-     * which the terminal controller unwraps with its own `valueOf`. Do the same:
-     * a failed envelope becomes a thrown error so the caller reports it.
-     */
-    function unwrapRemote(result) {
-      if (result === null || typeof result !== 'object' || typeof result.ok !== 'boolean') return result;
-      if (result.ok === false) {
-        const error = result.error;
-        throw new Error(String(error?.code ?? error?.message ?? 'remote failed'));
-      }
-      return result.value;
+    const STATE_ROUTE = '/services/state/';
+    const START_ROUTE = '/services/start/';
+    const STOP_ROUTE = '/services/stop/';
+    const OUTPUT_ROUTE = '/services/output/';
+
+    async function postJson(url, body) {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!response.ok) throw new Error('HTTP ' + response.status);
+      return response.json();
     }
 
     /**
-     * The terminal plugin keeps its own cached inventory of a Session's
-     * terminals and only updates it for terminals it creates itself, so a
-     * terminal created out of band exists on the Host but is invisible to the
-     * tab. The working order is therefore: let the tab create the terminal, find
-     * the id it just made, attach to it, and type the command.
+     * Started services of one Session, polled while a surface is mounted. The
+     * Host owns the process; this is only the observed state.
      */
-    async function runInTerminal(remote, sessionId, openTerminalTab, command) {
-      let api;
-      try {
-        api = remote?.terminal;
-      } catch (error) {
-        return { ok: false, detail: 'terminal namespace refused: ' + String(error?.message ?? error) };
-      }
-      if (api === undefined || typeof api.list !== 'function') {
-        return { ok: false, detail: 'terminal Remote unavailable' };
-      }
-      if (sessionId === undefined || sessionId === null) {
-        return { ok: false, detail: 'no session id' };
-      }
-
-      const listIds = async () => {
-        const value = unwrapRemote(await api.list(sessionId));
-        return (Array.isArray(value) ? value : []).map((item) => String(item?.id));
-      };
-      const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-      try {
-        const before = new Set(await listIds());
-        const shells = unwrapRemote(await api.shells(sessionId));
-        // Honour the shell the terminal guide remembers (`dsh.terminal.shell`),
-        // and fall back to the first verified shell the Host offers.
-        let remembered;
-        try {
-          remembered = typeof localStorage === 'undefined' ? null : localStorage.getItem('dsh.terminal.shell');
-        } catch {
-          remembered = null;
-        }
-        const list = Array.isArray(shells) ? shells : [];
-        const shellPath = (list.find((shell) => shell?.path === remembered) ?? list[0])?.path;
-        if (shellPath === undefined) return { ok: false, detail: 'no shell available' };
-
-        openTerminalTab(shellPath);
-
-        let terminalId;
-        for (let attempt = 0; attempt < 30 && terminalId === undefined; attempt += 1) {
-          await sleep(200);
-          const now = await listIds();
-          const fresh = now.find((id) => !before.has(id));
-          if (fresh !== undefined) terminalId = fresh;
-        }
-        if (terminalId === undefined) {
-          return { ok: false, detail: 'the terminal tab did not create a terminal' };
-        }
-
-        const lifetime = new AbortController();
-        const handle = api.attach(sessionId, terminalId, lifetime.signal);
-        let sequence = 0;
-        const typed = await new Promise((resolve) => {
-          let settled = false;
-          const finish = (value) => {
-            if (settled) return;
-            settled = true;
-            clearTimeout(timer);
-            resolve(value);
-          };
-          const timer = setTimeout(() => finish(false), 5000);
-          void (async () => {
-            try {
-              for await (const frame of handle) {
-                if (settled || frame?.type !== 'snapshot' || frame.writable === false) continue;
-                try {
-                  sequence += 1;
-                  handle.send({ type: 'write', sequence, data: command + '\r' });
-                  setTimeout(() => finish(true), 300);
-                } catch {
-                  finish(false);
-                }
-              }
-            } catch {
-              finish(false);
-            }
-          })();
-        });
-        // Hand input back to the tab as soon as the command is in: while this
-        // attachment lives the tab shows its "take over input" state.
-        setTimeout(() => lifetime.abort(), 600);
-        return { ok: true, terminalId, typed };
-      } catch (error) {
-        return { ok: false, detail: 'terminal failed: ' + String(error?.message ?? error) };
-      }
+    function useServices(sessionId) {
+      const [services, setServices] = React.useState([]);
+      React.useEffect(() => {
+        if (sessionId === undefined || sessionId === null) return undefined;
+        let alive = true;
+        const tick = async () => {
+          try {
+            const response = await fetch(STATE_ROUTE + encodeURIComponent(String(sessionId)));
+            if (!response.ok) return;
+            const data = await response.json();
+            if (alive) setServices(Array.isArray(data?.services) ? data.services : []);
+          } catch {
+            /* a failed poll keeps the previous list */
+          }
+        };
+        void tick();
+        const timer = setInterval(tick, 1500);
+        return () => {
+          alive = false;
+          clearInterval(timer);
+        };
+      }, [sessionId]);
+      return services;
     }
+
+    /** A started service's collected output, polled while its view is open. */
+    function OutputView({ sessionId, id }) {
+      const [text, setText] = React.useState('');
+      React.useEffect(() => {
+        let alive = true;
+        const tick = async () => {
+          try {
+            const response = await fetch(
+              OUTPUT_ROUTE + encodeURIComponent(String(sessionId)) + '?id=' + encodeURIComponent(String(id)),
+            );
+            if (!response.ok) return;
+            const data = await response.json();
+            if (alive && typeof data?.text === 'string') setText(data.text);
+          } catch {
+            /* keep the last text */
+          }
+        };
+        void tick();
+        const timer = setInterval(tick, 1200);
+        return () => {
+          alive = false;
+          clearInterval(timer);
+        };
+      }, [sessionId, id]);
+      const lines = text.split(/\r?\n/);
+      const tail = lines.slice(Math.max(0, lines.length - 200)).join('\n');
+      return h('pre', { className: 'dsh-svc-output' }, tail === '' ? t('output.waiting') : tail);
+    }
+
 
     return {
       // Dotted names are how a generated Remote namespace is injected: `remote`
@@ -510,36 +487,31 @@ window.__ModuleLoader__.load({
             () => 0,
           );
         }
-
         /**
-         * Clicking a script starts it in a new sidebar terminal. If the terminal
-         * Remote is missing or refuses, the failure is surfaced instead of
-         * silently doing something else.
+         * Clicking a script starts it as a Host-owned process. The panel shows
+         * its state and output; nothing is typed into the sidebar terminal, which
+         * has no public way to receive a command.
          */
-        async function launch(script) {
+        async function launch(script, groupDir) {
           store.notice = '';
           store.busy = true;
-          store.diag = '';
           emit();
-          const openTerminalTab = (shellPath) => {
-            controller?.openTab('terminal', { params: { shellPath } });
-          };
-          let outcome;
           try {
-            outcome = await runInTerminal(ctx.remote, store.sessionId, openTerminalTab, script.command);
+            await postJson(START_ROUTE + encodeURIComponent(String(store.sessionId)), {
+              name: script.name,
+              command: script.command,
+              dir: groupDir ?? '',
+            });
+            store.busy = false;
+            store.notice = '';
+            setOpen(false);
           } catch (error) {
-            outcome = { ok: false, detail: 'launch threw: ' + String(error?.message ?? error) };
+            store.busy = false;
+            store.notice = t('run.failed') + ' ' + String(error?.message ?? error);
           }
-          store.busy = false;
-          store.notice =
-            outcome.ok === false
-              ? outcome.detail
-              : 'terminal=' + outcome.terminalId + ' typed=' + String(outcome.typed);
           emit();
-          if (outcome.ok === true) setOpen(false);
         }
-
-        function row(script, key, interactive) {
+        function row(script, key, interactive, groupDir) {
           const common = {
             key,
             className: 'dsh-svc-row' + (interactive ? ' is-button' : ''),
@@ -561,7 +533,7 @@ window.__ModuleLoader__.load({
                   ...common,
                   type: 'button',
                   onClick: () => {
-                    void launch(script);
+                    void launch(script, groupDir);
                   },
                 },
                 body,
@@ -613,7 +585,7 @@ window.__ModuleLoader__.load({
             nodes.push(groupHeading(group, false, collapsed, toggle));
             if (collapsed.has(group.id)) return;
             sortScripts(group.scripts).forEach((script, index) => {
-              nodes.push(row(script, 'row-' + groupIndex + '-' + index, true));
+              nodes.push(row(script, 'row-' + groupIndex + '-' + index, true, group.dir));
             });
           });
           return nodes;
@@ -634,7 +606,7 @@ window.__ModuleLoader__.load({
                     className: 'dsh-svc-item',
                     title: script.command,
                     onClick: () => {
-                      void launch(script);
+                      void launch(script, group.dir);
                     },
                   },
                   RuntimeBadge(script.command, 'badge'),
@@ -666,6 +638,66 @@ window.__ModuleLoader__.load({
         }
 
         /** Right-sidebar tab: the list, with its directory and a refresh control. */
+        /** Started services of this Session: state, output and stop. */
+        function RunningBlock(props) {
+          const services = useServices(props.sessionId);
+          const [openId, setOpenId] = React.useState('');
+          if (services.length === 0) return null;
+          const rows = services.map((service) => {
+            const stateClass =
+              service.state === 'running'
+                ? ' is-running'
+                : service.state === 'failed'
+                  ? ' is-failed'
+                  : service.state === 'exited'
+                    ? ' is-exited'
+                    : '';
+            return h(
+              'div',
+              { key: service.id, className: 'dsh-svc-run-row', title: service.command },
+              h('span', { className: 'dsh-svc-dot' + stateClass }),
+              h(
+                'span',
+                { className: 'dsh-svc-run-name' },
+                service.state === 'exited' || service.state === 'failed'
+                  ? service.name + ' · ' + (service.exitCode ?? service.state)
+                  : service.name,
+              ),
+              h(
+                'button',
+                {
+                  type: 'button',
+                  className: 'dsh-svc-run-button',
+                  onClick: () => setOpenId(openId === service.id ? '' : service.id),
+                },
+                t('run.output'),
+              ),
+              service.state === 'running'
+                ? h(
+                    'button',
+                    {
+                      type: 'button',
+                      className: 'dsh-svc-run-button',
+                      onClick: () => {
+                        void postJson(STOP_ROUTE + encodeURIComponent(String(props.sessionId)), {
+                          id: service.id,
+                        }).catch(() => {});
+                      },
+                    },
+                    t('run.stop'),
+                  )
+                : null,
+            );
+          });
+          return h(
+            'div',
+            { className: 'dsh-svc-run' },
+            h('div', { className: 'dsh-svc-run-head' }, t('run.title') + ' · ' + String(services.length)),
+            rows,
+            openId === '' ? null : h(OutputView, { sessionId: props.sessionId, id: openId }),
+          );
+        }
+
         function PanelBody(props) {
           useLocaleRevision();
           useStoreRevision();
@@ -706,6 +738,7 @@ window.__ModuleLoader__.load({
               ),
             ),
             h('p', { className: 'dsh-svc-note', key: 'note' }, t('panel.note')),
+            h(RunningBlock, { key: 'running', sessionId }),
             store.notice === ''
               ? null
               : h('p', { className: 'dsh-svc-notice', key: 'notice' }, store.notice),
@@ -906,7 +939,7 @@ window.__ModuleLoader__.load({
               ? h(
                   'p',
                   { className: 'dsh-svc-busy', key: 'busy' },
-                  t('menu.starting') + (store.diag === '' ? '' : ' · ' + store.diag),
+                  t('run.starting'),
                 )
               : null,
             store.notice === ''
