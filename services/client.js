@@ -321,7 +321,7 @@ window.__ModuleLoader__.load({
 .dsh-svc-icon svg{width:11px;height:11px;display:block;}
 .dsh-svc-chip{background:transparent;padding:0;}
 .dsh-svc-name{font-size:12px;line-height:1.3;font-weight:500;}
-.dsh-svc-command{font-size:10px;line-height:1.4;color:var(--dsw-alias-label-secondary);font-family:var(--dsh-font-family-code,monospace);overflow-wrap:anywhere;}
+.dsh-svc-command{min-width:0;font-size:10px;line-height:1.4;color:var(--dsw-alias-label-secondary);font-family:var(--dsh-font-family-code,monospace);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .dsh-svc-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:22px 0;font-size:11px;line-height:1.6;color:var(--dsw-alias-label-secondary);text-align:center;}
 .dsh-svc-spinner{width:16px;height:16px;border-radius:50%;border:2px solid var(--dsw-alias-border-l2);border-top-color:var(--dsw-alias-state-business-primary);animation:dsh-svc-spin .8s linear infinite;}
 @keyframes dsh-svc-spin{to{transform:rotate(360deg);}}
