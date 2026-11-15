@@ -293,8 +293,15 @@ window.__ModuleLoader__.load({
 .dsh-svc-dot.is-exited{background:var(--dsw-alias-state-warn-primary);}
 .dsh-svc-dot.is-failed{background:var(--dsw-alias-state-error-primary);}
 .dsh-svc-run-name{min-width:0;flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.dsh-svc-run-button{flex:none;height:20px;padding:0 6px;border:1px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm);background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;font-size:10px;cursor:pointer;}
-.dsh-svc-run-button.is-armed{border-color:var(--dsw-alias-state-error-primary);color:var(--dsw-alias-state-error-primary);background:color-mix(in srgb,var(--dsw-alias-state-error-primary) 12%,transparent);}
+.dsh-svc-run-button{flex:none;display:inline-flex;align-items:center;justify-content:center;height:20px;padding:0 6px;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm);background:var(--dsw-specific-menu);color:var(--dsw-alias-label-secondary);font:inherit;font-size:10px;cursor:pointer;}
+.dsh-svc-run-button:hover{border-color:var(--dsw-alias-border-l3);color:var(--dsw-alias-label-primary);}
+/* Stop control mirrors the background-job stop button: a 20px square that turns
+   red on hover, and expands into a labelled confirm while armed. */
+.dsh-svc-stop{flex:none;align-self:center;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;width:20px;height:20px;padding:0;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm);background:var(--dsw-specific-menu);color:var(--dsw-alias-label-secondary);font:inherit;font-size:11px;line-height:18px;cursor:pointer;}
+.dsh-svc-stop:hover,.dsh-svc-stop:focus-visible{border-color:color-mix(in srgb,var(--dsw-alias-state-error-primary) 45%,transparent);color:var(--dsw-alias-state-error-primary);}
+.dsh-svc-stop.is-armed,.dsh-svc-stop.is-armed:hover,.dsh-svc-stop.is-armed:focus-visible{width:auto;padding:0 7px;gap:4px;border-color:color-mix(in srgb,var(--dsw-alias-state-error-primary) 45%,transparent);background:color-mix(in srgb,var(--dsw-alias-state-error-primary) 12%,transparent);color:var(--dsw-alias-state-error-primary);}
+.dsh-svc-stop-label{white-space:nowrap;font-size:11px;line-height:18px;}
+.dsh-svc-stop svg{width:10px;height:10px;display:block;}
 .dsh-svc-run-button:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary);}
 .dsh-svc-drawer{display:flex;flex-direction:column;gap:4px;padding:6px 8px;border:1px solid var(--dsw-alias-border-l1);border-radius:8px;background:var(--dsw-alias-bg-layer-2);}
 .dsh-svc-drawer-head{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:10px;color:var(--dsw-alias-label-secondary);}
@@ -325,8 +332,7 @@ window.__ModuleLoader__.load({
 .dsh-svc-item:hover{background:var(--dsw-alias-interactive-bg-hover);}
 .dsh-svc-item:focus-visible{outline:1px solid var(--dsw-alias-state-business-primary);outline-offset:-1px;}
 .dsh-svc-item.is-running .dsh-svc-item-name{color:var(--dsw-alias-state-success-primary);}
-.dsh-svc-item-stop{flex:none;margin-left:auto;height:18px;padding:0 6px;border:1px solid var(--dsw-alias-border-l2);border-radius:4px;background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;font-size:9px;line-height:16px;cursor:pointer;}
-.dsh-svc-item-stop.is-armed{border-color:var(--dsw-alias-state-error-primary);color:var(--dsw-alias-state-error-primary);background:color-mix(in srgb,var(--dsw-alias-state-error-primary) 12%,transparent);}
+.dsh-svc-item-stop{margin-left:auto;}
 .dsh-svc-item-stop:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-state-error-primary);}
 .dsh-svc-item-text{display:flex;flex-direction:column;gap:1px;min-width:0;}
 .dsh-svc-item-name{font-size:12px;line-height:1.3;}
@@ -723,7 +729,8 @@ window.__ModuleLoader__.load({
                           key: 'stop',
                           type: 'button',
                           className:
-                            'dsh-svc-item-stop' + (armedStop === runningId ? ' is-armed' : ''),
+                            'dsh-svc-item-stop dsh-svc-stop' +
+                            (armedStop === runningId ? ' is-armed' : ''),
                           title: armedStop === runningId ? t('run.confirmStop') : t('run.stop'),
                           'aria-label': armedStop === runningId ? t('run.confirmStop') : t('run.stop'),
                           onClick: (event) => {
@@ -736,7 +743,13 @@ window.__ModuleLoader__.load({
                             armStop(runningId);
                           },
                         },
-                        armedStop === runningId ? t('run.confirmStop') : '■',
+                        armedStop === runningId
+                          ? h('span', { className: 'dsh-svc-stop-label' }, t('run.confirmStop'))
+                          : h(
+                              'svg',
+                              { viewBox: '0 0 16 16', 'aria-hidden': true },
+                              h('rect', { x: 4, y: 4, width: 8, height: 8, rx: 1.5, fill: 'currentColor' }),
+                            ),
                       ),
                 ),
               );
@@ -856,8 +869,7 @@ window.__ModuleLoader__.load({
                       {
                         key: 'stop',
                         type: 'button',
-                        className:
-                          'dsh-svc-run-button' + (armedStop === service.id ? ' is-armed' : ''),
+                        className: 'dsh-svc-stop' + (armedStop === service.id ? ' is-armed' : ''),
                         onClick: (event) => {
                           event.stopPropagation();
                           if (armedStop === service.id) {
@@ -868,7 +880,13 @@ window.__ModuleLoader__.load({
                           armStop(service.id);
                         },
                       },
-                      armedStop === service.id ? t('run.confirmStop') : t('run.stop'),
+                      armedStop === service.id
+                        ? h('span', { className: 'dsh-svc-stop-label' }, t('run.confirmStop'))
+                        : h(
+                            'svg',
+                            { viewBox: '0 0 16 16', 'aria-hidden': true },
+                            h('rect', { x: 4, y: 4, width: 8, height: 8, rx: 1.5, fill: 'currentColor' }),
+                          ),
                     )
                   : null,
                 service === undefined
