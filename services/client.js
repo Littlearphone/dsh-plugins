@@ -575,66 +575,6 @@ window.__ModuleLoader__.load({
             () => 0,
           );
         }
-        /**
-         * Clicking a script starts it as a Host-owned process. The panel shows
-         * its state and output; nothing is typed into the sidebar terminal, which
-         * has no public way to receive a command.
-         */
-        async function launch(script, groupDir) {
-          store.notice = '';
-          store.busy = true;
-          emit();
-          try {
-            const created = await postJson(START_ROUTE + encodeURIComponent(String(store.sessionId)), {
-              name: script.name,
-              command: script.command,
-              dir: groupDir ?? '',
-            });
-            store.busy = false;
-            store.notice = '';
-            // Open the panel on the service that just started, with its output.
-            store.focusServiceId = String(created?.service?.id ?? '');
-            try {
-              controller?.openTab(KIND);
-            } catch (error) {
-              console.error('[services] cannot open the panel', error);
-            }
-            setOpen(false);
-          } catch (error) {
-            store.busy = false;
-            store.notice = t('run.failed') + ' ' + String(error?.message ?? error);
-          }
-          emit();
-        }
-        function row(script, key, interactive, groupDir) {
-          const common = {
-            key,
-            className: 'dsh-svc-row' + (interactive ? ' is-button' : ''),
-            title: script.command,
-          };
-          const body = [
-            RuntimeBadge(script.command, 'badge'),
-            h(
-              'span',
-              { className: 'dsh-svc-row-text', key: 'text' },
-              h('span', { className: 'dsh-svc-name', key: 'name' }, script.name),
-              h('span', { className: 'dsh-svc-command', key: 'command' }, script.command),
-            ),
-          ];
-          return interactive
-            ? h(
-                'button',
-                {
-                  ...common,
-                  type: 'button',
-                  onClick: () => {
-                    void launch(script, groupDir);
-                  },
-                },
-                body,
-              )
-            : h('div', common, body);
-        }
 
         /** Guide capsule glyph: a console window with a play marker. */
         function GuideIcon(props) {
@@ -693,18 +633,7 @@ window.__ModuleLoader__.load({
           );
         }
 
-        function panelSections(groups, collapsed, toggle) {
-          const nodes = [];
-          groups.forEach((group, groupIndex) => {
-            nodes.push(groupHeading(group, false, collapsed, toggle));
-            if (collapsed.has(group.id)) return;
-            sortScripts(group.scripts).forEach((script, index) => {
-              nodes.push(row(script, 'row-' + groupIndex + '-' + index, true, group.dir));
-            });
-          });
-          return nodes;
-        }
-
+        
         /**
          * Rows of the dropdown: click starts, and a running service exposes its
          * stop right here so the common action needs no detour through the panel.
@@ -726,12 +655,12 @@ window.__ModuleLoader__.load({
                     tabIndex: 0,
                     title: script.command,
                     onClick: () => {
-                      void launch(script, group.dir);
+                      void launch(script, group.dir, group.kind);
                     },
                     onKeyDown: (event) => {
                       if (event.key === 'Enter' || event.key === ' ') {
                         event.preventDefault();
-                        void launch(script, group.dir);
+                        void launch(script, group.dir, group.kind);
                       }
                     },
                   },
@@ -833,12 +762,12 @@ window.__ModuleLoader__.load({
                   tabIndex: 0,
                   title: script.command,
                   onClick: () => {
-                    void launch(script, group.dir);
+                    void launch(script, group.dir, group.kind);
                   },
                   onKeyDown: (event) => {
                     if (event.key === 'Enter' || event.key === ' ') {
                       event.preventDefault();
-                      void launch(script, group.dir);
+                      void launch(script, group.dir, group.kind);
                     }
                   },
                 },

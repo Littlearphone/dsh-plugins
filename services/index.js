@@ -302,16 +302,74 @@ function shellArgv(shell, command) {
   return [shell, '-c', command];
 }
 
+/**
+ * `npm run` prepends the package's `node_modules/.bin` to PATH; running a script
+ * body directly does not, so a script that calls a locally installed binary
+ * (`concurrently`, `vite`, `tsc`, …) fails with "not recognized". Put the bins of
+ * the script's own package and of the workspace root on PATH ourselves.
+ */
+function withLocalBins(environment, dirs) {
+  const windows = environment.platform === 'windows';
+  const separator = windows ? ';' : ':';
+  const key = windows ? 'Path' : 'PATH';
+  const current = process.env[key] ?? process.env.PATH ?? process.env.Path ?? '';
+  const prefix = [...new Set(dirs.filter((dir) => typeof dir === 'string' && dir !== ''))].join(separator);
+  if (prefix === '') return undefined;
+  return {
+    ...process.env,
+    [key]: current === '' ? prefix : `${prefix}${separator}${current}`,
+  };
+}
+
+/**
+ * How npm-kind scripts are launched: through the package manager, not as the raw
+ * script text. `npm run` is what puts `node_modules/.bin` on PATH and what a
+ * developer means by "run this script" — running the body directly breaks any
+ * script that calls a locally installed CLI (`concurrently`, `vite`, `tsc`, …).
+ */
+async function packageManagerFor(dir, root) {
+  const candidates = dir === root ? [root] : [dir, root];
+  for (const candidate of candidates) {
+    for (const [file, manager] of [
+      ['pnpm-lock.yaml', 'pnpm'],
+      ['yarn.lock', 'yarn'],
+      ['package-lock.json', 'npm'],
+    ]) {
+      try {
+        await readFile(join(candidate, file), 'utf8');
+        return manager;
+      } catch {
+        /* try the next marker */
+      }
+    }
+  }
+  return 'npm';
+}
+
 /** One managed launch: argv built from the platform shell plus the script line. */
-async function spawnService(ctx, sessionId, request) {
+async function spawnService(ctx, sessionId, request, root) {
   const subprocess = ctx.get('subprocess');
   if (subprocess === undefined) return { error: 'subprocess-unavailable' };
   const environment = await subprocess.terminalEnvironment();
-  const command = String(request.command ?? '');
+  const cwd = request.cwd;
+
+  let command;
+  if (request.kind === 'go') {
+    command = String(request.command ?? '');
+  } else {
+    const name = String(request.name ?? '');
+    if (name === '') return { error: 'empty-script' };
+    const manager = await packageManagerFor(cwd, root);
+    command = `${manager} run ${name}`;
+  }
   if (command === '') return { error: 'empty-command' };
   const shell = environment.defaultShell;
   if (shell === undefined) return { error: 'no-shell' };
   const argv = shellArgv(shell, command);
+  const env = withLocalBins(environment, [
+    join(cwd, 'node_modules', '.bin'),
+    join(root, 'node_modules', '.bin'),
+  ]);
 
   const id = 'svc-' + Math.random().toString(36).slice(2, 10);
   const key = serviceKey(sessionId, id);
@@ -329,7 +387,8 @@ async function spawnService(ctx, sessionId, request) {
   try {
     const handle = subprocess.spawn({
       argv,
-      cwd: request.cwd,
+      cwd,
+      env,
       stdio: {
         stdin: 'ignore',
         stdout: { maxBytes: 256 * 1024 },
@@ -485,12 +544,12 @@ function createHandler(ctx) {
         return;
       }
       const cwd = body.dir === undefined || body.dir === '' ? dir : join(dir, String(body.dir));
-      const started = await spawnService(ctx, sessionId, {
-        name: body.name,
-        command: body.command,
-        dir: body.dir,
-        cwd,
-      });
+      const started = await spawnService(
+        ctx,
+        sessionId,
+        { name: body.name, command: body.command, dir: body.dir, kind: body.kind, cwd },
+        dir,
+      );
       if (started.error !== undefined) {
         reply(response, 500, started);
         return;
