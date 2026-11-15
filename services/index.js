@@ -11,8 +11,9 @@
  * rest of the harness uses — no guessing from headers or client state.
  */
 import { execFileSync } from 'node:child_process';
-import { readdir, readFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { mkdir, readFile, readdir, rename, writeFile } from 'node:fs/promises';
+import { homedir } from 'node:os';
+import { dirname, join } from 'node:path';
 
 /** Route the browser half calls, relative to the page origin. */
 const ROUTE_PATH = '/services';
@@ -287,6 +288,56 @@ function serviceKey(sessionId, id) {
 }
 
 /**
+ * Ids this Host has launched, written to disk so a crash or a hard kill still
+ * leaves a trail. The next start reaps whatever those markers still point at.
+ */
+function registryFile() {
+  const home = process.env.DSH_HOME ?? join(homedir(), '.dsh');
+  return join(home, 'services', 'running.json');
+}
+
+async function readRegistry() {
+  try {
+    const parsed = JSON.parse(await readFile(registryFile(), 'utf8'));
+    return Array.isArray(parsed?.ids) ? parsed.ids.filter((id) => typeof id === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+async function writeRegistry(ids) {
+  const file = registryFile();
+  try {
+    await mkdir(dirname(file), { recursive: true });
+    const temporary = file + '.tmp';
+    await writeFile(temporary, JSON.stringify({ ids }), 'utf8');
+    await rename(temporary, file);
+  } catch (error) {
+    console.error('[services] cannot write the launch registry', error);
+  }
+}
+
+async function rememberLaunch(id) {
+  const ids = await readRegistry();
+  if (!ids.includes(id)) ids.push(id);
+  await writeRegistry(ids);
+}
+
+async function forgetLaunch(id) {
+  const ids = await readRegistry();
+  await writeRegistry(ids.filter((entry) => entry !== id));
+}
+
+/** Kill anything a previous Host left behind (crash, forced quit, reload). */
+async function reapPreviousLaunches() {
+  const ids = await readRegistry();
+  if (ids.length === 0) return;
+  for (const id of ids) killTree(findMarkedPids(id));
+  await writeRegistry([]);
+  console.error('[services] reaped ' + ids.length + ' launch(es) from a previous run');
+}
+
+/**
  * Every launch carries a unique marker in its command line, in the shell's own
  * syntax: `set "DSH_SVC=<id>"` / `$env:DSH_SVC=...`. The marker is what makes a
  * tree findable later — the shell's own pid is not exposed by the spawn handle,
@@ -438,6 +489,7 @@ async function spawnService(ctx, sessionId, request, root) {
     handle: undefined,
   };
   RUNNING.set(key, record);
+  await rememberLaunch(id);
   try {
     const handle = subprocess.spawn({
       argv,
@@ -615,6 +667,7 @@ function createHandler(ctx) {
         if (!key.startsWith(prefix)) continue;
         if (record.state === 'running' || record.state === 'stopping') continue;
         killTree(findMarkedPids(record.id));
+        await forgetLaunch(record.id);
         RUNNING.delete(key);
         removed += 1;
       }
@@ -670,6 +723,7 @@ function createHandler(ctx) {
       try {
         record.handle?.terminate();
         killTree(findMarkedPids(record.id));
+        await forgetLaunch(record.id);
         record.state = 'stopping';
         reply(response, 200, { ok: true });
       } catch (error) {
@@ -734,6 +788,11 @@ export function apply(ctx) {
     console.error('[services] the web server service is unavailable');
     return;
   }
+  // Reap anything a previous Host life left running (crash, forced quit); the
+  // registry is what makes "closing dsh also cleans up" hold without a graceful
+  // shutdown ever happening.
+  void reapPreviousLaunches();
+
   const handler = createHandler(ctx);
   ctx.effect(
     () => {
@@ -750,6 +809,7 @@ export function apply(ctx) {
             /* the process may already be gone */
           }
           killTree(findMarkedPids(record.id));
+          void forgetLaunch(record.id);
         }
         RUNNING.clear();
       };

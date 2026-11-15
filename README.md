@@ -8,9 +8,11 @@
 
 | 目录 | 包名 | 说明 |
 |---|---|---|
-| [`sidebar-notes`](sidebar-notes/README.md) | `@local/sidebar-notes` | 便签的 Host 存储 + 同源路由参考实现（入口已移除），另带右侧栏指南页的方块网格样式 |
-| [`task-board`](task-board/README.md) | `@local/task-board` | 按状态分轨道的任务板（交互原型）：轨道内排序 + 跨轨道拖拽，入口在会话头部右侧工具区 |
-| [`services`](services/README.md) | `@local/services` | 工作区启动脚本：右侧栏「服务」面板 + 会话头部下拉，点一项把命令发到对话执行 |
+| [`task-board`](task-board/README.md) | `@local/task-board` | 按状态分轨道的任务板（交互原型）+ 右侧栏指南页的方块网格样式 |
+| [`services`](services/README.md) | `@local/services` | 工作区启动脚本与 Go 程序：右侧栏「服务」面板 + 会话头部下拉，Host 侧自管进程、可看输出、可停止 |
+
+`sidebar-notes/` 是**已退役**的插件：界面入口全部移除，指南页网格样式已搬到 `task-board`，
+它不再安装到 profile 里，目录保留仅作 Host 存储与同源路由的参考实现。
 
 仓库根有一个 `package.json`，只提供 `npm run check`（逐个 `node --check` 三个插件的
 Host/Client 半并校验 locale JSON），不参与插件安装。
@@ -23,7 +25,7 @@ GUI 的插件安装入口填的也是同一个值。
 ### 本地开发：绝对路径（改代码即时生效）
 
 ```
-D:\DataCenter\Documents\IdeaProjects\dsh-plugins\sidebar-notes
+D:\DataCenter\Documents\IdeaProjects\dsh-plugins\services
 ```
 
 依赖会以 `link:` 记录，profile 的 `node_modules` 里是一个指向该目录的 junction，源码改动直接
@@ -34,20 +36,20 @@ D:\DataCenter\Documents\IdeaProjects\dsh-plugins\sidebar-notes
 一个仓库多个插件，所以必须带 `#path:/<子目录>`：
 
 ```
-github:Littlearphone/dsh-plugins#path:/sidebar-notes
+github:Littlearphone/dsh-plugins#path:/services
 ```
 
 带版本（推荐，可复现）：
 
 ```
-github:Littlearphone/dsh-plugins#v0.1.0&path:/sidebar-notes
-github:Littlearphone/dsh-plugins#a55f7e3&path:/sidebar-notes
+github:Littlearphone/dsh-plugins#v0.1.0&path:/services
+github:Littlearphone/dsh-plugins#a55f7e3&path:/services
 ```
 
 等价的完整 URL 写法（带 `.git` 更稳）：
 
 ```
-https://github.com/Littlearphone/dsh-plugins.git#main&path:/sidebar-notes
+https://github.com/Littlearphone/dsh-plugins.git#main&path:/services
 ```
 
 规则：`#` 后面用 `&` 把「版本」和「子目录」连起来，`path:` 的值从仓库根开始、以 `/` 开头。
@@ -56,17 +58,17 @@ https://github.com/Littlearphone/dsh-plugins.git#main&path:/sidebar-notes
 
 | 填法 | 原因 |
 |---|---|
-| `Littlearphone/dsh-plugins#path:/sidebar-notes` | 裸简写 pnpm 认，但 plugin-manager 的解析器把它当非法包名 |
-| `https://github.com/…/tree/main/sidebar-notes` | 这是网页地址不是 git 地址，报 `a URL must point at a git repository or a tarball` |
-| `./sidebar-notes` | 相对路径会解析到 profile 目录里去，必须绝对路径 |
+| `Littlearphone/dsh-plugins#path:/services` | 裸简写 pnpm 认，但 plugin-manager 的解析器把它当非法包名 |
+| `https://github.com/…/tree/main/services` | 这是网页地址不是 git 地址，报 `a URL must point at a git repository or a tarball` |
+| `./services` | 相对路径会解析到 profile 目录里去，必须绝对路径 |
 
 ## 装完之后怎么确认
 
 1. 安装结果是 `application: applied`；`warnings` 里的内容要读完再判断，`failed` 需要排查。
 2. 插件管理器里能看到这个 bundle 和它插入的行（row）。
-3. `sidebar-notes` 额外验证：会话头部出现「便签」按钮；右侧栏指南页出现「便签」卡片；
+3. `services` 额外验证：会话头部出现「便签」按钮；右侧栏指南页出现「便签」卡片；
    Host 半边带 HTTP 路由，可以探活：
-   `GET http://127.0.0.1:<端口>/sidebar-notes/notes/probe` → 应返回 `{"text":""}`。
+   `GET http://127.0.0.1:<端口>/services/list/probe` → 应返回 `{"error":"unknown-session"}`。
 
 ## 更新与卸载
 
@@ -75,7 +77,7 @@ https://github.com/Littlearphone/dsh-plugins.git#main&path:/sidebar-notes
   不重装不会跟进新提交。
 - **脚本改动**（`index.js` / `client.js`）属于「替换已安装包」，git 安装方式下需要重启 dsh
   才会加载新的 JS 模块；本地 `link:` 安装下通常由 HMR 直接生效。
-- **卸载**：`remove_bundle @local/sidebar-notes`。插件自己的数据（如 `$DSH_HOME/sidebar-notes/`）
+- **卸载**：`remove_bundle @local/services`。插件自己的数据（如 `$DSH_HOME/services/`）
   不会被删除。
 
 ## 编写约定

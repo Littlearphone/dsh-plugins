@@ -12,20 +12,36 @@
 3. 读该目录的 `package.json`，返回 `scripts` 列表（没有文件时返回 `hasManifest: false`）；
 4. 点脚本 → 在右侧栏**新建一个终端**、把命令写进去，并把那个终端开成标签页。
 
-## 执行路径：为什么绕了一圈
+## 执行：Host 侧自管进程
 
-侧栏终端插件（`dsh-client-ui-sidebar-terminal`）**没有对外暴露任何执行入口**——没有 client service，
-也没有 `run`/`write` 之类的方法，它的标签参数只接受 `{ terminalId }` 或 `{ shellPath }`。所以能用的
-唯一通道是 Host 的 `terminalController` Remote：
+点脚本的启动按钮 → `POST /services/start/<sessionId>` → Host 用 `ctx.subprocess.spawn` 起进程，
+stdout/stderr 用 collect 模式收着，浏览器轮询 `state` 与 `output`。
 
-1. `create` 建一个终端，拿到 `terminalId`；
-2. `attach` 拿输入权，等第一帧画面到了再把命令写进去（避免命令打在 shell 就绪之前）；
-3. 写完后断开我们这条 attachment，把输入权交还给标签页；
-4. `sidebarRight.openTab('terminal', { params: { terminalId } })` 把它显示出来。
+**启动方式按类型区分**（这是不同指令的启动条件不同）：
 
-如果第 1、2 步的签名和实际不符，失败原因会直接显示在面板/下拉里（红字），不会静默。这条路径没有
-"官方 API"，用的是同一个 Host Remote，因此**换版本时最可能先坏的就是这里**。
+| 类型 | 实际执行 | 工作目录 |
+|---|---|---|
+| npm 脚本 | `<pm> run <name>`（按最近 lockfile 判定 pnpm / yarn / npm） | 脚本所属包目录 |
+| Go 程序 | `go run ./path/to/cmd` 原样执行 | 工作区根（符合 `go.work` 解析） |
 
+走包管理器而不是直接跑脚本正文，是因为 `npm run` 才会把 `node_modules/.bin` 放进 PATH——
+`concurrently` 这类本地 CLI 只有这样才能找到。作为双保险，也把包与根的 `.bin` 注入 PATH。
+
+## 生命周期：重装、卸载、关闭 dsh 都要收干净
+
+一条启动命令会带上唯一标记（`set "DSH_SVC=<id>" && …` / `$env:DSH_SVC=…`），
+停止时按标记用 WMI 找回根进程，再 `taskkill /T /F` **连子孙一起结束**——
+Windows 上只打 `cmd` 的话，`pnpm → node → vite` 会变成占着端口的孤儿。
+
+四个时机都会收：**停止**、**清理**、**插件卸载（重装/删除 bundle）**、**下一次 Host 启动**。
+
+最后一条靠一个落盘的注册表 `$DSH_HOME/services/running.json`：启动时写入 id，
+清理后移除。dsh 被强杀（没机会跑清理）时，下一次启动 `apply` 会读这个文件、
+按标记把上一世留下的进程全部回收再清空。**所以"关闭 dsh"也能保证**——
+强杀留下的痕迹会由下一次启动补收。
+
+三条实测：`stop` 后带标记进程归零；`remove_bundle` 时同样归零；伪造一条注册表 + 一个带标记的
+孤儿进程，重新安装后孤儿被杀、注册表被清空。
 ## 为什么发现逻辑在 Host
 
 浏览器读不到工作区文件；而相对路径路由在任何端口都能用（`dsh web` 的端口是随机的，写死 origin 会失效）。
@@ -158,6 +174,12 @@ dsh --profile web plugin install D:\DataCenter\Documents\IdeaProjects\dsh-plugin
 
 ## 已知取舍
 
-- **只读根目录**：目前只读工作目录根部的 `package.json`，monorepo 的子包脚本还没扫（下一步可以用 `pnpm-workspace.yaml` 的 globs）。
-- **发送即执行**：点一项会把命令填进输入框并立即发送。如果你希望"只填入、由我自己按回车"，把 `sendCommand` 里的 `submit()` 去掉即可。
-- **没有自定义命令**：只能看到 `package.json` 里声明的脚本，不能手工添加（比如 `docker compose up`）。
+- **输出只回传尾部**：Host 每次回**最后 64KB**（带 `truncated` 标记），客户端最多渲染 400 行。
+  想看完整历史要改成按 offset 增量拉取（`readFrom(nextOffset)` 已支持），再谈虚拟滚动。
+- **匹配按命令文本**：同一条命令在多个包里出现时，它们共用一个状态。要精确得给每次启动一个
+  与具体行绑定的 id。
+- **结束的记录要手动清理**：点面板头部的「清理」或等下次重启；没有自动过期策略。
+- **没有自定义命令**：只能看到 `package.json` 的 scripts 和 `package main`，不能手工添加
+  （比如 `docker compose up`）。
+- **标记依赖 PowerShell**：按标记找进程用的是 `Get-CimInstance Win32_Process`，只在 Windows 生效；
+  其它平台只做 `kill`，不保证整树。
