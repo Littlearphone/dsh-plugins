@@ -283,9 +283,9 @@ window.__ModuleLoader__.load({
 .dsh-svc-notice{margin:0;padding:0 12px;font-size:10px;line-height:1.5;color:var(--dsw-alias-state-error-primary);overflow-wrap:anywhere;}
 .dsh-svc-busy{margin:0;padding:0 12px;font-size:10px;line-height:1.5;color:var(--dsw-alias-label-secondary);overflow-wrap:anywhere;}
 .dsh-svc-entry-block{display:flex;flex-direction:column;gap:4px;}
-.dsh-svc-chip{flex:none;font-size:9px;line-height:1.6;color:var(--dsw-alias-label-secondary);white-space:nowrap;}
-.dsh-svc-chip.is-running{color:var(--dsw-alias-state-success-primary);}
-.dsh-svc-chip.is-done{color:var(--dsw-alias-state-warn-primary);}
+.dsh-svc-chip{flex:none;padding:1px 6px;border-radius:999px;background:var(--dsw-alias-bg-layer-2);font-size:9px;line-height:1.6;color:var(--dsw-alias-label-secondary);white-space:nowrap;}
+.dsh-svc-chip.is-running{background:color-mix(in srgb,var(--dsw-alias-state-success-primary) 16%,transparent);color:var(--dsw-alias-state-success-primary);}
+.dsh-svc-chip.is-done{background:color-mix(in srgb,var(--dsw-alias-state-warn-primary) 14%,transparent);color:var(--dsw-alias-state-warn-primary);}
 .dsh-svc-row.is-running{border-left-color:var(--dsw-alias-state-success-primary);}
 .dsh-svc-run{margin:0;padding:2px 12px 0;display:flex;flex-direction:column;gap:4px;}
 .dsh-svc-run-head{display:flex;align-items:center;justify-content:space-between;font-size:10px;letter-spacing:.04em;text-transform:uppercase;color:var(--dsw-alias-label-secondary);}
@@ -320,7 +320,6 @@ window.__ModuleLoader__.load({
 .dsh-svc-icon{flex:none;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;width:20px;height:20px;padding:0;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm);background:var(--dsw-specific-menu);color:var(--dsw-alias-label-secondary);cursor:pointer;}
 .dsh-svc-icon:hover{border-color:var(--dsw-alias-border-l3);color:var(--dsw-alias-label-primary);}
 .dsh-svc-icon svg{width:11px;height:11px;display:block;}
-.dsh-svc-chip{background:transparent;padding:0;}
 .dsh-svc-name{font-size:12px;line-height:1.3;font-weight:500;}
 .dsh-svc-command{min-width:0;font-size:10px;line-height:1.4;color:var(--dsw-alias-label-secondary);font-family:var(--dsh-font-family-code,monospace);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .dsh-svc-command::before{content:'$ ';color:var(--dsw-alias-label-tertiary);}
