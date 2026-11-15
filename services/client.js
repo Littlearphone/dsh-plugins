@@ -423,7 +423,16 @@ window.__ModuleLoader__.load({
     }
 
     return {
-      inject: ['slots', 'sidebarRightTabs', 'sidebarRight', 'locale', 'remote'],
+      // Dotted names are how a generated Remote namespace is injected: `remote`
+      // alone satisfies the carrier, `remote.terminal` the namespace itself.
+      inject: [
+        'slots',
+        'sidebarRightTabs',
+        'sidebarRight',
+        'locale',
+        'remote',
+        'remote.terminal',
+      ],
 
       apply(ctx) {
         const locale = ctx.get('locale');
