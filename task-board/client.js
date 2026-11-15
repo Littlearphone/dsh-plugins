@@ -94,7 +94,7 @@ window.__ModuleLoader__.load({
    beside it: the dropdown uses border .5px solid --dsw-alias-border-l2 and its
    items use --dsw-radius-md. A ghost Button carries no border at all, so
    copying it can never produce the outlined look asked for here. */
-.dsh-board-entry{box-sizing:border-box;display:flex;align-items:center;justify-content:center;width:28px;height:28px;flex:none;margin:0;padding:0;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-md);background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;line-height:0;vertical-align:middle;cursor:pointer;}
+.dsh-board-entry{box-sizing:border-box;display:flex;align-items:center;justify-content:center;width:24px;height:24px;flex:none;margin:0;padding:0;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-md);background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;line-height:0;vertical-align:middle;cursor:pointer;}
 .dsh-board-entry:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary);}
 .dsh-board-entry:active{background:var(--dsw-alias-interactive-bg-active);}
 .dsh-board-entry svg{width:15px;height:15px;display:block;}
@@ -269,18 +269,26 @@ window.__ModuleLoader__.load({
           useLocaleRevision();
           const ref = React.useRef(null);
 
-          // Take the height of the header button beside us, measured live. The
-          // border, radius and fill stay ours; only the box height is borrowed,
-          // so whatever this build's header controls actually measure is what
-          // this button measures.
+          // Size from the element physically next to us in the same row, not from
+          // "the first menu button in the header": the utilities before us are
+          // menu buttons too and need not share this row's control size. The
+          // neighbour's rendered box (24px here) is the real answer.
           React.useEffect(() => {
             const button = ref.current;
             if (button === null) return;
-            const scope = button.closest('header') ?? document;
-            const neighbour = scope.querySelector('button[aria-haspopup="menu"]');
-            if (neighbour === null || neighbour === button) return;
-            const height = window.getComputedStyle(neighbour).height;
-            if (height !== '' && height !== 'auto') button.style.height = height;
+            const wrapper = button.parentElement;
+            const row = wrapper?.parentElement;
+            if (wrapper === null || row === null) return;
+            const siblings = Array.from(row.children);
+            const index = siblings.indexOf(wrapper);
+            if (index === -1) return;
+            const neighbour = siblings[index + 1] ?? siblings[index - 1];
+            if (neighbour === undefined) return;
+            const box = neighbour.getBoundingClientRect();
+            if (box.height <= 0) return;
+            const size = Math.round(box.height) + 'px';
+            button.style.height = size;
+            button.style.width = size;
           });
 
           if (controller === undefined) return null;
