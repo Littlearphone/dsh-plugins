@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Task board">
+  <rect x="8" y="12" width="14" height="40" rx="4" fill="none" stroke="#4C6FE7" stroke-width="3" />
+  <rect x="25" y="12" width="14" height="40" rx="4" fill="none" stroke="#4C6FE7" stroke-width="3" />
+  <rect x="42" y="12" width="14" height="40" rx="4" fill="#4C6FE7" />
+  <g fill="#4C6FE7">
+    <rect x="11" y="18" width="8" height="6" rx="2" />
+    <rect x="11" y="28" width="8" height="6" rx="2" />
+    <rect x="28" y="18" width="8" height="6" rx="2" />
+  </g>
+  <g fill="#FFFFFF">
+    <rect x="45" y="18" width="8" height="6" rx="2" />
+    <rect x="45" y="28" width="8" height="6" rx="2" />
+  </g>
+</svg>

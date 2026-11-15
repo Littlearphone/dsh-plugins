@@ -9,6 +9,7 @@
 | 目录 | 包名 | 说明 |
 |---|---|---|
 | [`sidebar-notes`](sidebar-notes/README.md) | `@local/sidebar-notes` | 右侧栏便签面板：会话头部入口 + 指南页卡片，笔记存 Host 侧（$DSH_HOME），不依赖 localStorage |
+| [`task-board`](task-board/README.md) | `@local/task-board` | 按状态分轨道的任务板（交互原型）：轨道内排序 + 跨轨道拖拽，入口在会话头部右侧工具区 |
 
 ## 安装
 
