@@ -114,12 +114,10 @@ controller.registerCloseHandler(KIND, (sessionId, tab) => {
 - 指南页这版 CSS 里**没有任何 `:has()`**，全部是属性/结构/`:not()`，少一层选择器兼容风险。
 - 属性选择器重复写一遍（`[data-sidebar-right-guide][data-sidebar-right-guide]`）是为了在
   特异性上和产品那条类名规则打平并胜出，从而不依赖样式表的先后顺序。
-- 布局是 grid：`repeat(auto-fit, minmax(min(128px, 45%), 160px))`。最小列宽取
-  `min(--dsh-guide-tile-min, 45%)`：面板够宽时是 128px，窄到 45% 更小时下限自己缩，于是
-  **窄到任何程度都稳定两列、不会掉到一列，也不会出现三列挤一个**。一行几个由
-  `floor((可用宽 + gap) / (下限 + gap))` 推出：面板 < 448px → 2 个，448–588px → 3 个，
-  ≥ 588px → 4 个（四张卡时正好全部排一行）。容器 `max-width` 封顶四列，整组居中；
-  罗盘用 `grid-column: 1 / -1` 独占一行。调密度改 `--dsh-guide-tile-min` / `--dsh-guide-tile-max` 即可。
+- 布局是 grid：`repeat(auto-fit, 104px)`——**轨道固定尺寸**，一行能放几个由面板宽度推出，
+  空轨道会被 `auto-fit` 折叠，剩下的方块作为一组居中；所以删掉一张卡片后其余会自动重新居中，
+  而不是留一个空槽。罗盘用 `grid-column: 1 / -1` 独占一行。调密度改 `--dsh-guide-tile` 即可
+  （早先用过 `minmax()` 拉伸区间，会按宽度算出不同列数、看起来像"默认四列"，已弃用）。
 - 样式表挂在哪里：已安装的 bundle **拿不到** `styles.insert()`（那是被求值的动态包才有的符号），
   所以由一个无可见输出的组件挂在 `shell.overlay`（root 域、整帧常驻）里带进页面。
 - 卡片、固定/取消固定、More 菜单、快捷键文案全部仍由产品实现——样式只改长相，不改行为。

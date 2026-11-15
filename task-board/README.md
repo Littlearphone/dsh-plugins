@@ -6,8 +6,12 @@
 ## 怎么看到它
 
 会话头部**右侧**的工具区（`conversation.session.header.utilities`）会出现一个图标按钮：28×28、
-带边框、图标是三列看板，悬浮提示「任务板」（`title`/`aria-label`）。它排在最右那个「更多」
-菜单（`session-log-download`，默认 order 0）**左边**——本插件取 order -1。
+图标是三列看板，悬浮提示「任务板」（`title`/`aria-label`）。它排在最右那个「更多」菜单
+（`session-log-download`，默认 order 0）**左边**——本插件取 order -1。
+
+样式刻意对齐产品按钮（primitives `Button size="sm"` 的 outline 变体）：`--dsw-radius-sm` 圆角 +
+发丝内描边 `inset 0 0 0 var(--dsh-hairline-width, .5px) var(--dsw-alias-border-l3)`，hover/active
+用 `--dsw-alias-interactive-bg-hover/active`。不是 1px 实线边框。
 
 点它打开右侧栏的任务板标签页。
 
