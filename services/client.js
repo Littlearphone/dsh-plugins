@@ -414,7 +414,16 @@ window.__ModuleLoader__.load({
       try {
         const before = new Set(await listIds());
         const shells = unwrapRemote(await api.shells(sessionId));
-        const shellPath = Array.isArray(shells) ? shells[0]?.path : undefined;
+        // Honour the shell the terminal guide remembers (`dsh.terminal.shell`),
+        // and fall back to the first verified shell the Host offers.
+        let remembered;
+        try {
+          remembered = typeof localStorage === 'undefined' ? null : localStorage.getItem('dsh.terminal.shell');
+        } catch {
+          remembered = null;
+        }
+        const list = Array.isArray(shells) ? shells : [];
+        const shellPath = (list.find((shell) => shell?.path === remembered) ?? list[0])?.path;
         if (shellPath === undefined) return { ok: false, detail: 'no shell available' };
 
         openTerminalTab(shellPath);
@@ -459,8 +468,9 @@ window.__ModuleLoader__.load({
             }
           })();
         });
-        // Hand input back to the tab; the process keeps running.
-        setTimeout(() => lifetime.abort(), 2000);
+        // Hand input back to the tab as soon as the command is in: while this
+        // attachment lives the tab shows its "take over input" state.
+        setTimeout(() => lifetime.abort(), 600);
         return { ok: true, terminalId, typed };
       } catch (error) {
         return { ok: false, detail: 'terminal failed: ' + String(error?.message ?? error) };
