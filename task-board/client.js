@@ -97,16 +97,18 @@ window.__ModuleLoader__.load({
 
     /**
      * One identity colour per lane, from the product's own state tokens. The
-     * six families they resolve to are neutral, deepseek blue, violet, amber,
-     * red and green — six distinguishable hues, no grey wedged in the middle.
+     * families they resolve to are neutral, deepseek blue, violet, amber, red
+     * and green. Red is deliberately unused: it belongs to a real problem, not
+     * to the ordinary wait for a verdict. "Ready" borrows a lighter blue so it
+     * reads as "about to become active" next to the active lane's full blue.
      * Note `--dsw-alias-brand-primary` is ink (near-black/white), not a hue.
      */
     const LANE_ACCENT = {
       backlog: 'var(--dsw-alias-state-idle-primary)',
-      design: 'var(--dsw-alias-state-business-primary)',
-      ready: 'var(--dsw-alias-state-done-primary)',
-      doing: 'var(--dsw-alias-state-warn-primary)',
-      review: 'var(--dsw-alias-state-error-primary)',
+      design: 'var(--dsw-alias-state-done-primary)',
+      ready: 'color-mix(in srgb, var(--dsw-alias-state-business-primary) 55%, var(--dsw-alias-bg-layer-1))',
+      doing: 'var(--dsw-alias-state-business-primary)',
+      review: 'var(--dsw-alias-state-warn-primary)',
       done: 'var(--dsw-alias-state-success-primary)',
     };
 
