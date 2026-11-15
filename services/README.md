@@ -168,10 +168,13 @@ Makefile / Taskfile / justfile **目前不解析**：它们不是 Go 的约定�
 ```powershell
 # 本地（link，改代码即时生效）
 dsh --profile web plugin install D:\DataCenter\Documents\IdeaProjects\dsh-plugins\services
+
+# 从 GitHub（必须带 path，因为仓库根不是包）
+dsh --profile web plugin install "github:Littlearphone/dsh-plugins#path:/services"
 ```
 
-或用 `plugin_manager` 的 `install_bundle`，目标传绝对路径。
-
+或用 `plugin_manager` 的 `install_bundle`，目标传上面两种字符串之一。
+以上两种写法都实测装成过（`application: applied`，版本 0.1.1）。
 ## 已知取舍
 
 - **输出只回传尾部**：Host 每次回**最后 64KB**（带 `truncated` 标记），客户端最多渲染 400 行。

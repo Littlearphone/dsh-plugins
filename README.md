@@ -24,26 +24,35 @@ GUI 的插件安装入口填的也是同一个值。
 
 ### 本地开发：绝对路径（改代码即时生效）
 
-```
-D:\DataCenter\Documents\IdeaProjects\dsh-plugins\services
-```
+| 插件 | target |
+|---|---|
+| 任务列表 | `D:\DataCenter\Documents\IdeaProjects\dsh-plugins\task-board` |
+| 服务管理 | `D:\DataCenter\Documents\IdeaProjects\dsh-plugins\services` |
 
 依赖会以 `link:` 记录，profile 的 `node_modules` 里是一个指向该目录的 junction，源码改动直接
-作用到运行中的插件；客户端代码通常由 HMR 直接重载，不需要重启。
+作用到运行中的插件；客户端代码通常由 HMR 直接重载，不需要重启（Host 半改了要重装一次）。
 
 ### 分发给别人：从 GitHub 安装
 
 一个仓库多个插件，所以必须带 `#path:/<子目录>`：
 
+| 插件 | target |
+|---|---|
+| 任务列表 | `github:Littlearphone/dsh-plugins#path:/task-board` |
+| 服务管理 | `github:Littlearphone/dsh-plugins#path:/services` |
+
+带版本（推荐，可复现）——`<ref>` 可以是分支、tag 或 commit：
+
 ```
-github:Littlearphone/dsh-plugins#path:/services
+github:Littlearphone/dsh-plugins#main&path:/task-board
+github:Littlearphone/dsh-plugins#main&path:/services
 ```
 
-带版本（推荐，可复现）：
+仓库目前**没有打 tag**；要按版本安装就先 `git tag v0.1.0 && git push --tags`，
+之后 `#v0.1.0&path:/services` 才解析得到。也可以直接钉 commit：
 
 ```
-github:Littlearphone/dsh-plugins#v0.1.0&path:/services
-github:Littlearphone/dsh-plugins#a55f7e3&path:/services
+github:Littlearphone/dsh-plugins#0047359&path:/services
 ```
 
 等价的完整 URL 写法（带 `.git` 更稳）：
@@ -66,9 +75,11 @@ https://github.com/Littlearphone/dsh-plugins.git#main&path:/services
 
 1. 安装结果是 `application: applied`；`warnings` 里的内容要读完再判断，`failed` 需要排查。
 2. 插件管理器里能看到这个 bundle 和它插入的行（row）。
-3. `services` 额外验证：会话头部出现「服务管理」按钮；右侧栏指南页出现「服务管理」卡片；
-   Host 半边带 HTTP 路由，可以探活：
-   `GET http://127.0.0.1:<端口>/services/list/probe` → 应返回 `{"error":"unknown-session"}`。
+3. **任务列表**（`@local/task-board`）：会话头部右侧工具区出现一个看板图标（悬停提示「任务列表」），
+   点开是右侧栏的任务列表标签页；指南页出现「任务列表」卡片。
+4. **服务管理**（`@local/services`）：会话头部出现「服务管理」按钮（下拉列出脚本）；
+   右侧栏指南页出现「服务管理」卡片；Host 半边带 HTTP 路由，可以探活：
+   `GET http://127.0.0.1:<端口>/services/list/probe` → 404 且 body 为 `{"error":"unknown-session"}`。
 
 ## 更新与卸载
 
@@ -77,7 +88,7 @@ https://github.com/Littlearphone/dsh-plugins.git#main&path:/services
   不重装不会跟进新提交。
 - **脚本改动**（`index.js` / `client.js`）属于「替换已安装包」，git 安装方式下需要重启 dsh
   才会加载新的 JS 模块；本地 `link:` 安装下通常由 HMR 直接生效。
-- **卸载**：`remove_bundle @local/services`。插件自己的数据（如 `$DSH_HOME/services/`）
+- **卸载**：`remove_bundle @local/services`（任务列表则是 `@local/task-board`）。插件自己的数据（如 `$DSH_HOME/services/`）
   不会被删除。
 
 ## 编写约定

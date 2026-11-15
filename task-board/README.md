@@ -39,3 +39,16 @@
 - **持久化**：Host 侧 JSON（沿用已在早期验证过的同源路由模式），键用 workspacePath 而不是 sessionId。
 - **会话关联**：任务挂到会话上、点任务跳转会话、会话活跃时自动改状态。
 - **跨会话编排**：从任务新建/分叉会话并注入上下文——这是独立的子系统，别塞进看板首版。
+
+## 装
+
+```powershell
+# 本地（link，改代码即时生效）
+dsh --profile web plugin install D:\DataCenter\Documents\IdeaProjects\dsh-plugins\task-board
+
+# 从 GitHub（必须带 path，因为仓库根不是包）
+dsh --profile web plugin install "github:Littlearphone/dsh-plugins#path:/task-board"
+```
+
+它同时提供右侧栏指南页的方块网格样式（`GUIDE_CSS`，挂在 `shell.overlay`），
+装与不装会直接改变指南页的外观。
