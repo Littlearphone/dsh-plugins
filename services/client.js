@@ -253,6 +253,7 @@ window.__ModuleLoader__.load({
     const CSS = `
 .dsh-svc-panel{box-sizing:border-box;display:flex;flex-direction:column;gap:8px;height:100%;min-height:0;padding:10px 0 0;overflow:hidden;color:var(--dsw-alias-label-primary);font-size:13px;}
 .dsh-svc-head{display:flex;flex:none;align-items:center;justify-content:space-between;gap:8px;padding:0 12px;}
+.dsh-svc-head-actions{display:flex;flex:none;align-items:center;gap:6px;}
 .dsh-svc-dir{min-width:0;font-size:10px;line-height:1.4;color:var(--dsw-alias-label-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:rtl;text-align:left;}
 .dsh-svc-refresh{flex:none;box-sizing:border-box;height:22px;padding:0 8px;border:1px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm);background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;font-size:11px;cursor:pointer;}
 .dsh-svc-refresh:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary);}
@@ -857,24 +858,28 @@ window.__ModuleLoader__.load({
               { className: 'dsh-svc-head', key: 'head' },
               h('span', { className: 'dsh-svc-dir', title: state.dir }, state.dir),
               h(
-                'button',
-                { className: 'dsh-svc-refresh', key: 'refresh', type: 'button', title: BUILD, onClick: load },
-                t('panel.refresh'),
-              ),
-              finished === 0
-                ? null
-                : h(
-                    'button',
-                    {
-                      className: 'dsh-svc-refresh',
-                      key: 'clear',
-                      type: 'button',
-                      onClick: () => {
-                        void postJson(CLEAR_ROUTE + encodeURIComponent(String(sessionId)), {}).catch(() => {});
+                'div',
+                { className: 'dsh-svc-head-actions', key: 'actions' },
+                h(
+                  'button',
+                  { className: 'dsh-svc-refresh', key: 'refresh', type: 'button', title: BUILD, onClick: load },
+                  t('panel.refresh'),
+                ),
+                finished === 0
+                  ? null
+                  : h(
+                      'button',
+                      {
+                        className: 'dsh-svc-refresh',
+                        key: 'clear',
+                        type: 'button',
+                        onClick: () => {
+                          void postJson(CLEAR_ROUTE + encodeURIComponent(String(sessionId)), {}).catch(() => {});
+                        },
                       },
-                    },
-                    t('run.clear'),
-                  ),
+                      t('run.clear'),
+                    ),
+              ),
             ),
             store.notice === ''
               ? null
