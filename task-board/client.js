@@ -90,14 +90,14 @@ window.__ModuleLoader__.load({
 .dsh-board-card-tag{align-self:flex-start;font-size:9px;line-height:1;padding:3px 6px;border-radius:999px;color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-bg-layer-2);}
 .dsh-board-marker{height:2px;border-radius:1px;background:var(--dsw-alias-brand-primary);}
 .dsh-board-empty{height:40px;border:1px dashed var(--dsw-alias-border-l1);border-radius:8px;}
-/* Header-button metrics, copied from the primitives stylesheet that ships with
-   the page. The neighbour shows a hairline outline, so this mirrors the
-   "outline" variant literally: a transparent half-pixel border plus the inset
-   hairline stroke, and the same 28px height / --dsw-radius-sm as size sm. */
-.dsh-board-entry{box-sizing:border-box;display:flex;align-items:center;justify-content:center;width:28px;height:28px;flex:none;padding:0;margin:0;border:.5px solid transparent;border-radius:var(--dsw-radius-sm);background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;line-height:0;vertical-align:middle;box-shadow:inset 0 0 0 var(--dsh-hairline-width,.5px) var(--dsw-alias-border-l3);cursor:pointer;}
-.dsh-board-entry:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary);}
-.dsh-board-entry:active{background:var(--dsw-alias-interactive-bg-active);}
+/* Only layout lives here. Metrics (height, radius, border, hover fill) are
+   adopted at runtime from the neighbouring Session-header Button, so this
+   button matches whatever build the page is actually running instead of a
+   version transcribed from the installed dist. */
+.dsh-board-entry{box-sizing:border-box;display:flex;align-items:center;justify-content:center;flex:none;margin:0;padding:0;border:0;background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;line-height:0;vertical-align:middle;cursor:pointer;}
 .dsh-board-entry svg{width:15px;height:15px;display:block;}
+.dsh-board-entry.is-standalone{width:28px;height:28px;border-radius:var(--dsw-radius-sm);box-shadow:inset 0 0 0 var(--dsh-hairline-width,.5px) var(--dsw-alias-border-l3);}
+.dsh-board-entry.is-standalone:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary);}
 `;
 
     /** Insertion index under the pointer: how many card midpoints the pointer has passed. */
@@ -267,6 +267,33 @@ window.__ModuleLoader__.load({
          */
         function HeaderEntry() {
           useLocaleRevision();
+          const ref = React.useRef(null);
+
+          // Adopt the neighbour's own Button classes and box metrics instead of
+          // hard-coding them: the page may run a different build than the dist
+          // read offline, and this way height, radius, border and hover fill are
+          // whatever the product itself uses right now.
+          React.useEffect(() => {
+            const button = ref.current;
+            if (button === null) return;
+            const scope = button.closest('header') ?? document;
+            const neighbour = scope.querySelector('button[aria-haspopup="menu"]');
+            if (neighbour === null || neighbour === button) {
+              button.classList.add('is-standalone');
+              return;
+            }
+            button.classList.remove('is-standalone');
+            for (const name of Array.from(neighbour.classList)) {
+              if (/^_(?:button|sm|md|lg|ghost|outline|primary|toolbar)_/.test(name)) {
+                button.classList.add(name);
+              }
+            }
+            const computed = window.getComputedStyle(neighbour);
+            button.style.boxSizing = 'border-box';
+            button.style.width = computed.width;
+            button.style.padding = '0';
+          });
+
           if (controller === undefined) return null;
           const label = t('entry.label');
           return h(
@@ -278,6 +305,7 @@ window.__ModuleLoader__.load({
               {
                 key: 'button',
                 type: 'button',
+                ref,
                 className: 'dsh-board-entry',
                 title: label,
                 'aria-label': label,
