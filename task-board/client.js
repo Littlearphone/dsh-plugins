@@ -22,25 +22,40 @@ window.__ModuleLoader__.load({
     const ZH = {
       'tab.title': '任务板',
       'entry.label': '任务板',
-      'board.hint': '原型：卡片写死，拖拽只改内存。轨道内排序，跨轨道改状态。',
+      'board.hint': '原型：卡片写死，拖拽只改内存，刷新即复位。',
+      'lane.backlog': '待办',
       'lane.design': '设计中',
-      'lane.waiting': '等待实现',
-      'lane.doing': '正在实现',
+      'lane.ready': '待实现',
+      'lane.doing': '实现中',
+      'lane.review': '待验收',
       'lane.done': '已完成',
     };
 
     const EN = {
       'tab.title': 'Board',
       'entry.label': 'Board',
-      'board.hint': 'Prototype: hard-coded cards, drag edits memory only.',
+      'board.hint': 'Prototype: hard-coded cards; drag edits memory only and resets on reload.',
+      'lane.backlog': 'Backlog',
       'lane.design': 'Designing',
-      'lane.waiting': 'Waiting',
+      'lane.ready': 'Ready',
       'lane.doing': 'In progress',
+      'lane.review': 'Review',
       'lane.done': 'Done',
     };
 
-    /** Hard-coded lanes; `titleKey` is resolved through the locale dictionary. */
+    /**
+     * Hard-coded lanes; `titleKey` is resolved through the locale dictionary.
+     * Six states: nothing is planned yet → shaped → settled → being written →
+     * waiting for a human verdict → accepted.
+     */
     const INITIAL_LANES = [
+      {
+        id: 'backlog',
+        titleKey: 'lane.backlog',
+        tasks: [
+          { id: 't0', title: '启动面板：自定义命令（不只是 package.json 里的）', tag: 'service' },
+        ],
+      },
       {
         id: 'design',
         titleKey: 'lane.design',
@@ -50,8 +65,8 @@ window.__ModuleLoader__.load({
         ],
       },
       {
-        id: 'waiting',
-        titleKey: 'lane.waiting',
+        id: 'ready',
+        titleKey: 'lane.ready',
         tasks: [
           { id: 't3', title: '终端复用：验证 terminalController 客户端可达性', tag: 'risk' },
         ],
@@ -64,6 +79,13 @@ window.__ModuleLoader__.load({
         ],
       },
       {
+        id: 'review',
+        titleKey: 'lane.review',
+        tasks: [
+          { id: 't7', title: '轨道配色与卡片左侧色条', tag: 'board' },
+        ],
+      },
+      {
         id: 'done',
         titleKey: 'lane.done',
         tasks: [
@@ -73,29 +95,39 @@ window.__ModuleLoader__.load({
       },
     ];
 
-    /** One identity colour per lane, from the product's own state tokens. */
+    /**
+     * One identity colour per lane, from the product's own state tokens. The
+     * six families they resolve to are neutral, deepseek blue, violet, amber,
+     * red and green — six distinguishable hues, no grey wedged in the middle.
+     * Note `--dsw-alias-brand-primary` is ink (near-black/white), not a hue.
+     */
     const LANE_ACCENT = {
-      design: 'var(--dsw-alias-brand-primary)',
-      waiting: 'var(--dsw-alias-state-idle-primary)',
+      backlog: 'var(--dsw-alias-state-idle-primary)',
+      design: 'var(--dsw-alias-state-business-primary)',
+      ready: 'var(--dsw-alias-state-done-primary)',
       doing: 'var(--dsw-alias-state-warn-primary)',
+      review: 'var(--dsw-alias-state-error-primary)',
       done: 'var(--dsw-alias-state-success-primary)',
     };
 
     const CSS = `
-.dsh-board-root{box-sizing:border-box;display:flex;flex-direction:column;gap:10px;height:100%;min-height:0;min-width:0;padding:12px;overflow:hidden;color:var(--dsw-alias-label-primary);font-size:13px;}
-.dsh-board-hint{flex:none;margin:0;font-size:11px;line-height:1.5;color:var(--dsw-alias-label-secondary);}
+.dsh-board-root{box-sizing:border-box;display:flex;flex-direction:column;gap:10px;height:100%;min-height:0;min-width:0;padding:10px 0 0;overflow:hidden;color:var(--dsw-alias-label-primary);font-size:13px;}
+.dsh-board-hint{flex:none;margin:0;padding:0 12px;font-size:11px;line-height:1.5;color:var(--dsw-alias-label-secondary);}
 /* Lanes never wrap: each keeps a clamped share of the width and the row scrolls
    sideways when they no longer fit, so a narrow panel shows a scrollbar instead
-   of pushing lanes onto a second line. */
-.dsh-board-lanes{display:flex;flex-wrap:nowrap;align-items:stretch;flex:1 1 auto;gap:10px;min-height:0;min-width:0;overflow-x:auto;overflow-y:hidden;}
-.dsh-board-lane{box-sizing:border-box;display:flex;flex:0 0 clamp(180px,55%,280px);flex-direction:column;gap:8px;min-height:0;padding:8px;border:1px solid var(--dsw-alias-border-l1);border-radius:12px;background:var(--dsw-alias-bg-layer-1);box-shadow:inset 0 2px 0 var(--dsh-lane-accent,var(--dsw-alias-border-l1));}
+   of pushing lanes onto a second line. The padding lives on this scroll
+   container, so its horizontal scrollbar sits at the panel edge. */
+.dsh-board-lanes{display:flex;flex-wrap:nowrap;align-items:stretch;flex:1 1 auto;gap:10px;min-height:0;min-width:0;padding:0 12px 10px;overflow-x:auto;overflow-y:hidden;}
+/* Light theme has one surface colour, so a white card on a white lane reads only
+   by its border; a 7% tint of the lane colour separates them in both themes. */
+.dsh-board-lane{box-sizing:border-box;display:flex;flex:0 0 clamp(180px,55%,280px);flex-direction:column;gap:8px;min-height:0;padding:8px;border:1px solid var(--dsw-alias-border-l1);border-radius:12px;background:var(--dsw-alias-bg-layer-1);background:color-mix(in srgb,var(--dsh-lane-accent,var(--dsw-alias-border-l1)) 7%,var(--dsw-alias-bg-layer-1));box-shadow:inset 0 2px 0 var(--dsh-lane-accent,var(--dsw-alias-border-l1));}
 .dsh-board-lane.is-source{border-color:var(--dsw-alias-border-l2);}
 .dsh-board-lane-head{display:flex;flex:none;align-items:center;justify-content:space-between;gap:6px;font-size:11px;color:var(--dsw-alias-label-secondary);}
 .dsh-board-lane-title{display:flex;align-items:center;gap:5px;min-width:0;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .dsh-board-lane-title::before{content:"";flex:none;width:6px;height:6px;border-radius:50%;background:var(--dsh-lane-accent,var(--dsw-alias-border-l2));}
 .dsh-board-count{font-variant-numeric:tabular-nums;padding:0 6px;border-radius:999px;background:var(--dsw-alias-bg-layer-2);}
 .dsh-board-list{display:flex;flex:1 1 auto;flex-direction:column;gap:6px;min-height:44px;overflow-y:auto;}
-.dsh-board-card{box-sizing:border-box;display:flex;flex-direction:column;gap:4px;padding:8px 8px 8px 10px;border:1px solid var(--dsw-alias-border-l1);border-left:3px solid var(--dsh-lane-accent,var(--dsw-alias-border-l2));border-radius:8px;background:var(--dsw-alias-bg-base);cursor:grab;transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease;}
+.dsh-board-card{box-sizing:border-box;display:flex;flex-direction:column;gap:4px;padding:8px 8px 8px 10px;border:1px solid var(--dsw-alias-border-l2);border-left:3px solid var(--dsh-lane-accent,var(--dsw-alias-border-l2));border-radius:8px;background:var(--dsw-alias-bg-base);cursor:grab;transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease;}
 @media (hover:hover){
 .dsh-board-card:hover{transform:translateY(-1px);border-color:var(--dsh-lane-accent,var(--dsw-alias-border-l2));box-shadow:0 6px 16px rgba(0,0,0,.10);box-shadow:0 6px 16px color-mix(in srgb,var(--dsh-lane-accent,transparent) 24%,transparent);}
 }
