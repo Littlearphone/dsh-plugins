@@ -437,7 +437,14 @@ function listServices(sessionId) {
   return items.sort((left, right) => right.startedAt - left.startedAt);
 }
 
-/** The complete collected output of one service, from byte zero. */
+/** How much of a service's output one request returns: the tail, not the whole log. */
+const MAX_OUTPUT_BYTES = 64 * 1024;
+
+/**
+ * The tail of one service's collected output. The reader is offset-based, so the
+ * whole buffer is read and then sliced here; the slice is what keeps a chatty
+ * service from shipping hundreds of kilobytes to the browser every second.
+ */
 function serviceOutput(sessionId, id) {
   const record = RUNNING.get(serviceKey(sessionId, id));
   if (record === undefined || record.handle === undefined) return undefined;
@@ -450,7 +457,9 @@ function serviceOutput(sessionId, id) {
       return '';
     }
   };
-  return read(collected.stdout) + read(collected.stderr);
+  const text = read(collected.stdout) + read(collected.stderr);
+  if (Buffer.byteLength(text) <= MAX_OUTPUT_BYTES) return { text, truncated: false };
+  return { text: text.slice(-MAX_OUTPUT_BYTES), truncated: true };
 }
 
 function createHandler(ctx) {
@@ -517,12 +526,12 @@ function createHandler(ctx) {
 
     if (action === 'output') {
       const id = url.searchParams.get('id') ?? '';
-      const text = serviceOutput(sessionId, id);
-      if (text === undefined) {
+      const output = serviceOutput(sessionId, id);
+      if (output === undefined) {
         reply(response, 404, { error: 'unknown-service' });
         return;
       }
-      reply(response, 200, { text });
+      reply(response, 200, output);
       return;
     }
 

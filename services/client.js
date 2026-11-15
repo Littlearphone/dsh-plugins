@@ -48,6 +48,8 @@ window.__ModuleLoader__.load({
       'run.finished': '已结束',
       'run.clear': '清理',
       'run.stop': '停止',
+      'run.confirmStop': '确认停止',
+      'output.truncated': '（已省略较早的输出）',
       'run.output': '输出',
       'run.starting': '正在启动…',
       'run.failed': '启动失败：',
@@ -82,6 +84,8 @@ window.__ModuleLoader__.load({
       'run.finished': 'finished',
       'run.clear': 'Clear',
       'run.stop': 'Stop',
+      'run.confirmStop': 'Confirm stop',
+      'output.truncated': '(earlier output omitted)',
       'run.output': 'Output',
       'run.starting': 'Starting…',
       'run.failed': 'Start failed: ',
@@ -290,6 +294,7 @@ window.__ModuleLoader__.load({
 .dsh-svc-dot.is-failed{background:var(--dsw-alias-state-error-primary);}
 .dsh-svc-run-name{min-width:0;flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .dsh-svc-run-button{flex:none;height:20px;padding:0 6px;border:1px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm);background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;font-size:10px;cursor:pointer;}
+.dsh-svc-run-button.is-armed{border-color:var(--dsw-alias-state-error-primary);color:var(--dsw-alias-state-error-primary);background:color-mix(in srgb,var(--dsw-alias-state-error-primary) 12%,transparent);}
 .dsh-svc-run-button:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary);}
 .dsh-svc-drawer{display:flex;flex-direction:column;gap:4px;padding:6px 8px;border:1px solid var(--dsw-alias-border-l1);border-radius:8px;background:var(--dsw-alias-bg-layer-2);}
 .dsh-svc-drawer-head{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:10px;color:var(--dsw-alias-label-secondary);}
@@ -320,7 +325,8 @@ window.__ModuleLoader__.load({
 .dsh-svc-item:hover{background:var(--dsw-alias-interactive-bg-hover);}
 .dsh-svc-item:focus-visible{outline:1px solid var(--dsw-alias-state-business-primary);outline-offset:-1px;}
 .dsh-svc-item.is-running .dsh-svc-item-name{color:var(--dsw-alias-state-success-primary);}
-.dsh-svc-item-stop{flex:none;margin-left:auto;width:18px;height:18px;padding:0;border:0;border-radius:4px;background:transparent;color:var(--dsw-alias-state-warn-primary);font-size:9px;line-height:1;cursor:pointer;}
+.dsh-svc-item-stop{flex:none;margin-left:auto;height:18px;padding:0 6px;border:1px solid var(--dsw-alias-border-l2);border-radius:4px;background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;font-size:9px;line-height:16px;cursor:pointer;}
+.dsh-svc-item-stop.is-armed{border-color:var(--dsw-alias-state-error-primary);color:var(--dsw-alias-state-error-primary);background:color-mix(in srgb,var(--dsw-alias-state-error-primary) 12%,transparent);}
 .dsh-svc-item-stop:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-state-error-primary);}
 .dsh-svc-item-text{display:flex;flex-direction:column;gap:1px;min-width:0;}
 .dsh-svc-item-name{font-size:12px;line-height:1.3;}
@@ -479,6 +485,7 @@ window.__ModuleLoader__.load({
       const [text, setText] = React.useState('');
       const [issue, setIssue] = React.useState('');
       const [loaded, setLoaded] = React.useState(false);
+      const [truncated, setTruncated] = React.useState(false);
       React.useEffect(() => {
         let alive = true;
         const tick = async () => {
@@ -495,6 +502,7 @@ window.__ModuleLoader__.load({
             setLoaded(true);
             if (typeof data?.text === 'string') {
               setText(data.text);
+              setTruncated(data.truncated === true);
               setIssue('');
             }
           } catch (error) {
@@ -508,13 +516,15 @@ window.__ModuleLoader__.load({
           clearInterval(timer);
         };
       }, [sessionId, id]);
+      // The Host already sends only the tail; this caps what the DOM ever holds,
+      // so a chatty service cannot turn the drawer into a multi-megabyte node.
       const lines = text.split(/\r?\n/);
-      const tail = lines.slice(Math.max(0, lines.length - 200)).join('\n');
+      const tail = lines.slice(Math.max(0, lines.length - 400)).join('\n');
       const body =
         issue !== ''
           ? issue
           : tail !== ''
-            ? tail
+            ? (truncated && labels?.truncated ? String(labels.truncated) + '\n' : '') + tail
             : loaded
               ? String(labels?.waiting ?? '')
               : String(labels?.reading ?? '');
@@ -672,7 +682,7 @@ window.__ModuleLoader__.load({
          * Rows of the dropdown: click starts, and a running service exposes its
          * stop right here so the common action needs no detour through the panel.
          */
-        function menuItems(groups, collapsed, toggle, runningByCommand, stopService) {
+        function menuItems(groups, collapsed, toggle, runningByCommand, stopService, armedStop, armStop, disarmStop) {
           const nodes = [];
           groups.forEach((group, groupIndex) => {
             nodes.push(groupHeading(group, true, collapsed, toggle));
@@ -712,21 +722,47 @@ window.__ModuleLoader__.load({
                         {
                           key: 'stop',
                           type: 'button',
-                          className: 'dsh-svc-item-stop',
-                          title: t('run.stop'),
-                          'aria-label': t('run.stop'),
+                          className:
+                            'dsh-svc-item-stop' + (armedStop === runningId ? ' is-armed' : ''),
+                          title: armedStop === runningId ? t('run.confirmStop') : t('run.stop'),
+                          'aria-label': armedStop === runningId ? t('run.confirmStop') : t('run.stop'),
                           onClick: (event) => {
                             event.stopPropagation();
-                            void stopService(runningId);
+                            if (armedStop === runningId) {
+                              disarmStop();
+                              void stopService(runningId);
+                              return;
+                            }
+                            armStop(runningId);
                           },
                         },
-                        '■',
+                        armedStop === runningId ? t('run.confirmStop') : '■',
                       ),
                 ),
               );
             });
           });
           return nodes;
+        }
+
+        /**
+         * Two-step stop: the first press arms one service, the second confirms.
+         * The arm expires on its own so a stale confirm cannot fire later.
+         */
+        function useArmedStop() {
+          const [armed, setArmed] = React.useState('');
+          const timer = React.useRef(undefined);
+          const arm = React.useCallback((id) => {
+            setArmed(id);
+            clearTimeout(timer.current);
+            timer.current = setTimeout(() => setArmed(''), 3000);
+          }, []);
+          const disarm = React.useCallback(() => {
+            clearTimeout(timer.current);
+            setArmed('');
+          }, []);
+          React.useEffect(() => () => clearTimeout(timer.current), []);
+          return [armed, arm, disarm];
         }
 
         /** Collapsed group ids; a group stays collapsed across refreshes. */
@@ -757,6 +793,7 @@ window.__ModuleLoader__.load({
           const [collapsed, toggleGroup] = useCollapsedGroups();
           const services = useServices(sessionId);
           const [openKey, setOpenKey] = React.useState('');
+          const [armedStop, armStop, disarmStop] = useArmedStop();
 
           // Latest service per (command, dir): one script row shows its own run.
           const latest = new Map();
@@ -819,13 +856,19 @@ window.__ModuleLoader__.load({
                       {
                         key: 'stop',
                         type: 'button',
-                        className: 'dsh-svc-run-button',
+                        className:
+                          'dsh-svc-run-button' + (armedStop === service.id ? ' is-armed' : ''),
                         onClick: (event) => {
                           event.stopPropagation();
-                          void stopService(sessionId, service.id);
+                          if (armedStop === service.id) {
+                            disarmStop();
+                            void stopService(sessionId, service.id);
+                            return;
+                          }
+                          armStop(service.id);
                         },
                       },
-                      t('run.stop'),
+                      armedStop === service.id ? t('run.confirmStop') : t('run.stop'),
                     )
                   : null,
                 service === undefined
@@ -850,7 +893,12 @@ window.__ModuleLoader__.load({
                   sessionId,
                   id: service.id,
                   name: script.name,
-                  labels: { waiting: t('output.waiting'), reading: t('output.reading'), hide: t('run.hide') },
+                  labels: {
+                    waiting: t('output.waiting'),
+                    reading: t('output.reading'),
+                    hide: t('run.hide'),
+                    truncated: t('output.truncated'),
+                  },
                   onClose: () => setOpenKey(''),
                 })
                 : null,
@@ -1009,6 +1057,7 @@ window.__ModuleLoader__.load({
           const [state, load] = useScripts(store.open ? store.sessionId : undefined);
           const [collapsed, toggleGroup] = useCollapsedGroups();
           const services = useServices(store.open ? store.sessionId : undefined);
+          const [armedStop, armStop, disarmStop] = useArmedStop();
 
           React.useEffect(() => {
             if (store.open === false) {
@@ -1075,6 +1124,9 @@ window.__ModuleLoader__.load({
                     toggleGroup,
                     runningByCommand,
                     (id) => void stopService(store.sessionId, id),
+                    armedStop,
+                    armStop,
+                    disarmStop,
                   )
                 : [h('div', { key: 'nomatch', className: 'dsh-svc-empty' }, t('menu.noMatch'))]
               : [
