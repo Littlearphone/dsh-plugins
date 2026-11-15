@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Sidebar notes">
+  <defs>
+    <clipPath id="panel">
+      <rect x="8" y="10" width="48" height="44" rx="10" />
+    </clipPath>
+  </defs>
+  <g clip-path="url(#panel)">
+    <rect x="39" y="10" width="17" height="44" fill="#4C6FE7" />
+  </g>
+  <rect x="8" y="10" width="48" height="44" rx="10" fill="none" stroke="#4C6FE7" stroke-width="3" />
+  <g stroke="#4C6FE7" stroke-width="3" stroke-linecap="round">
+    <path d="M18 24h12" />
+    <path d="M18 32h12" />
+    <path d="M18 40h8" />
+  </g>
+  <g fill="#FFFFFF">
+    <circle cx="47.5" cy="24" r="2.5" />
+    <circle cx="47.5" cy="32" r="2.5" />
+    <circle cx="47.5" cy="40" r="2.5" />
+  </g>
+</svg>
