@@ -652,7 +652,23 @@ export function apply(ctx) {
   }
   const handler = createHandler(ctx);
   ctx.effect(
-    () => server.register({ kind: 'prefix', path: ROUTE_PATH, handler }),
-    'services: script discovery route',
+    () => {
+      const disposeRoute = server.register({ kind: 'prefix', path: ROUTE_PATH, handler });
+      // A reload drops every record, and a record with no owner can never be
+      // stopped — on Windows the shell's children also outlive a signal to it.
+      // Terminate on unload so no started service is left holding a port.
+      return () => {
+        disposeRoute();
+        for (const record of RUNNING.values()) {
+          try {
+            record.handle?.terminate();
+          } catch {
+            /* the process may already be gone */
+          }
+        }
+        RUNNING.clear();
+      };
+    },
+    'services: discovery route and started-process cleanup',
   );
 }
