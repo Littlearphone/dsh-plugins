@@ -384,39 +384,54 @@ window.__ModuleLoader__.load({
       return result.value;
     }
 
-    async function runInTerminal(remote, sessionId, command) {
+    /**
+     * The terminal plugin keeps its own cached inventory of a Session's
+     * terminals and only updates it for terminals it creates itself, so a
+     * terminal created out of band exists on the Host but is invisible to the
+     * tab. The working order is therefore: let the tab create the terminal, find
+     * the id it just made, attach to it, and type the command.
+     */
+    async function runInTerminal(remote, sessionId, openTerminalTab, command) {
       let api;
       try {
         api = remote?.terminal;
       } catch (error) {
         return { ok: false, detail: 'terminal namespace refused: ' + String(error?.message ?? error) };
       }
-      if (api === undefined || typeof api.create !== 'function') {
+      if (api === undefined || typeof api.list !== 'function') {
         return { ok: false, detail: 'terminal Remote unavailable' };
       }
       if (sessionId === undefined || sessionId === null) {
         return { ok: false, detail: 'no session id' };
       }
 
-      const id = 'svc-' + Math.random().toString(36).slice(2, 12);
-      const lifetime = new AbortController();
-      try {
-        // Signatures read from the terminal controller's own client implementation:
-        // create(sessionId, { id, cols, rows }) -> info
-        // attach(sessionId, id, signal) -> handle (async frames + handle.send(input))
-        const info = unwrapRemote(await api.create(sessionId, { id, cols: 80, rows: 24 }));
-        const terminalId = info?.id ?? id;
-        // Ask the Host what it actually holds, so a mismatch is visible instead
-        // of surfacing later as "this terminal no longer exists".
-        let listed = '';
-        try {
-          const terminals = unwrapRemote(await api.list(sessionId));
-          listed = Array.isArray(terminals) ? terminals.map((item) => String(item?.id)).join(',') : 'n/a';
-        } catch (error) {
-          listed = 'list failed: ' + String(error?.message ?? error);
-        }
-        const handle = api.attach(sessionId, terminalId, lifetime.signal);
+      const listIds = async () => {
+        const value = unwrapRemote(await api.list(sessionId));
+        return (Array.isArray(value) ? value : []).map((item) => String(item?.id));
+      };
+      const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+      try {
+        const before = new Set(await listIds());
+        const shells = unwrapRemote(await api.shells(sessionId));
+        const shellPath = Array.isArray(shells) ? shells[0]?.path : undefined;
+        if (shellPath === undefined) return { ok: false, detail: 'no shell available' };
+
+        openTerminalTab(shellPath);
+
+        let terminalId;
+        for (let attempt = 0; attempt < 30 && terminalId === undefined; attempt += 1) {
+          await sleep(200);
+          const now = await listIds();
+          const fresh = now.find((id) => !before.has(id));
+          if (fresh !== undefined) terminalId = fresh;
+        }
+        if (terminalId === undefined) {
+          return { ok: false, detail: 'the terminal tab did not create a terminal' };
+        }
+
+        const lifetime = new AbortController();
+        const handle = api.attach(sessionId, terminalId, lifetime.signal);
         let sequence = 0;
         const typed = await new Promise((resolve) => {
           let settled = false;
@@ -426,16 +441,15 @@ window.__ModuleLoader__.load({
             clearTimeout(timer);
             resolve(value);
           };
-          const timer = setTimeout(() => finish(false), 4000);
+          const timer = setTimeout(() => finish(false), 5000);
           void (async () => {
             try {
               for await (const frame of handle) {
-                if (settled) continue;
-                if (frame?.type !== 'snapshot' || frame.writable === false) continue;
+                if (settled || frame?.type !== 'snapshot' || frame.writable === false) continue;
                 try {
                   sequence += 1;
                   handle.send({ type: 'write', sequence, data: command + '\r' });
-                  setTimeout(() => finish(true), 350);
+                  setTimeout(() => finish(true), 300);
                 } catch {
                   finish(false);
                 }
@@ -445,12 +459,10 @@ window.__ModuleLoader__.load({
             }
           })();
         });
-        // Release input control after the tab has had time to attach, so the tab
-        // is the owner when it renders; the process keeps running either way.
-        setTimeout(() => lifetime.abort(), 3000);
-        return { ok: true, terminalId, typed, listed };
+        // Hand input back to the tab; the process keeps running.
+        setTimeout(() => lifetime.abort(), 2000);
+        return { ok: true, terminalId, typed };
       } catch (error) {
-        lifetime.abort();
         return { ok: false, detail: 'terminal failed: ' + String(error?.message ?? error) };
       }
     }
@@ -499,28 +511,22 @@ window.__ModuleLoader__.load({
           store.busy = true;
           store.diag = '';
           emit();
+          const openTerminalTab = (shellPath) => {
+            controller?.openTab('terminal', { params: { shellPath } });
+          };
           let outcome;
           try {
-            outcome = await runInTerminal(ctx.remote, store.sessionId, script.command);
+            outcome = await runInTerminal(ctx.remote, store.sessionId, openTerminalTab, script.command);
           } catch (error) {
             outcome = { ok: false, detail: 'launch threw: ' + String(error?.message ?? error) };
           }
           store.busy = false;
-          if (outcome.ok === false) {
-            store.notice = outcome.detail;
-            emit();
-            return;
-          }
-          try {
-            controller?.openTab('terminal', { params: { terminalId: outcome.terminalId } });
-            // Keep the created id and what the Host listed on screen: if the tab
-            // still complains, the two ids tell us which side disagrees.
-            store.notice =
-              'terminal=' + outcome.terminalId + ' listed=[' + outcome.listed + '] typed=' + String(outcome.typed);
-          } catch (error) {
-            store.notice = 'openTab failed: ' + String(error?.message ?? error);
-          }
+          store.notice =
+            outcome.ok === false
+              ? outcome.detail
+              : 'terminal=' + outcome.terminalId + ' typed=' + String(outcome.typed);
           emit();
+          if (outcome.ok === true) setOpen(false);
         }
 
         function row(script, key, interactive) {
