@@ -364,14 +364,20 @@ window.__ModuleLoader__.load({
      * opened by `terminalId`, which is the parameter the terminal tab documents.
      */
     async function runInTerminal(remote, command) {
-      const api = remote?.terminal ?? remote?.terminalController;
+      let api;
+      try {
+        api = remote?.terminal ?? remote?.terminalController;
+      } catch (error) {
+        return { ok: false, detail: 'terminal namespace refused: ' + String(error?.message ?? error) };
+      }
       if (api === undefined || typeof api.create !== 'function') {
-        return {
-          ok: false,
-          detail:
-            'terminal Remote unavailable: ' +
-            (remote === undefined ? 'no ctx.remote' : 'keys=' + Object.keys(api ?? remote).join(',')),
-        };
+        let detail = 'terminal Remote unavailable';
+        try {
+          detail += ': keys=' + Object.keys(remote ?? {}).join(',');
+        } catch (error) {
+          detail += ': ' + String(error?.message ?? error);
+        }
+        return { ok: false, detail };
       }
       const id = 'svc-' + Math.random().toString(36).slice(2, 12);
       const lifetime = new AbortController();
@@ -408,7 +414,7 @@ window.__ModuleLoader__.load({
     }
 
     return {
-      inject: ['slots', 'sidebarRightTabs', 'sidebarRight', 'locale'],
+      inject: ['slots', 'sidebarRightTabs', 'sidebarRight', 'locale', 'remote'],
 
       apply(ctx) {
         const locale = ctx.get('locale');
@@ -438,8 +444,12 @@ window.__ModuleLoader__.load({
          * silently doing something else.
          */
         async function launch(script) {
-          const remote = ctx.get('remote');
-          const outcome = await runInTerminal(remote, script.command);
+          let outcome;
+          try {
+            outcome = await runInTerminal(ctx.remote, script.command);
+          } catch (error) {
+            outcome = { ok: false, detail: String(error?.message ?? error) };
+          }
           if (outcome.ok === false) {
             store.notice = outcome.detail;
             emit();
