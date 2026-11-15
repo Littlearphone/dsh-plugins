@@ -90,11 +90,10 @@ window.__ModuleLoader__.load({
 .dsh-board-card-tag{align-self:flex-start;font-size:9px;line-height:1;padding:3px 6px;border-radius:999px;color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-bg-layer-2);}
 .dsh-board-marker{height:2px;border-radius:1px;background:var(--dsw-alias-brand-primary);}
 .dsh-board-empty{height:40px;border:1px dashed var(--dsw-alias-border-l1);border-radius:8px;}
-/* Border and radius follow the shipped menu surface, not the ghost Button
-   beside it: the dropdown uses border .5px solid --dsw-alias-border-l2 and its
-   items use --dsw-radius-md. A ghost Button carries no border at all, so
-   copying it can never produce the outlined look asked for here. */
-.dsh-board-entry{box-sizing:border-box;display:flex;align-items:center;justify-content:center;width:24px;height:24px;flex:none;margin:0;padding:0;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-md);background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;line-height:0;vertical-align:middle;cursor:pointer;}
+/* A hairline (.5px) reads much fainter on a small transparent control than on
+   the menu surface, where the same colour sits on a raised fill: sub-pixel
+   coverage plus the rounded corners thin it out. Same colour, one full pixel. */
+.dsh-board-entry{box-sizing:border-box;display:flex;align-items:center;justify-content:center;width:24px;height:24px;flex:none;margin:0;padding:0;border:1px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-md);background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;line-height:0;vertical-align:middle;cursor:pointer;}
 .dsh-board-entry:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary);}
 .dsh-board-entry:active{background:var(--dsw-alias-interactive-bg-active);}
 .dsh-board-entry svg{width:15px;height:15px;display:block;}
