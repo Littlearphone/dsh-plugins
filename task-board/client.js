@@ -90,8 +90,12 @@ window.__ModuleLoader__.load({
 .dsh-board-card-tag{align-self:flex-start;font-size:9px;line-height:1;padding:3px 6px;border-radius:999px;color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-bg-layer-2);}
 .dsh-board-marker{height:2px;border-radius:1px;background:var(--dsw-alias-brand-primary);}
 .dsh-board-empty{height:40px;border:1px dashed var(--dsw-alias-border-l1);border-radius:8px;}
-.dsh-board-entry{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;flex:none;padding:0;border:1px solid var(--dsw-alias-border-l1);border-radius:8px;background:transparent;color:var(--dsw-alias-label-secondary);cursor:pointer;}
-.dsh-board-entry:hover{background:var(--dsw-alias-bg-layer-2);border-color:var(--dsw-alias-border-l2);color:var(--dsw-alias-label-primary);}
+/* Mirrors the shipped header Button (primitives, size sm, outline variant):
+   28px tall, --dsw-radius-sm, and a hairline inset stroke rather than a 1px
+   border, with the product's own hover/active fills. */
+.dsh-board-entry{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;flex:none;padding:0;border:0;border-radius:var(--dsw-radius-sm);background:transparent;color:var(--dsw-alias-label-secondary);box-shadow:inset 0 0 0 var(--dsh-hairline-width,.5px) var(--dsw-alias-border-l3);cursor:pointer;}
+.dsh-board-entry:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary);}
+.dsh-board-entry:active{background:var(--dsw-alias-interactive-bg-active);}
 .dsh-board-entry svg{width:15px;height:15px;display:block;}
 `;
 
