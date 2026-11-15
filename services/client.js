@@ -162,9 +162,18 @@ window.__ModuleLoader__.load({
 .dsh-svc-refresh{flex:none;box-sizing:border-box;height:22px;padding:0 8px;border:1px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm);background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;font-size:11px;cursor:pointer;}
 .dsh-svc-refresh:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary);}
 .dsh-svc-note{flex:none;margin:0;padding:0 12px;font-size:10px;line-height:1.5;color:var(--dsw-alias-label-secondary);}
-.dsh-svc-group{display:flex;flex:none;align-items:baseline;justify-content:space-between;gap:8px;padding:6px 2px 2px;font-size:11px;line-height:1.3;color:var(--dsw-alias-label-secondary);}
+/* A group heading is a sticky bar: it stays pinned while its own scripts scroll
+   under it, and clicking it collapses the group. Negative inline margins let it
+   span the list's padding so nothing shows through beside the label. */
+.dsh-svc-group{position:sticky;top:-2px;z-index:2;box-sizing:border-box;display:flex;flex:none;align-items:center;gap:5px;margin:0 -12px;padding:6px 12px;border:0;border-bottom:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-secondary);font:inherit;font-size:11px;line-height:1.3;text-align:left;cursor:pointer;}
+.dsh-svc-group:hover{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-layer-2);}
+.dsh-svc-group.is-compact{margin:0;padding:4px 7px;border-bottom:0;border-radius:var(--dsw-radius-sm);}
+.dsh-svc-group.is-compact:hover{background:var(--dsw-alias-interactive-bg-hover);}
+.dsh-svc-chevron{flex:none;width:10px;height:10px;transition:transform .15s ease;}
+.dsh-svc-group.is-open .dsh-svc-chevron{transform:rotate(90deg);}
 .dsh-svc-group-name{min-width:0;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.dsh-svc-group-dir{flex:none;font-size:10px;font-family:var(--dsh-font-family-code,monospace);color:var(--dsw-alias-label-secondary);opacity:.8;}
+.dsh-svc-group-dir{min-width:0;font-size:10px;font-family:var(--dsh-font-family-code,monospace);opacity:.7;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.dsh-svc-count{margin-left:auto;flex:none;padding:0 5px;border-radius:999px;background:var(--dsw-alias-bg-layer-2);font-size:10px;font-variant-numeric:tabular-nums;}
 .dsh-svc-list{display:flex;flex:1 1 auto;flex-direction:column;gap:4px;min-height:0;padding:2px 12px 12px;overflow-y:auto;}
 .dsh-svc-row{box-sizing:border-box;display:flex;align-items:center;gap:8px;padding:7px 9px;border:1px solid var(--dsw-alias-border-l1);border-left:3px solid var(--dsw-alias-state-business-primary);border-radius:8px;background:var(--dsw-alias-bg-base);text-align:left;}
 .dsh-svc-row-text{display:flex;flex-direction:column;gap:1px;min-width:0;}
@@ -335,27 +344,47 @@ window.__ModuleLoader__.load({
         }
 
         /**
-         * One section per package. The heading only appears when the workspace
-         * actually has several packages, so a single-package project stays a
-         * flat list.
+         * One section per package. The heading is always shown — it is the only
+         * thing that says which package a script belongs to — and it is sticky
+         * and collapsible, because a workspace with many scripts otherwise
+         * scrolls past its own labels.
          */
-        function groupHeading(group, index) {
+        function groupHeading(group, compact, collapsed, toggle) {
           const label = group.name === '' ? t('group.root') : group.name;
+          const open = !collapsed.has(group.id);
           return h(
-            'div',
-            { className: 'dsh-svc-group', key: 'group-' + index, title: group.dir === '' ? label : group.dir },
+            'button',
+            {
+              key: 'group-' + group.id,
+              type: 'button',
+              className:
+                'dsh-svc-group' + (compact ? ' is-compact' : '') + (open ? ' is-open' : ''),
+              title: group.dir === '' ? label : group.dir,
+              'aria-expanded': open ? 'true' : 'false',
+              onClick: () => toggle(group.id),
+            },
+            h(
+              'svg',
+              { className: 'dsh-svc-chevron', viewBox: '0 0 16 16', fill: 'none', 'aria-hidden': true },
+              h('path', {
+                d: 'M6 3.5 10.5 8 6 12.5',
+                stroke: 'currentColor',
+                strokeWidth: 1.4,
+                strokeLinecap: 'round',
+                strokeLinejoin: 'round',
+              }),
+            ),
             h('span', { className: 'dsh-svc-group-name' }, label),
-            group.dir === ''
-              ? null
-              : h('span', { className: 'dsh-svc-group-dir' }, group.dir),
+            group.dir === '' ? null : h('span', { className: 'dsh-svc-group-dir' }, group.dir),
+            h('span', { className: 'dsh-svc-count' }, String(group.scripts.length)),
           );
         }
 
-        function panelSections(groups) {
+        function panelSections(groups, collapsed, toggle) {
           const nodes = [];
-          const showHeadings = groups.length > 1;
           groups.forEach((group, groupIndex) => {
-            if (showHeadings) nodes.push(groupHeading(group, groupIndex));
+            nodes.push(groupHeading(group, false, collapsed, toggle));
+            if (collapsed.has(group.id)) return;
             group.scripts.forEach((script, index) => {
               nodes.push(row(script, 'row-' + groupIndex + '-' + index, true));
             });
@@ -363,11 +392,11 @@ window.__ModuleLoader__.load({
           return nodes;
         }
 
-        function menuItems(groups) {
+        function menuItems(groups, collapsed, toggle) {
           const nodes = [];
-          const showHeadings = groups.length > 1;
           groups.forEach((group, groupIndex) => {
-            if (showHeadings) nodes.push(groupHeading(group, 'menu-' + groupIndex));
+            nodes.push(groupHeading(group, true, collapsed, toggle));
+            if (collapsed.has(group.id)) return;
             group.scripts.forEach((script, index) => {
               nodes.push(
                 h(
@@ -396,11 +425,26 @@ window.__ModuleLoader__.load({
           return nodes;
         }
 
+        /** Collapsed group ids; a group stays collapsed across refreshes. */
+        function useCollapsedGroups() {
+          const [collapsed, setCollapsed] = React.useState(() => new Set());
+          const toggle = React.useCallback((id) => {
+            setCollapsed((current) => {
+              const next = new Set(current);
+              if (next.has(id)) next.delete(id);
+              else next.add(id);
+              return next;
+            });
+          }, []);
+          return [collapsed, toggle];
+        }
+
         /** Right-sidebar tab: the list, with its directory and a refresh control. */
         function PanelBody(props) {
           useLocaleRevision();
           const sessionId = props?.sessionId ?? store.sessionId;
           const [state, load] = useScripts(sessionId);
+          const [collapsed, toggleGroup] = useCollapsedGroups();
 
           const content =
             state.phase === 'loading'
@@ -409,7 +453,7 @@ window.__ModuleLoader__.load({
                 ? h('p', { className: 'dsh-svc-empty', key: 'error' }, t('panel.error'))
                 : state.phase === 'empty'
                   ? h('p', { className: 'dsh-svc-empty', key: 'empty' }, t('panel.empty'))
-                  : panelSections(state.groups);
+                  : panelSections(state.groups, collapsed, toggleGroup);
 
           return h(
             'div',
@@ -525,6 +569,7 @@ window.__ModuleLoader__.load({
           useStoreRevision();
           const [anchor, setAnchor] = React.useState(null);
           const [state, load] = useScripts(store.open ? store.sessionId : undefined);
+          const [collapsed, toggleGroup] = useCollapsedGroups();
 
           React.useEffect(() => {
             if (store.open === false) {
@@ -564,7 +609,7 @@ window.__ModuleLoader__.load({
 
           const items =
             state.phase === 'ready'
-              ? menuItems(state.groups)
+              ? menuItems(state.groups, collapsed, toggleGroup)
               : [
                   h(
                     'div',
