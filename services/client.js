@@ -577,6 +577,38 @@ window.__ModuleLoader__.load({
           );
         }
 
+        /**
+         * Clicking a script starts it as a Host-owned process. An npm-kind script
+         * goes through the package manager in its own directory — that is what
+         * puts `node_modules/.bin` on PATH — while a Go program runs as written.
+         */
+        async function launch(script, groupDir, groupKind) {
+          store.notice = '';
+          store.busy = true;
+          emit();
+          try {
+            const created = await postJson(START_ROUTE + encodeURIComponent(String(store.sessionId)), {
+              name: script.name,
+              command: script.command,
+              dir: groupDir ?? '',
+              kind: groupKind ?? 'npm',
+            });
+            store.busy = false;
+            store.notice = '';
+            store.focusServiceId = String(created?.service?.id ?? '');
+            try {
+              controller?.openTab(KIND);
+            } catch (error) {
+              console.error('[services] cannot open the panel', error);
+            }
+            setOpen(false);
+          } catch (error) {
+            store.busy = false;
+            store.notice = t('run.failed') + ' ' + String(error?.message ?? error);
+          }
+          emit();
+        }
+
         /** Guide capsule glyph: a console window with a play marker. */
         function GuideIcon(props) {
           return h(
