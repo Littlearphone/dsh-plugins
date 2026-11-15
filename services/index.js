@@ -10,6 +10,7 @@
  * effective directory through `workingDirectory`, which is the same pair the
  * rest of the harness uses — no guessing from headers or client state.
  */
+import { execFileSync } from 'node:child_process';
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
@@ -286,6 +287,57 @@ function serviceKey(sessionId, id) {
 }
 
 /**
+ * Every launch carries a unique marker in its command line, in the shell's own
+ * syntax: `set "DSH_SVC=<id>"` / `$env:DSH_SVC=...`. The marker is what makes a
+ * tree findable later — the shell's own pid is not exposed by the spawn handle,
+ * and without it a stop can only signal the shell while its children keep going.
+ */
+function markedCommand(shell, id, command) {
+  const name = String(shell).toLowerCase();
+  if (name.endsWith('cmd.exe') || name.endsWith('\\cmd')) return `set "DSH_SVC=${id}" && ${command}`;
+  if (name.endsWith('powershell.exe') || name.endsWith('pwsh.exe')) return `$env:DSH_SVC='${id}'; ${command}`;
+  return `export DSH_SVC='${id}'; ${command}`;
+}
+
+/** Pids whose command line carries one marker (Windows only; elsewhere an empty list). */
+function findMarkedPids(id) {
+  if (process.platform !== 'win32') return [];
+  try {
+    const script =
+      "Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*DSH_SVC=" +
+      id +
+      "*' } | ForEach-Object { $_.ProcessId }";
+    const output = execFileSync(
+      'powershell',
+      ['-NoProfile', '-NonInteractive', '-Command', script],
+      { encoding: 'utf8', timeout: 8000 },
+    );
+    return output
+      .split(/\s+/)
+      .filter((token) => /^\d+$/.test(token))
+      .map((token) => Number(token));
+  } catch {
+    return [];
+  }
+}
+
+/** Kill a process and its whole tree; the only thing that stops grandchildren on Windows. */
+function killTree(pids) {
+  for (const pid of pids) {
+    if (pid === process.pid) continue;
+    try {
+      if (process.platform === 'win32') {
+        execFileSync('taskkill', ['/PID', String(pid), '/T', '/F'], { stdio: 'ignore', timeout: 10000 });
+      } else {
+        process.kill(pid, 'SIGKILL');
+      }
+    } catch {
+      /* already gone */
+    }
+  }
+}
+
+/**
  * One command line, wrapped in the flags the chosen shell actually understands.
  * The default shell is not always pwsh — on Windows it is often cmd.exe, which
  * rejects `-Command` and silently shows its banner instead.
@@ -352,6 +404,7 @@ async function spawnService(ctx, sessionId, request, root) {
   if (subprocess === undefined) return { error: 'subprocess-unavailable' };
   const environment = await subprocess.terminalEnvironment();
   const cwd = request.cwd;
+  const id = 'svc-' + Math.random().toString(36).slice(2, 10);
 
   let command;
   if (request.kind === 'go') {
@@ -365,13 +418,11 @@ async function spawnService(ctx, sessionId, request, root) {
   if (command === '') return { error: 'empty-command' };
   const shell = environment.defaultShell;
   if (shell === undefined) return { error: 'no-shell' };
-  const argv = shellArgv(shell, command);
+  const argv = shellArgv(shell, markedCommand(shell, id, command));
   const env = withLocalBins(environment, [
     join(cwd, 'node_modules', '.bin'),
     join(root, 'node_modules', '.bin'),
   ]);
-
-  const id = 'svc-' + Math.random().toString(36).slice(2, 10);
   const key = serviceKey(sessionId, id);
   const record = {
     id,
@@ -412,6 +463,7 @@ async function spawnService(ctx, sessionId, request, root) {
     );
   } catch (error) {
     record.state = 'failed';
+    killTree(findMarkedPids(id));
     return { error: 'spawn-failed', detail: String(error?.message ?? error) };
   }
   return { record };
@@ -562,6 +614,7 @@ function createHandler(ctx) {
       for (const [key, record] of RUNNING) {
         if (!key.startsWith(prefix)) continue;
         if (record.state === 'running' || record.state === 'stopping') continue;
+        killTree(findMarkedPids(record.id));
         RUNNING.delete(key);
         removed += 1;
       }
@@ -616,6 +669,7 @@ function createHandler(ctx) {
       }
       try {
         record.handle?.terminate();
+        killTree(findMarkedPids(record.id));
         record.state = 'stopping';
         reply(response, 200, { ok: true });
       } catch (error) {
@@ -695,6 +749,7 @@ export function apply(ctx) {
           } catch {
             /* the process may already be gone */
           }
+          killTree(findMarkedPids(record.id));
         }
         RUNNING.clear();
       };
