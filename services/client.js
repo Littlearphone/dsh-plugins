@@ -314,7 +314,8 @@ window.__ModuleLoader__.load({
 .dsh-svc-row-text{display:flex;flex:1 1 auto;flex-direction:column;gap:3px;min-width:0;}
 .dsh-svc-name-line{display:flex;align-items:center;gap:6px;min-width:0;}
 .dsh-svc-actions{display:flex;flex:none;align-items:center;gap:4px;margin-left:auto;}
-.dsh-svc-lastline{min-width:0;font-family:var(--dsh-font-family-code,monospace);font-size:10px;line-height:1.4;color:var(--dsw-alias-label-secondary);opacity:.85;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.dsh-svc-lastline{box-sizing:border-box;min-width:0;padding-left:6px;border-left:2px solid var(--dsw-alias-border-l2);font-family:var(--dsh-font-family-code,monospace);font-size:10px;line-height:1.4;color:var(--dsw-alias-label-tertiary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.dsh-svc-lastline::before{content:'↳ ';}
 .dsh-svc-row:hover{background:var(--dsw-alias-bg-layer-2);}
 .dsh-svc-icon{flex:none;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;width:20px;height:20px;padding:0;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm);background:var(--dsw-specific-menu);color:var(--dsw-alias-label-secondary);cursor:pointer;}
 .dsh-svc-icon:hover{border-color:var(--dsw-alias-border-l3);color:var(--dsw-alias-label-primary);}
@@ -322,6 +323,7 @@ window.__ModuleLoader__.load({
 .dsh-svc-chip{background:transparent;padding:0;}
 .dsh-svc-name{font-size:12px;line-height:1.3;font-weight:500;}
 .dsh-svc-command{min-width:0;font-size:10px;line-height:1.4;color:var(--dsw-alias-label-secondary);font-family:var(--dsh-font-family-code,monospace);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.dsh-svc-command::before{content:'$ ';color:var(--dsw-alias-label-tertiary);}
 .dsh-svc-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:22px 0;font-size:11px;line-height:1.6;color:var(--dsw-alias-label-secondary);text-align:center;}
 .dsh-svc-spinner{width:16px;height:16px;border-radius:50%;border:2px solid var(--dsw-alias-border-l2);border-top-color:var(--dsw-alias-state-business-primary);animation:dsh-svc-spin .8s linear infinite;}
 @keyframes dsh-svc-spin{to{transform:rotate(360deg);}}
