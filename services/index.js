@@ -17,6 +17,26 @@ import { join } from 'node:path';
 const ROUTE_PATH = '/services';
 /** Guards against a pathological glob fanning out over a huge directory. */
 const MAX_PACKAGES = 60;
+/** Directory budget per Go module walk, so one deep tree cannot stall the route. */
+const MAX_WALK = 1200;
+/** Depth limit for `package main` discovery inside a module. */
+const MAX_GO_DEPTH = 4;
+/** Directories that never contain a project's own commands. */
+const SKIP_DIRS = new Set([
+  'node_modules',
+  'vendor',
+  'testdata',
+  '.git',
+  '.cache',
+  '.idea',
+  '.gradle',
+  '.next',
+  'dist',
+  'build',
+  'target',
+  'out',
+  'coverage',
+]);
 /** Workspace patterns are one level of nesting only; `**` is reported, not expanded. */
 const MAX_DEPTH_NOTE = '**';
 
@@ -137,6 +157,113 @@ async function packageDirs(root, globs) {
   return { dirs: [...found].slice(0, MAX_PACKAGES), skipped };
 }
 
+/**
+ * Go has no script manifest: what it has is `package main` directories, which
+ * are exactly the runnable programs (`go run ./cmd/x`). This finds the modules
+ * of the workspace and, inside each, those directories.
+ */
+
+/** Module directories declared by `go.work`, or the root itself when only a `go.mod` exists. */
+async function goModuleDirs(root) {
+  let work;
+  try {
+    work = await readFile(join(root, 'go.work'), 'utf8');
+  } catch {
+    work = undefined;
+  }
+  const dirs = [];
+  if (work !== undefined) {
+    const block = /use\s*\(([\s\S]*?)\)/.exec(work);
+    if (block !== null) {
+      for (const line of block[1].split(/\r?\n/)) {
+        const cleaned = line.replace(/\/\/.*$/, '').trim();
+        if (cleaned === '') continue;
+        dirs.push(cleaned.replace(/^\.\//, '').replace(/\/+$/, ''));
+      }
+    }
+    for (const match of work.matchAll(/^\s*use\s+(?!\()(\S+)/gm)) {
+      dirs.push(match[1].replace(/^\.\//, '').replace(/\/+$/, ''));
+    }
+  }
+  if (dirs.length === 0) {
+    try {
+      await readFile(join(root, 'go.mod'), 'utf8');
+      dirs.push('');
+    } catch {
+      /* not a Go module */
+    }
+  }
+  return [...new Set(dirs)];
+}
+
+async function moduleName(dir) {
+  try {
+    const text = await readFile(join(dir, 'go.mod'), 'utf8');
+    const match = /^module\s+(\S+)/m.exec(text);
+    return match === null ? '' : match[1];
+  } catch {
+    return '';
+  }
+}
+
+/** Relative directories holding a `package main`, breadth-first within a depth and visit budget. */
+async function mainPackages(base) {
+  const found = [];
+  const queue = [''];
+  let visited = 0;
+  while (queue.length > 0 && visited < MAX_WALK) {
+    const relative = queue.shift();
+    const absolute = relative === '' ? base : join(base, relative);
+    let entries;
+    try {
+      entries = await readdir(absolute, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    visited += 1;
+    const depth = relative === '' ? 0 : relative.split('/').length;
+    let isMain = false;
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        if (SKIP_DIRS.has(entry.name) || entry.name.startsWith('.')) continue;
+        if (depth >= MAX_GO_DEPTH) continue;
+        queue.push(relative === '' ? entry.name : `${relative}/${entry.name}`);
+        continue;
+      }
+      if (!entry.name.endsWith('.go') || entry.name.endsWith('_test.go')) continue;
+      try {
+        const head = await readFile(join(absolute, entry.name), 'utf8');
+        if (/^package\s+main\b/m.test(head)) isMain = true;
+      } catch {
+        /* unreadable file: not a candidate */
+      }
+    }
+    if (isMain) found.push(relative);
+  }
+  return found;
+}
+
+/** One group per Go module that actually has runnable programs. */
+async function goGroups(root) {
+  const groups = [];
+  for (const moduleDir of await goModuleDirs(root)) {
+    const base = join(root, moduleDir);
+    const name = (await moduleName(base)) || moduleDir || 'go';
+    const mains = await mainPackages(base);
+    if (mains.length === 0) continue;
+    const scripts = mains.map((relative) => {
+      const last = relative === '' ? '' : relative.split('/').pop();
+      return {
+        name: last === '' ? 'main' : last,
+        command: relative === '' ? 'go run .' : `go run ./${relative}`,
+        category: 'go',
+      };
+    });
+    groups.push({ id: `go:${moduleDir}`, kind: 'go', name, dir: moduleDir, scripts });
+  }
+  return groups;
+}
+
 function createHandler(ctx) {
   return async function handle(request, response) {
     // Same-origin only: another page must not read this machine's workspace.
@@ -196,18 +323,27 @@ function createHandler(ctx) {
 
       const groups = [];
       if (root !== undefined) {
-        groups.push({ id: 'root', name: root.name, dir: '', scripts: root.scripts });
+        groups.push({ id: 'root', kind: 'npm', name: root.name, dir: '', scripts: root.scripts });
       }
       for (const relative of dirs) {
         const manifest = await readManifest(join(dir, relative));
         if (manifest === undefined) continue;
         groups.push({
           id: relative,
+          kind: 'npm',
           name: manifest.name === '' ? relative : manifest.name,
           dir: relative,
           scripts: manifest.scripts,
         });
       }
+      groups.push(...(await goGroups(dir)));
+
+      // Root first, then by name, so a workspace keeps a stable, scannable order.
+      groups.sort((left, right) => {
+        if (left.dir === '' && right.dir !== '') return -1;
+        if (right.dir === '' && left.dir !== '') return 1;
+        return left.name.localeCompare(right.name);
+      });
 
       reply(response, 200, {
         dir,

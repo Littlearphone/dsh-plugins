@@ -59,6 +59,31 @@ Invoke-WebRequest http://127.0.0.1:63428/services/list/session-<uuid> -UseBasicP
 
 下拉里用同一套标题，只是更紧凑（无边框、`radius-sm`），嵌套多包时也不会迷路。
 
+## Go 项目怎么办
+
+Go 没有 `package.json` 那样的脚本清单，它的可执行目标是 **`package main` 目录**，等价启动命令是
+`go run ./cmd/x`。所以 Host 半会额外扫 Go：
+
+- `go.work` 存在 → 按它列出的模块扫；否则找根部的 `go.mod`；
+- 每个模块内做**有界**的广度遍历（深度 4、最多 1200 个目录），跳过
+  `node_modules`/`vendor`/`testdata`/`dist`/`build`/点开头等目录；
+- 含 `package main` 的目录生成一条：名字取目录末段，命令是 `go run ./<相对路径>`（模块根部是 `go run .`）；
+- 一个模块就是一个分组，和 npm 包分组**同级**（不多套一层折叠），标题后面带 `go` 标记。
+
+没有 `package main` 的库模块（例如只有 `libs/codec` 这种）不会出现在面板里。
+
+Makefile / Taskfile / justfile **目前不解析**：它们不是 Go 的约定，解析成本也高，等真的遇到再说。
+
+## 排序与搜索
+
+- **按类型排序**：`dev/start/serve/watch` → `build/compile/package/release` → `test/e2e/coverage`
+  → `lint/check/format` → `size/report/audit` → 其他，同类型内按名称。这样 dev 和 build 不会被
+  e2e 之类穿插开。
+- **下拉顶部有搜索框**：打开即聚焦，按脚本名**和命令内容**做大小写不敏感的过滤，组名不参与匹配；
+  没有命中时显示「没有匹配的脚本」。每次打开都会清空上一次的输入。
+
+
+
 ## 运行时图标
 
 每条脚本前面有一个小方牌，画的是**这条命令会由什么工具执行**的图形，颜色用该工具的品牌色。

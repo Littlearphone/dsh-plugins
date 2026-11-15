@@ -34,6 +34,8 @@ window.__ModuleLoader__.load({
       'panel.note': '点击脚本名把命令发到对话里执行；执行本身仍由会话负责。',
       'menu.title': '启动脚本',
       'menu.empty': '没有可用的脚本。',
+      'menu.search': '搜索脚本…',
+      'menu.noMatch': '没有匹配的脚本。',
       'menu.hint': '点击一项，命令会填进输入框并发送。',
       'menu.open': '在侧栏打开',
     };
@@ -51,6 +53,8 @@ window.__ModuleLoader__.load({
       'panel.note': 'Clicking a script sends its command to the conversation; execution stays with the Session.',
       'menu.title': 'Start scripts',
       'menu.empty': 'No scripts available.',
+      'menu.search': 'Search scripts…',
+      'menu.noMatch': 'No matching scripts.',
       'menu.hint': 'Clicking a script fills the composer and sends it.',
       'menu.open': 'Open in sidebar',
     };
@@ -155,6 +159,51 @@ window.__ModuleLoader__.load({
       );
     }
 
+    /**
+     * Scripts are sorted by what they do, not alphabetically: dev, build, test,
+     * check, report, then everything else. Interleaved kinds are what makes a
+     * long list unreadable.
+     */
+    const SCRIPT_CATEGORIES = [
+      [/^(dev|start|serve|watch|run)\b/i, 0],
+      [/^(build|compile|bundle|package|dist|release)\b/i, 1],
+      [/^(test|e2e|spec|coverage)\b/i, 2],
+      [/^(lint|check|typecheck|format|fmt|validate|verify)\b/i, 3],
+      [/^(size|report|audit|scan|analy|stats)\b/i, 4],
+    ];
+
+    function scriptRank(script) {
+      const name = String(script?.name ?? '');
+      for (const [pattern, rank] of SCRIPT_CATEGORIES) {
+        if (pattern.test(name)) return rank;
+      }
+      return 9;
+    }
+
+    function sortScripts(scripts) {
+      return [...scripts].sort((left, right) => {
+        const rank = scriptRank(left) - scriptRank(right);
+        if (rank !== 0) return rank;
+        return String(left.name ?? '').localeCompare(String(right.name ?? ''));
+      });
+    }
+
+    /** Case-insensitive filter over both the script name and its command. */
+    function filterGroups(groups, query) {
+      const needle = query.trim().toLowerCase();
+      if (needle === '') return groups;
+      const matched = [];
+      for (const group of groups) {
+        const scripts = group.scripts.filter(
+          (script) =>
+            String(script.name ?? '').toLowerCase().includes(needle) ||
+            String(script.command ?? '').toLowerCase().includes(needle),
+        );
+        if (scripts.length > 0) matched.push({ ...group, scripts });
+      }
+      return matched;
+    }
+
     const CSS = `
 .dsh-svc-panel{box-sizing:border-box;display:flex;flex-direction:column;gap:8px;height:100%;min-height:0;padding:10px 0 0;overflow:hidden;color:var(--dsw-alias-label-primary);font-size:13px;}
 .dsh-svc-head{display:flex;flex:none;align-items:center;justify-content:space-between;gap:8px;padding:0 12px;}
@@ -171,6 +220,10 @@ window.__ModuleLoader__.load({
 .dsh-svc-group.is-compact:hover{background:var(--dsw-alias-interactive-bg-hover);}
 .dsh-svc-chevron{flex:none;width:10px;height:10px;transition:transform .15s ease;}
 .dsh-svc-group.is-open .dsh-svc-chevron{transform:rotate(90deg);}
+.dsh-svc-search{flex:none;display:flex;align-items:center;padding:2px 4px 4px;}
+.dsh-svc-search input{box-sizing:border-box;width:100%;height:26px;padding:0 8px;border:1px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm);background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary);font:inherit;font-size:12px;outline:none;}
+.dsh-svc-search input:focus{border-color:var(--dsw-alias-state-business-primary);}
+.dsh-svc-kind{flex:none;padding:0 5px;border-radius:999px;background:var(--dsw-alias-bg-layer-2);font-size:9px;line-height:1.7;text-transform:uppercase;letter-spacing:.04em;}
 .dsh-svc-group-name{min-width:0;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .dsh-svc-group-dir{min-width:0;font-size:10px;font-family:var(--dsh-font-family-code,monospace);opacity:.7;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .dsh-svc-count{margin-left:auto;flex:none;padding:0 5px;border-radius:999px;background:var(--dsw-alias-bg-layer-2);font-size:10px;font-variant-numeric:tabular-nums;}
@@ -266,9 +319,10 @@ window.__ModuleLoader__.load({
               ? data.groups
                   .map((group) => ({
                     id: String(group?.id ?? ''),
+                    kind: group?.kind === 'go' ? 'go' : 'npm',
                     name: typeof group?.name === 'string' ? group.name : '',
                     dir: typeof group?.dir === 'string' ? group.dir : '',
-                    scripts: Array.isArray(group?.scripts) ? group.scripts : [],
+                    scripts: Array.isArray(group?.scripts) ? sortScripts(group.scripts) : [],
                   }))
                   .filter((group) => group.scripts.length > 0)
               : [];
@@ -375,6 +429,7 @@ window.__ModuleLoader__.load({
               }),
             ),
             h('span', { className: 'dsh-svc-group-name' }, label),
+            group.kind === 'go' ? h('span', { className: 'dsh-svc-kind' }, 'go') : null,
             group.dir === '' ? null : h('span', { className: 'dsh-svc-group-dir' }, group.dir),
             h('span', { className: 'dsh-svc-count' }, String(group.scripts.length)),
           );
@@ -605,11 +660,29 @@ window.__ModuleLoader__.load({
             return () => document.removeEventListener('mousedown', onDown, true);
           }, [store.open]);
 
+          // The filter is per opening: one click away, empty again next time.
+          const [query, setQuery] = React.useState('');
+          const searchRef = React.useRef(null);
+
+          React.useEffect(() => {
+            if (store.open === false) return;
+            setQuery('');
+          }, [store.open]);
+
+          React.useEffect(() => {
+            if (store.open === false || anchor === null) return;
+            const input = searchRef.current;
+            if (input !== null) input.focus();
+          }, [store.open, anchor]);
+
           if (store.open === false || anchor === null) return null;
 
+          const visible = filterGroups(state.groups, query);
           const items =
             state.phase === 'ready'
-              ? menuItems(state.groups, collapsed, toggleGroup)
+              ? visible.length > 0
+                ? menuItems(visible, collapsed, toggleGroup)
+                : [h('div', { key: 'nomatch', className: 'dsh-svc-empty' }, t('menu.noMatch'))]
               : [
                   h(
                     'div',
@@ -634,6 +707,24 @@ window.__ModuleLoader__.load({
                 { type: 'button', className: 'dsh-svc-refresh', onClick: load },
                 t('panel.refresh'),
               ),
+            ),
+            h(
+              'label',
+              { className: 'dsh-svc-search', key: 'search' },
+              h('input', {
+                ref: searchRef,
+                type: 'search',
+                value: query,
+                placeholder: t('menu.search'),
+                'aria-label': t('menu.search'),
+                onChange: (event) => setQuery(event.target.value),
+                onKeyDown: (event) => {
+                  if (event.key === 'Escape') {
+                    event.stopPropagation();
+                    setOpen(false);
+                  }
+                },
+              }),
             ),
             h('div', { className: 'dsh-svc-menu-list' }, items),
             h(
