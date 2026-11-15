@@ -10,9 +10,21 @@
 1. Host 半注册同源路由 `GET /services/list/<sessionId>`；
 2. 路由用 Host 自己的 `sessions` 找到会话、用 `workingDirectory` 拿到该会话的**实际工作目录**；
 3. 读该目录的 `package.json`，返回 `scripts` 列表（没有文件时返回 `hasManifest: false`）；
-4. 浏览器半只负责渲染：点脚本 → `inputActions.setDraft(命令)` + `submit()`，由会话执行。
+4. 点脚本 → 在右侧栏**新建一个终端**、把命令写进去，并把那个终端开成标签页。
 
-**这一版不自己管理进程**。脚本执行完全交给对话（agent 用 bash/pwsh 工具跑），所以没有第二套生命周期、不用处理端口占用、不用管日志流。代价是不会像 IDEA 的 Services 那样有"运行中/已停止"状态——那需要 Host 侧进程管理，等你确认真要走这条路再做。
+## 执行路径：为什么绕了一圈
+
+侧栏终端插件（`dsh-client-ui-sidebar-terminal`）**没有对外暴露任何执行入口**——没有 client service，
+也没有 `run`/`write` 之类的方法，它的标签参数只接受 `{ terminalId }` 或 `{ shellPath }`。所以能用的
+唯一通道是 Host 的 `terminalController` Remote：
+
+1. `create` 建一个终端，拿到 `terminalId`；
+2. `attach` 拿输入权，等第一帧画面到了再把命令写进去（避免命令打在 shell 就绪之前）；
+3. 写完后断开我们这条 attachment，把输入权交还给标签页；
+4. `sidebarRight.openTab('terminal', { params: { terminalId } })` 把它显示出来。
+
+如果第 1、2 步的签名和实际不符，失败原因会直接显示在面板/下拉里（红字），不会静默。这条路径没有
+"官方 API"，用的是同一个 Host Remote，因此**换版本时最可能先坏的就是这里**。
 
 ## 为什么发现逻辑在 Host
 

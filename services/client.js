@@ -241,6 +241,7 @@ window.__ModuleLoader__.load({
 .dsh-svc-group-name{min-width:0;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .dsh-svc-group-dir{min-width:0;font-size:10px;font-family:var(--dsh-font-family-code,monospace);opacity:.7;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .dsh-svc-count{margin-left:auto;flex:none;padding:0 5px;border-radius:999px;background:var(--dsw-alias-bg-layer-2);font-size:10px;font-variant-numeric:tabular-nums;}
+.dsh-svc-notice{margin:0;padding:0 12px;font-size:10px;line-height:1.5;color:var(--dsw-alias-state-error-primary);overflow-wrap:anywhere;}
 .dsh-svc-list{display:flex;flex:1 1 auto;flex-direction:column;gap:4px;min-height:0;padding:2px 12px 12px;overflow-y:auto;}
 .dsh-svc-row{box-sizing:border-box;display:flex;align-items:center;gap:8px;padding:7px 9px;border:1px solid var(--dsw-alias-border-l1);border-left:3px solid var(--dsw-alias-state-business-primary);border-radius:8px;background:var(--dsw-alias-bg-base);text-align:left;}
 .dsh-svc-row-text{display:flex;flex-direction:column;gap:1px;min-width:0;}
@@ -290,6 +291,7 @@ window.__ModuleLoader__.load({
       open: false,
       sessionId: undefined,
       actions: undefined,
+      notice: '',
       revision: 0,
       listeners: new Set(),
     };
@@ -352,22 +354,61 @@ window.__ModuleLoader__.load({
       return [state, load];
     }
 
-    /** Hand a command to the composer: fill the draft, then send it. */
-    function sendCommand(command) {
-      const actions = store.actions;
-      if (actions === undefined || actions === null) return false;
+    /**
+     * Run a command in a real sidebar terminal.
+     *
+     * The terminal plugin exposes no client service, so the only way in is the
+     * Host's generated `terminalController` Remote: create a terminal, attach to
+     * it (the attachment owns input), type the command once the first screen
+     * frame arrives, then drop the attachment so the tab takes over. The tab is
+     * opened by `terminalId`, which is the parameter the terminal tab documents.
+     */
+    async function runInTerminal(remote, command) {
+      const api = remote?.terminal ?? remote?.terminalController;
+      if (api === undefined || typeof api.create !== 'function') {
+        return {
+          ok: false,
+          detail:
+            'terminal Remote unavailable: ' +
+            (remote === undefined ? 'no ctx.remote' : 'keys=' + Object.keys(api ?? remote).join(',')),
+        };
+      }
+      const id = 'svc-' + Math.random().toString(36).slice(2, 12);
+      const lifetime = new AbortController();
       try {
-        if (typeof actions.setDraft === 'function') actions.setDraft(command);
-        if (typeof actions.submit === 'function') actions.submit();
-        return true;
+        const info = await api.create({ id, cols: 120, rows: 30 }, lifetime.signal);
+        const terminalId = info?.id ?? id;
+
+        let release;
+        const ready = new Promise((resolve) => {
+          release = resolve;
+        });
+        async function* uplink() {
+          await ready;
+          yield { type: 'write', sequence: 1, data: command + '\r' };
+          // Hold the attachment briefly so the write flushes before we detach.
+          await new Promise((resolve) => setTimeout(resolve, 400));
+        }
+        const stream = api.attach(terminalId, uplink(), lifetime.signal);
+        void (async () => {
+          try {
+            for await (const item of stream) {
+              item.accept?.();
+              release();
+            }
+          } catch {
+            /* the attachment ends when this lifetime aborts */
+          }
+        })();
+        setTimeout(() => lifetime.abort(), 1600);
+        return { ok: true, terminalId };
       } catch (error) {
-        console.error('[services] cannot hand the command to the composer', error);
-        return false;
+        return { ok: false, detail: String(error?.message ?? error) };
       }
     }
 
     return {
-      inject: ['slots', 'sidebarRightTabs', 'sidebarRight', 'locale', 'layout'],
+      inject: ['slots', 'sidebarRightTabs', 'sidebarRight', 'locale'],
 
       apply(ctx) {
         const locale = ctx.get('locale');
@@ -391,6 +432,29 @@ window.__ModuleLoader__.load({
           );
         }
 
+        /**
+         * Clicking a script starts it in a new sidebar terminal. If the terminal
+         * Remote is missing or refuses, the failure is surfaced instead of
+         * silently doing something else.
+         */
+        async function launch(script) {
+          const remote = ctx.get('remote');
+          const outcome = await runInTerminal(remote, script.command);
+          if (outcome.ok === false) {
+            store.notice = outcome.detail;
+            emit();
+            return;
+          }
+          store.notice = '';
+          emit();
+          try {
+            controller?.openTab('terminal', { params: { terminalId: outcome.terminalId } });
+          } catch (error) {
+            store.notice = String(error?.message ?? error);
+            emit();
+          }
+        }
+
         function row(script, key, interactive) {
           const common = {
             key,
@@ -407,7 +471,17 @@ window.__ModuleLoader__.load({
             ),
           ];
           return interactive
-            ? h('button', { ...common, type: 'button', onClick: () => sendCommand(script.command) }, body)
+            ? h(
+                'button',
+                {
+                  ...common,
+                  type: 'button',
+                  onClick: () => {
+                    void launch(script);
+                  },
+                },
+                body,
+              )
             : h('div', common, body);
         }
 
@@ -476,8 +550,8 @@ window.__ModuleLoader__.load({
                     className: 'dsh-svc-item',
                     title: script.command,
                     onClick: () => {
-                      sendCommand(script.command);
                       setOpen(false);
+                      void launch(script);
                     },
                   },
                   RuntimeBadge(script.command, 'badge'),
@@ -511,6 +585,7 @@ window.__ModuleLoader__.load({
         /** Right-sidebar tab: the list, with its directory and a refresh control. */
         function PanelBody(props) {
           useLocaleRevision();
+          useStoreRevision();
           const sessionId = props?.sessionId ?? store.sessionId;
           const [state, load] = useScripts(sessionId);
           const [collapsed, toggleGroup] = useCollapsedGroups();
@@ -548,6 +623,9 @@ window.__ModuleLoader__.load({
               ),
             ),
             h('p', { className: 'dsh-svc-note', key: 'note' }, t('panel.note')),
+            store.notice === ''
+              ? null
+              : h('p', { className: 'dsh-svc-notice', key: 'notice' }, store.notice),
             h('div', { className: 'dsh-svc-list', key: 'list' }, content),
           );
         }
@@ -741,6 +819,9 @@ window.__ModuleLoader__.load({
               }),
             ),
             h('div', { className: 'dsh-svc-menu-list' }, items),
+            store.notice === ''
+              ? null
+              : h('p', { className: 'dsh-svc-notice', key: 'notice' }, store.notice),
             h(
               'div',
               { className: 'dsh-svc-menu-foot' },
