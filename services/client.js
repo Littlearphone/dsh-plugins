@@ -370,6 +370,20 @@ window.__ModuleLoader__.load({
      * frame arrives, then drop the attachment so the tab takes over. The tab is
      * opened by `terminalId`, which is the parameter the terminal tab documents.
      */
+    /**
+     * Generated Remote methods answer with a result envelope (`{ ok, value }`),
+     * which the terminal controller unwraps with its own `valueOf`. Do the same:
+     * a failed envelope becomes a thrown error so the caller reports it.
+     */
+    function unwrapRemote(result) {
+      if (result === null || typeof result !== 'object' || typeof result.ok !== 'boolean') return result;
+      if (result.ok === false) {
+        const error = result.error;
+        throw new Error(String(error?.code ?? error?.message ?? 'remote failed'));
+      }
+      return result.value;
+    }
+
     async function runInTerminal(remote, sessionId, command) {
       let api;
       try {
@@ -390,13 +404,13 @@ window.__ModuleLoader__.load({
         // Signatures read from the terminal controller's own client implementation:
         // create(sessionId, { id, cols, rows }) -> info
         // attach(sessionId, id, signal) -> handle (async frames + handle.send(input))
-        const info = await api.create(sessionId, { id, cols: 80, rows: 24 });
+        const info = unwrapRemote(await api.create(sessionId, { id, cols: 80, rows: 24 }));
         const terminalId = info?.id ?? id;
         // Ask the Host what it actually holds, so a mismatch is visible instead
         // of surfacing later as "this terminal no longer exists".
         let listed = '';
         try {
-          const terminals = await api.list(sessionId);
+          const terminals = unwrapRemote(await api.list(sessionId));
           listed = Array.isArray(terminals) ? terminals.map((item) => String(item?.id)).join(',') : 'n/a';
         } catch (error) {
           listed = 'list failed: ' + String(error?.message ?? error);
