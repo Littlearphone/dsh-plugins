@@ -590,6 +590,7 @@ window.__ModuleLoader__.load({
             const created = await postJson(START_ROUTE + encodeURIComponent(String(store.sessionId)), {
               name: script.name,
               command: script.command,
+              source: script.command,
               dir: groupDir ?? '',
               kind: groupKind ?? 'npm',
             });
@@ -760,7 +761,7 @@ window.__ModuleLoader__.load({
           // Latest service per (command, dir): one script row shows its own run.
           const latest = new Map();
           for (const service of services) {
-            const key = String(service.command) + '\u0000' + String(service.dir ?? '');
+            const key = String(service.source ?? service.command) + '\u0000' + String(service.dir ?? '');
             const previous = latest.get(key);
             if (previous === undefined || previous.startedAt <= service.startedAt) latest.set(key, service);
           }
@@ -1063,7 +1064,7 @@ window.__ModuleLoader__.load({
           const visible = filterGroups(state.groups, query);
           const runningByCommand = new Map();
           for (const running of services) {
-            if (running.state === 'running') runningByCommand.set(running.command, running.id);
+            if (running.state === 'running') runningByCommand.set(String(running.source ?? running.command), running.id);
           }
           const items =
             state.phase === 'ready'

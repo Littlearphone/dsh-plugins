@@ -376,7 +376,10 @@ async function spawnService(ctx, sessionId, request, root) {
   const record = {
     id,
     name: String(request.name ?? 'script'),
+    // command is what actually runs (a package-manager invocation); source
+    // is the script line the UI lists, which is the identity the panel matches on.
     command,
+    source: String(request.source ?? request.command ?? command),
     dir: String(request.dir ?? ''),
     state: 'running',
     exitCode: null,
@@ -424,6 +427,7 @@ function listServices(sessionId) {
       id: record.id,
       name: record.name,
       command: record.command,
+      source: record.source,
       dir: record.dir,
       state: record.state,
       exitCode: record.exitCode,
@@ -547,7 +551,7 @@ function createHandler(ctx) {
       const started = await spawnService(
         ctx,
         sessionId,
-        { name: body.name, command: body.command, dir: body.dir, kind: body.kind, cwd },
+        { name: body.name, command: body.command, source: body.source, dir: body.dir, kind: body.kind, cwd },
         dir,
       );
       if (started.error !== undefined) {
