@@ -47,6 +47,7 @@ window.__ModuleLoader__.load({
       'run.hide': '收起',
       'run.finished': '已结束',
       'run.clear': '清理',
+      'run.start': '启动',
       'run.stop': '停止',
       'run.confirmStop': '确认停止',
       'output.truncated': '（已省略较早的输出）',
@@ -83,6 +84,7 @@ window.__ModuleLoader__.load({
       'run.hide': 'Hide',
       'run.finished': 'finished',
       'run.clear': 'Clear',
+      'run.start': 'Start',
       'run.stop': 'Stop',
       'run.confirmStop': 'Confirm stop',
       'output.truncated': '(earlier output omitted)',
@@ -310,10 +312,11 @@ window.__ModuleLoader__.load({
 .dsh-svc-list{display:flex;flex:1 1 auto;flex-direction:column;gap:4px;min-height:0;padding:2px 12px 12px;overflow-y:auto;}
 .dsh-svc-row{box-sizing:border-box;display:flex;align-items:center;gap:8px;padding:7px 9px;border:1px solid var(--dsw-alias-border-l1);border-left:3px solid var(--dsw-alias-state-business-primary);border-radius:8px;background:var(--dsw-alias-bg-base);text-align:left;}
 .dsh-svc-row-text{display:flex;flex-direction:column;gap:1px;min-width:0;}
-.dsh-svc-row.is-button{cursor:pointer;transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease;}
-@media (hover:hover){
-.dsh-svc-row.is-button:hover{transform:translateY(-1px);border-color:var(--dsw-alias-state-business-primary);box-shadow:0 6px 16px rgba(0,0,0,.10);}
-}
+.dsh-svc-row:hover{background:var(--dsw-alias-bg-layer-2);}
+.dsh-svc-icon{flex:none;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;width:20px;height:20px;padding:0;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm);background:var(--dsw-specific-menu);color:var(--dsw-alias-label-secondary);cursor:pointer;}
+.dsh-svc-icon:hover{border-color:var(--dsw-alias-border-l3);color:var(--dsw-alias-label-primary);}
+.dsh-svc-icon svg{width:11px;height:11px;display:block;}
+.dsh-svc-chip{background:transparent;padding:0 2px;}
 .dsh-svc-name{font-size:12px;line-height:1.3;font-weight:500;}
 .dsh-svc-command{font-size:10px;line-height:1.4;color:var(--dsw-alias-label-secondary);font-family:var(--dsh-font-family-code,monospace);overflow-wrap:anywhere;}
 .dsh-svc-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:22px 0;font-size:11px;line-height:1.6;color:var(--dsw-alias-label-secondary);text-align:center;}
@@ -329,7 +332,7 @@ window.__ModuleLoader__.load({
 .dsh-svc-menu-head{display:flex;flex:none;align-items:center;justify-content:space-between;gap:8px;padding:4px 7px 2px;font-size:11px;font-weight:500;color:var(--dsw-alias-label-secondary);}
 .dsh-svc-menu-list{display:flex;flex-direction:column;gap:1px;min-height:0;padding:2px 0;overflow-y:auto;}
 .dsh-svc-item{box-sizing:border-box;display:flex;align-items:center;gap:8px;width:100%;padding:4px 7px;border:0;border-radius:var(--dsw-radius-md);background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer;}
-.dsh-svc-item:hover{background:var(--dsw-alias-interactive-bg-hover);}
+.dsh-svc-item:hover{background:var(--dsw-alias-bg-layer-2);}
 .dsh-svc-item:focus-visible{outline:1px solid var(--dsw-alias-state-business-primary);outline-offset:-1px;}
 .dsh-svc-item.is-running .dsh-svc-item-name{color:var(--dsw-alias-state-success-primary);}
 .dsh-svc-item-stop{margin-left:auto;}
@@ -613,11 +616,9 @@ window.__ModuleLoader__.load({
             store.busy = false;
             store.notice = '';
             store.focusServiceId = String(created?.service?.id ?? '');
-            try {
-              controller?.openTab(KIND);
-            } catch (error) {
-              console.error('[services] cannot open the panel', error);
-            }
+            // Starting never navigates: the dropdown is meant to be usable
+            // without opening the panel, and the panel is already open when its
+            // own start button is the caller.
             setOpen(false);
           } catch (error) {
             store.busy = false;
@@ -688,6 +689,11 @@ window.__ModuleLoader__.load({
          * Rows of the dropdown: click starts, and a running service exposes its
          * stop right here so the common action needs no detour through the panel.
          */
+        /**
+         * Rows of the dropdown. The row text is inert and one icon button acts:
+         * start while idle, stop while running — so a service can be stopped from
+         * here without opening the panel, and a stray click cannot start anything.
+         */
         function menuItems(groups, collapsed, toggle, runningByCommand, stopService, armedStop, armStop, disarmStop) {
           const nodes = [];
           groups.forEach((group, groupIndex) => {
@@ -695,24 +701,14 @@ window.__ModuleLoader__.load({
             if (collapsed.has(group.id)) return;
             sortScripts(group.scripts).forEach((script, index) => {
               const runningId = runningByCommand.get(script.command);
+              const running = runningId !== undefined;
               nodes.push(
                 h(
                   'div',
                   {
                     key: 'item-' + groupIndex + '-' + index,
-                    className: 'dsh-svc-item' + (runningId === undefined ? '' : ' is-running'),
-                    role: 'button',
-                    tabIndex: 0,
+                    className: 'dsh-svc-item' + (running ? ' is-running' : ''),
                     title: script.command,
-                    onClick: () => {
-                      void launch(script, group.dir, group.kind);
-                    },
-                    onKeyDown: (event) => {
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault();
-                        void launch(script, group.dir, group.kind);
-                      }
-                    },
                   },
                   RuntimeBadge(script.command, 'badge'),
                   h(
@@ -721,20 +717,16 @@ window.__ModuleLoader__.load({
                     h('span', { className: 'dsh-svc-item-name' }, script.name),
                     h('span', { className: 'dsh-svc-item-command' }, script.command),
                   ),
-                  runningId === undefined
-                    ? null
-                    : h(
+                  running
+                    ? h(
                         'button',
                         {
                           key: 'stop',
                           type: 'button',
-                          className:
-                            'dsh-svc-item-stop dsh-svc-stop' +
-                            (armedStop === runningId ? ' is-armed' : ''),
+                          className: 'dsh-svc-stop' + (armedStop === runningId ? ' is-armed' : ''),
                           title: armedStop === runningId ? t('run.confirmStop') : t('run.stop'),
                           'aria-label': armedStop === runningId ? t('run.confirmStop') : t('run.stop'),
-                          onClick: (event) => {
-                            event.stopPropagation();
+                          onClick: () => {
                             if (armedStop === runningId) {
                               disarmStop();
                               void stopService(runningId);
@@ -750,6 +742,24 @@ window.__ModuleLoader__.load({
                               { viewBox: '0 0 16 16', 'aria-hidden': true },
                               h('rect', { x: 4, y: 4, width: 8, height: 8, rx: 1.5, fill: 'currentColor' }),
                             ),
+                      )
+                    : h(
+                        'button',
+                        {
+                          key: 'start',
+                          type: 'button',
+                          className: 'dsh-svc-icon',
+                          title: t('run.start'),
+                          'aria-label': t('run.start'),
+                          onClick: () => {
+                            void launch(script, group.dir, group.kind);
+                          },
+                        },
+                        h(
+                          'svg',
+                          { viewBox: '0 0 16 16', 'aria-hidden': true },
+                          h('path', { d: 'M5.5 3.5 12 8l-6.5 4.5z', fill: 'currentColor' }),
+                        ),
                       ),
                 ),
               );
@@ -837,25 +847,15 @@ window.__ModuleLoader__.load({
             const key = String(script.command) + '\u0000' + String(group.dir ?? '');
             const service = latest.get(key);
             const open = openKey === key;
+            const running = service?.state === 'running';
             return h(
               'div',
               { key: 'entry-' + index, className: 'dsh-svc-entry-block' },
               h(
                 'div',
                 {
-                  className: 'dsh-svc-row is-button' + (service?.state === 'running' ? ' is-running' : ''),
-                  role: 'button',
-                  tabIndex: 0,
+                  className: 'dsh-svc-row' + (running ? ' is-running' : ''),
                   title: script.command,
-                  onClick: () => {
-                    void launch(script, group.dir, group.kind);
-                  },
-                  onKeyDown: (event) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault();
-                      void launch(script, group.dir, group.kind);
-                    }
-                  },
                 },
                 RuntimeBadge(script.command, 'badge'),
                 h(
@@ -865,15 +865,36 @@ window.__ModuleLoader__.load({
                   h('span', { className: 'dsh-svc-command', key: 'command' }, script.command),
                 ),
                 statusChip(service),
-                service?.state === 'running'
+                running
+                  ? null
+                  : h(
+                      'button',
+                      {
+                        key: 'start',
+                        type: 'button',
+                        className: 'dsh-svc-icon',
+                        title: t('run.start'),
+                        'aria-label': t('run.start'),
+                        onClick: () => {
+                          void launch(script, group.dir, group.kind);
+                        },
+                      },
+                      h(
+                        'svg',
+                        { viewBox: '0 0 16 16', 'aria-hidden': true },
+                        h('path', { d: 'M5.5 3.5 12 8l-6.5 4.5z', fill: 'currentColor' }),
+                      ),
+                    ),
+                running
                   ? h(
                       'button',
                       {
                         key: 'stop',
                         type: 'button',
                         className: 'dsh-svc-stop' + (armedStop === service.id ? ' is-armed' : ''),
-                        onClick: (event) => {
-                          event.stopPropagation();
+                        title: armedStop === service.id ? t('run.confirmStop') : t('run.stop'),
+                        'aria-label': armedStop === service.id ? t('run.confirmStop') : t('run.stop'),
+                        onClick: () => {
                           if (armedStop === service.id) {
                             disarmStop();
                             void stopService(sessionId, service.id);
@@ -898,29 +919,38 @@ window.__ModuleLoader__.load({
                       {
                         key: 'output',
                         type: 'button',
-                        className: 'dsh-svc-run-button',
-                        onClick: (event) => {
-                          event.stopPropagation();
-                          setOpenKey(open ? '' : key);
-                        },
+                        className: 'dsh-svc-icon',
+                        title: open ? t('run.hide') : t('run.output'),
+                        'aria-label': open ? t('run.hide') : t('run.output'),
+                        onClick: () => setOpenKey(open ? '' : key),
                       },
-                      open ? t('run.hide') : t('run.output'),
+                      h(
+                        'svg',
+                        { viewBox: '0 0 16 16', 'aria-hidden': true, fill: 'none' },
+                        h('path', {
+                          d: open ? 'M4 10l4-4 4 4' : 'M4 6l4 4 4-4',
+                          stroke: 'currentColor',
+                          strokeWidth: 1.4,
+                          strokeLinecap: 'round',
+                          strokeLinejoin: 'round',
+                        }),
+                      ),
                     ),
               ),
               open && service !== undefined
                 ? h(OutputView, {
-                  key: 'output-view',
-                  sessionId,
-                  id: service.id,
-                  name: script.name,
-                  labels: {
-                    waiting: t('output.waiting'),
-                    reading: t('output.reading'),
-                    hide: t('run.hide'),
-                    truncated: t('output.truncated'),
-                  },
-                  onClose: () => setOpenKey(''),
-                })
+                    key: 'output-view',
+                    sessionId,
+                    id: service.id,
+                    name: script.name,
+                    labels: {
+                      waiting: t('output.waiting'),
+                      reading: t('output.reading'),
+                      hide: t('run.hide'),
+                      truncated: t('output.truncated'),
+                    },
+                    onClose: () => setOpenKey(''),
+                  })
                 : null,
             );
           };
