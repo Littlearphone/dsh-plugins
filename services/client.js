@@ -474,7 +474,7 @@ window.__ModuleLoader__.load({
      * carries its own header and close control, so leaving it never depends on
      * finding the row again, and the id/status make an empty result diagnosable.
      */
-    function OutputView({ sessionId, id, name, onClose }) {
+    function OutputView({ sessionId, id, name, labels, onClose }) {
       const [text, setText] = React.useState('');
       const [issue, setIssue] = React.useState('');
       const [loaded, setLoaded] = React.useState(false);
@@ -509,7 +509,14 @@ window.__ModuleLoader__.load({
       }, [sessionId, id]);
       const lines = text.split(/\r?\n/);
       const tail = lines.slice(Math.max(0, lines.length - 200)).join('\n');
-      const body = issue !== '' ? issue : tail !== '' ? tail : loaded ? t('output.waiting') : t('output.reading');
+      const body =
+        issue !== ''
+          ? issue
+          : tail !== ''
+            ? tail
+            : loaded
+              ? String(labels?.waiting ?? '')
+              : String(labels?.reading ?? '');
       return h(
         'div',
         { className: 'dsh-svc-drawer' },
@@ -527,7 +534,7 @@ window.__ModuleLoader__.load({
                 if (typeof onClose === 'function') onClose();
               },
             },
-            t('run.hide'),
+            String(labels?.hide ?? ''),
           ),
         ),
         h('pre', { className: 'dsh-svc-output' }, body),
@@ -875,7 +882,14 @@ window.__ModuleLoader__.load({
                     ),
               ),
               open && service !== undefined
-                ? h(OutputView, { key: 'output-view', sessionId, id: service.id, name: script.name, onClose: () => setOpenKey('') })
+                ? h(OutputView, {
+                  key: 'output-view',
+                  sessionId,
+                  id: service.id,
+                  name: script.name,
+                  labels: { waiting: t('output.waiting'), reading: t('output.reading'), hide: t('run.hide') },
+                  onClose: () => setOpenKey(''),
+                })
                 : null,
             );
           };
