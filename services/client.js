@@ -37,6 +37,7 @@ window.__ModuleLoader__.load({
       'menu.search': '搜索脚本…',
       'menu.noMatch': '没有匹配的脚本。',
       'menu.starting': '正在启动终端…',
+      'menu.notTyped': '终端已建立，但命令没写进去（可能会出现空提示符，手动粘贴即可）。',
       'menu.hint': '点击一项，命令会填进输入框并发送。',
       'menu.open': '在侧栏打开',
     };
@@ -57,6 +58,7 @@ window.__ModuleLoader__.load({
       'menu.search': 'Search scripts…',
       'menu.noMatch': 'No matching scripts.',
       'menu.starting': 'Starting terminal…',
+      'menu.notTyped': 'The terminal was created but the command was not typed (an empty prompt may show; paste it manually).',
       'menu.hint': 'Clicking a script fills the composer and sends it.',
       'menu.open': 'Open in sidebar',
     };
@@ -367,58 +369,64 @@ window.__ModuleLoader__.load({
      * frame arrives, then drop the attachment so the tab takes over. The tab is
      * opened by `terminalId`, which is the parameter the terminal tab documents.
      */
-    async function runInTerminal(remote, command) {
+    async function runInTerminal(remote, sessionId, command) {
       let api;
       try {
-        api = remote?.terminal ?? remote?.terminalController;
+        api = remote?.terminal;
       } catch (error) {
         return { ok: false, detail: 'terminal namespace refused: ' + String(error?.message ?? error) };
       }
       if (api === undefined || typeof api.create !== 'function') {
-        let detail = 'terminal Remote unavailable';
-        try {
-          detail += ': keys=' + Object.keys(remote ?? {}).join(',');
-        } catch (error) {
-          detail += ': ' + String(error?.message ?? error);
-        }
-        return { ok: false, detail };
+        return { ok: false, detail: 'terminal Remote unavailable' };
       }
-      // Temporary: the arities tell which call shape this build actually uses.
-      store.diag =
-        'create/' + api.create.length + ' attach/' + (typeof api.attach === 'function' ? api.attach.length : '?');
-      emit();
+      if (sessionId === undefined || sessionId === null) {
+        return { ok: false, detail: 'no session id' };
+      }
+
       const id = 'svc-' + Math.random().toString(36).slice(2, 12);
       const lifetime = new AbortController();
       try {
-        const info = await api.create({ id, cols: 120, rows: 30 }, lifetime.signal);        const terminalId = info?.id ?? id;
+        // Signatures read from the terminal controller's own client implementation:
+        // create(sessionId, { id, cols, rows }) -> info
+        // attach(sessionId, id, signal) -> handle (async frames + handle.send(input))
+        const info = await api.create(sessionId, { id, cols: 80, rows: 24 });
+        const terminalId = info?.id ?? id;
+        const handle = api.attach(sessionId, terminalId, lifetime.signal);
 
-        let release;
-        const ready = new Promise((resolve) => {
-          release = resolve;
-        });
-        async function* uplink() {
-          await ready;
-          yield { type: 'write', sequence: 1, data: command + '\r' };
-          // Hold the attachment briefly so the write flushes before we detach.
-          await new Promise((resolve) => setTimeout(resolve, 400));
-        }
-        const stream = api.attach(terminalId, uplink(), lifetime.signal);
-        // If no frame ever arrives, type anyway rather than hanging forever.
-        setTimeout(() => release(), 2500);
-        void (async () => {
-          try {
-            for await (const item of stream) {
-              item.accept?.();
-              release();
+        let sequence = 0;
+        const typed = await new Promise((resolve) => {
+          let settled = false;
+          const finish = (value) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            resolve(value);
+          };
+          const timer = setTimeout(() => finish(false), 4000);
+          void (async () => {
+            try {
+              for await (const frame of handle) {
+                if (settled) continue;
+                if (frame?.type !== 'snapshot' || frame.writable === false) continue;
+                try {
+                  sequence += 1;
+                  handle.send({ type: 'write', sequence, data: command + '\r' });
+                  setTimeout(() => finish(true), 350);
+                } catch {
+                  finish(false);
+                }
+              }
+            } catch {
+              finish(false);
             }
-          } catch {
-            /* the attachment ends when this lifetime aborts */
-          }
-        })();
-        setTimeout(() => lifetime.abort(), 1600);
-        return { ok: true, terminalId };
+          })();
+        });
+        // Release input control so the tab can take it; the process keeps running.
+        lifetime.abort();
+        return { ok: true, terminalId, typed };
       } catch (error) {
-        return { ok: false, detail: String(error?.message ?? error) };
+        lifetime.abort();
+        return { ok: false, detail: 'terminal failed: ' + String(error?.message ?? error) };
       }
     }
 
@@ -468,7 +476,7 @@ window.__ModuleLoader__.load({
           emit();
           let outcome;
           try {
-            outcome = await runInTerminal(ctx.remote, script.command);
+            outcome = await runInTerminal(ctx.remote, store.sessionId, script.command);
           } catch (error) {
             outcome = { ok: false, detail: 'launch threw: ' + String(error?.message ?? error) };
           }
@@ -480,7 +488,8 @@ window.__ModuleLoader__.load({
           }
           try {
             controller?.openTab('terminal', { params: { terminalId: outcome.terminalId } });
-            store.notice = '';
+            store.notice =
+              outcome.typed === false ? t('menu.notTyped') : '';
             setOpen(false);
           } catch (error) {
             store.notice = 'openTab failed: ' + String(error?.message ?? error);
