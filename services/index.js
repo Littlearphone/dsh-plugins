@@ -535,9 +535,18 @@ function lastOutputLine(record) {
   };
   const text = read(collected.stdout) + read(collected.stderr);
   if (text === '') return '';
-  const lines = text.split(/\r?\n/).filter((line) => line.trim() !== '');
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line !== '');
   if (lines.length === 0) return '';
-  const last = lines[lines.length - 1].trim();
+  // `npm run` echoes the script body as `> command` and adds its own notices;
+  // showing those as "the latest log line" hides what the script actually said.
+  const meaningful = lines.filter(
+    (line) => !line.startsWith('> ') && !line.startsWith('npm notice') && !line.startsWith('npm warn'),
+  );
+  const source = meaningful.length > 0 ? meaningful : lines;
+  const last = source[source.length - 1];
   return last.length > 200 ? '…' + last.slice(-200) : last;
 }
 

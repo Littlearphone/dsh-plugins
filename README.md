@@ -8,13 +8,13 @@
 
 | 目录 | 包名 | 说明 |
 |---|---|---|
-| [`task-board`](task-board/README.md) | `@local/task-board` | 按状态分轨道的任务板（交互原型）+ 右侧栏指南页的方块网格样式 |
-| [`services`](services/README.md) | `@local/services` | 工作区启动脚本与 Go 程序：右侧栏「服务」面板 + 会话头部下拉，Host 侧自管进程、可看输出、可停止 |
+| [`task-board`](task-board/README.md) | `@local/task-board` | 按状态分轨道的任务列表（交互原型）+ 右侧栏指南页的方块网格样式 |
+| [`services`](services/README.md) | `@local/services` | 工作区启动脚本与 Go 程序：右侧栏「服务管理」面板 + 会话头部下拉，Host 侧自管进程、可看输出、可停止 |
 
-`sidebar-notes/` 是**已退役**的插件：界面入口全部移除，指南页网格样式已搬到 `task-board`，
-它不再安装到 profile 里，目录保留仅作 Host 存储与同源路由的参考实现。
+`sidebar-notes/` 曾在早期作为 Host 存储与同源路由的参考实现，插件与目录都已移除；
+指南页的方块网格样式搬到了 `task-board`。
 
-仓库根有一个 `package.json`，只提供 `npm run check`（逐个 `node --check` 三个插件的
+仓库根有一个 `package.json`，只提供 `npm run check`（逐个 `node --check` 两个插件的
 Host/Client 半并校验 locale JSON），不参与插件安装。
 
 ## 安装
@@ -66,7 +66,7 @@ https://github.com/Littlearphone/dsh-plugins.git#main&path:/services
 
 1. 安装结果是 `application: applied`；`warnings` 里的内容要读完再判断，`failed` 需要排查。
 2. 插件管理器里能看到这个 bundle 和它插入的行（row）。
-3. `services` 额外验证：会话头部出现「便签」按钮；右侧栏指南页出现「便签」卡片；
+3. `services` 额外验证：会话头部出现「服务管理」按钮；右侧栏指南页出现「服务管理」卡片；
    Host 半边带 HTTP 路由，可以探活：
    `GET http://127.0.0.1:<端口>/services/list/probe` → 应返回 `{"error":"unknown-session"}`。
 

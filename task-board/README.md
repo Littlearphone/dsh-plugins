@@ -1,19 +1,19 @@
-# 任务板 · `@local/task-board`
+# 任务列表 · `@local/task-board`
 
-按状态分轨道的任务板，用于验证「轨道内排序 + 跨轨道拖动」的交互。**当前是交互原型**：
+按状态分轨道的任务列表，用于验证「轨道内排序 + 跨轨道拖动」的交互。**当前是交互原型**：
 卡片写死、只存在 React 内存里，刷新即复位；持久化和会话关联是下一步。
 
 ## 怎么看到它
 
 会话头部**右侧**的工具区（`conversation.session.header.utilities`）会出现一个图标按钮：28×28、
-图标是三列看板，悬浮提示「任务板」（`title`/`aria-label`）。它排在最右那个「更多」菜单
+图标是三列看板，悬浮提示「任务列表」（`title`/`aria-label`）。它排在最右那个「更多」菜单
 （`session-log-download`，默认 order 0）**左边**——本插件取 order -1。
 
 样式刻意对齐产品按钮（primitives `Button size="sm"` 的 outline 变体）：`--dsw-radius-sm` 圆角 +
 发丝内描边 `inset 0 0 0 var(--dsh-hairline-width, .5px) var(--dsw-alias-border-l3)`，hover/active
 用 `--dsw-alias-interactive-bg-hover/active`。不是 1px 实线边框。
 
-点它打开右侧栏的任务板标签页。
+点它打开右侧栏的任务列表标签页。
 
 四条轨道：设计中 / 等待实现 / 正在实现 / 已完成。拖任意卡片：
 
@@ -36,6 +36,6 @@
 ## 下一步（待定）
 
 - **数据模型**：任务属于工作区还是全局看板；是否需要跨工作区视图。
-- **持久化**：Host 侧 JSON（复用便签插件的同源路由模式），键用 workspacePath 而不是 sessionId。
+- **持久化**：Host 侧 JSON（沿用已在早期验证过的同源路由模式），键用 workspacePath 而不是 sessionId。
 - **会话关联**：任务挂到会话上、点任务跳转会话、会话活跃时自动改状态。
 - **跨会话编排**：从任务新建/分叉会话并注入上下文——这是独立的子系统，别塞进看板首版。

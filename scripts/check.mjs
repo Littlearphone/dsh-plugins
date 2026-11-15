@@ -9,7 +9,7 @@ import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 
 const ROOT = new URL('..', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
-const PLUGINS = ['sidebar-notes', 'task-board', 'services'];
+const PLUGINS = ['task-board', 'services'];
 const FILES = ['index.js', 'client.js'];
 
 let failed = 0;

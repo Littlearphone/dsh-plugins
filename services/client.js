@@ -24,9 +24,9 @@ window.__ModuleLoader__.load({
     const BUILD = 'services 0.1.1';
 
     const ZH = {
-      'tab.title': '服务',
-      'entry.label': '启动脚本',
-      'guide.title': '服务',
+      'tab.title': '服务管理',
+      'entry.label': '服务管理',
+      'guide.title': '服务管理',
       'guide.description': '列出工作区的启动脚本与 Go 程序，启动后可看输出、可停止。',
       'panel.loading': '正在读取脚本…',
       'panel.empty': '这个工作区没有 package.json，或者里面没有 scripts。',
@@ -61,9 +61,9 @@ window.__ModuleLoader__.load({
     };
 
     const EN = {
-      'tab.title': 'Services',
-      'entry.label': 'Start scripts',
-      'guide.title': 'Services',
+      'tab.title': 'Service manager',
+      'entry.label': 'Service manager',
+      'guide.title': 'Service manager',
       'guide.description': 'Workspace start scripts and Go programs, with output and a stop control.',
       'panel.loading': 'Reading scripts…',
       'panel.empty': 'This workspace has no package.json, or it declares no scripts.',
