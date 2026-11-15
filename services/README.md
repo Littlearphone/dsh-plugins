@@ -29,6 +29,33 @@ Invoke-WebRequest http://127.0.0.1:63428/services/list/session-<uuid> -UseBasicP
 
 不带前缀会 404（Host 里查不到会话），这是正常的。
 
+## 运行时图标
+
+每条脚本前面有一个小方牌，显示**这条命令会由什么工具执行**。判断方式是扫描命令行里
+最先出现的已知程序名（所以 `npm run build` 判成 npm、`vite build` 判成 node），目前覆盖：
+
+| 牌子 | 匹配 |
+|---|---|
+| `npm` / `pnpm` / `yarn` | 对应包管理器 |
+| `node` | `node`、`tsx`、`ts-node`、`nodemon`、`vite`、`next`、`webpack`、`rollup`、`esbuild`、`jest`、`vitest`、`mocha` |
+| `mvn` | `mvn`、`mvnd` |
+| `gradle` | `gradle`、`gradlew` |
+| `java` | `java` |
+| `py` | `python`、`python3`、`uv`、`poetry`、`pipenv`、`pytest`、`django-admin` |
+| `docker` | `docker`、`docker-compose` |
+| `.net` | `dotnet` |
+| ▶（灰） | 其他，统一用播放图标 |
+
+**加一个工具 = 在 `RUNTIMES` 里加一行**（`label` 显示在牌子上，`tint` 是它的品牌色，
+`pattern` 是匹配正则）。牌子底色是 `color-mix(tint 16%, transparent)`，所以在黑白两套主题里
+都跟着主题的底色走，不会在深色下糊掉。
+
+## 为什么下拉的底色和别的不一样过
+
+第一版用了 `--dsw-alias-bg-overlay`，那是**灰的**（浅色主题下是 `neutral-bluish-150`），
+而产品自己的下拉菜单面板用的是 `--dsw-alias-bg-base`（浅色下是纯白）+ `radius-lg` +
+`.5px` 的 `border-l2` + `4px` 内边距。现在按后者对齐，视觉上和「更多」菜单一致。
+
 ## 装
 
 ```powershell

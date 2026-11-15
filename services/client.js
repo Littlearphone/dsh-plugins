@@ -53,6 +53,84 @@ window.__ModuleLoader__.load({
       'menu.open': 'Open in sidebar',
     };
 
+    /**
+     * Which tool will run a script, guessed from the command line. One entry per
+     * tool, matched by the earliest occurrence so a wrapper prefix does not win
+     * over the real runner ("npm run build" is npm, "vite build" is node).
+     * Extending this list is the whole "add another runtime" story.
+     */
+    const RUNTIMES = [
+      { id: 'npm', label: 'npm', tint: '#CB3837', pattern: /(^|[\s/\\])npm\b/ },
+      { id: 'pnpm', label: 'pnpm', tint: '#F69220', pattern: /(^|[\s/\\])pnpm\b/ },
+      { id: 'yarn', label: 'yarn', tint: '#2C8EBB', pattern: /(^|[\s/\\])yarn\b/ },
+      {
+        id: 'node',
+        label: 'node',
+        tint: '#5FA04E',
+        pattern: /(^|[\s/\\])(node|tsx|ts-node|nodemon|vite|next|webpack|rollup|esbuild|jest|vitest|mocha)\b/,
+      },
+      { id: 'maven', label: 'mvn', tint: '#C71A36', pattern: /(^|[\s/\\])(mvn|mvnd)\b/ },
+      { id: 'gradle', label: 'gradle', tint: '#0F8A6A', pattern: /(^|[\s/\\])(gradle|gradlew)\b/ },
+      { id: 'java', label: 'java', tint: '#5382A1', pattern: /(^|[\s/\\])java\b/ },
+      {
+        id: 'python',
+        label: 'py',
+        tint: '#3776AB',
+        pattern: /(^|[\s/\\])(python|python3|uv|poetry|pipenv|pytest|django-admin)\b/,
+      },
+      { id: 'docker', label: 'docker', tint: '#2496ED', pattern: /(^|[\s/\\])docker(-compose)?\b/ },
+      { id: 'dotnet', label: '.net', tint: '#512BD4', pattern: /(^|[\s/\\])dotnet\b/ },
+    ];
+
+    /** Earliest-matching runtime for one command line, or undefined for the generic glyph. */
+    function detectRuntime(command) {
+      const text = String(command ?? '');
+      let best;
+      let bestIndex = Number.POSITIVE_INFINITY;
+      for (const runtime of RUNTIMES) {
+        const match = runtime.pattern.exec(text);
+        if (match === null) continue;
+        const index = match.index + match[1].length;
+        if (index < bestIndex) {
+          best = runtime;
+          bestIndex = index;
+        }
+      }
+      return best;
+    }
+
+    /** The badge that fronts one script row. */
+    function RuntimeBadge(command, key) {
+      const runtime = detectRuntime(command);
+      if (runtime === undefined) {
+        return h(
+          'span',
+          { key, className: 'dsh-svc-badge is-generic', title: 'run' },
+          h(
+            'svg',
+            { viewBox: '0 0 16 16', 'aria-hidden': true, fill: 'none' },
+            h('path', {
+              d: 'M5.5 3.6 11.4 8l-5.9 4.4z',
+              fill: 'currentColor',
+              stroke: 'currentColor',
+              strokeWidth: 1,
+              strokeLinejoin: 'round',
+            }),
+          ),
+        );
+      }
+      return h(
+        'span',
+        {
+          key,
+          className: 'dsh-svc-badge',
+          style: { '--dsh-svc-tint': runtime.tint },
+          title: runtime.label,
+        },
+        runtime.label,
+      );
+    }
+
     const CSS = `
 .dsh-svc-panel{box-sizing:border-box;display:flex;flex-direction:column;gap:8px;height:100%;min-height:0;padding:10px 0 0;overflow:hidden;color:var(--dsw-alias-label-primary);font-size:13px;}
 .dsh-svc-head{display:flex;flex:none;align-items:center;justify-content:space-between;gap:8px;padding:0 12px;}
@@ -61,7 +139,8 @@ window.__ModuleLoader__.load({
 .dsh-svc-refresh:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary);}
 .dsh-svc-note{flex:none;margin:0;padding:0 12px;font-size:10px;line-height:1.5;color:var(--dsw-alias-label-secondary);}
 .dsh-svc-list{display:flex;flex:1 1 auto;flex-direction:column;gap:4px;min-height:0;padding:2px 12px 12px;overflow-y:auto;}
-.dsh-svc-row{box-sizing:border-box;display:flex;flex-direction:column;gap:2px;padding:7px 9px;border:1px solid var(--dsw-alias-border-l1);border-left:3px solid var(--dsw-alias-state-business-primary);border-radius:8px;background:var(--dsw-alias-bg-base);text-align:left;}
+.dsh-svc-row{box-sizing:border-box;display:flex;align-items:center;gap:8px;padding:7px 9px;border:1px solid var(--dsw-alias-border-l1);border-left:3px solid var(--dsw-alias-state-business-primary);border-radius:8px;background:var(--dsw-alias-bg-base);text-align:left;}
+.dsh-svc-row-text{display:flex;flex-direction:column;gap:1px;min-width:0;}
 .dsh-svc-row.is-button{cursor:pointer;transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease;}
 @media (hover:hover){
 .dsh-svc-row.is-button:hover{transform:translateY(-1px);border-color:var(--dsw-alias-state-business-primary);box-shadow:0 6px 16px rgba(0,0,0,.10);}
@@ -71,16 +150,27 @@ window.__ModuleLoader__.load({
 .dsh-svc-empty{padding:14px 0;font-size:11px;line-height:1.6;color:var(--dsw-alias-label-secondary);}
 /* The overlay layer is click-through by design, so the dropdown opts back into
    pointer events. */
-.dsh-svc-menu{position:fixed;z-index:80;pointer-events:auto;box-sizing:border-box;width:290px;max-height:min(60vh,420px);display:flex;flex-direction:column;gap:6px;padding:8px;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-md);background:var(--dsw-alias-bg-overlay,var(--dsw-alias-bg-base));box-shadow:0 12px 32px rgba(0,0,0,.18);}
-.dsh-svc-menu-head{display:flex;flex:none;align-items:baseline;justify-content:space-between;gap:8px;padding:0 2px;font-size:11px;font-weight:500;color:var(--dsw-alias-label-secondary);}
-.dsh-svc-menu-list{display:flex;flex-direction:column;gap:2px;min-height:0;overflow-y:auto;}
-.dsh-svc-item{box-sizing:border-box;display:flex;flex-direction:column;gap:1px;width:100%;padding:6px 8px;border:0;border-radius:var(--dsw-radius-sm);background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer;}
+/* Mirrors the shipped dropdown surface: it sits on bg-base (white in the light
+   theme, not the grey bg-overlay), radius-lg, a half-pixel border-l2 and 4px of
+   padding. The overlay layer is click-through by design, so the panel opts back
+   into pointer events. */
+.dsh-svc-menu{position:fixed;z-index:80;pointer-events:auto;box-sizing:border-box;width:300px;max-height:min(60vh,420px);display:flex;flex-direction:column;gap:2px;padding:4px;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-lg);background:var(--dsw-alias-bg-base);box-shadow:0 10px 28px rgba(0,0,0,.14);}
+.dsh-svc-menu-head{display:flex;flex:none;align-items:center;justify-content:space-between;gap:8px;padding:4px 7px 2px;font-size:11px;font-weight:500;color:var(--dsw-alias-label-secondary);}
+.dsh-svc-menu-list{display:flex;flex-direction:column;gap:1px;min-height:0;padding:2px 0;overflow-y:auto;}
+.dsh-svc-item{box-sizing:border-box;display:flex;align-items:center;gap:8px;width:100%;padding:4px 7px;border:0;border-radius:var(--dsw-radius-md);background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer;}
 .dsh-svc-item:hover{background:var(--dsw-alias-interactive-bg-hover);}
+.dsh-svc-item-text{display:flex;flex-direction:column;gap:1px;min-width:0;}
 .dsh-svc-item-name{font-size:12px;line-height:1.3;}
 .dsh-svc-item-command{font-size:10px;line-height:1.3;color:var(--dsw-alias-label-secondary);font-family:var(--dsh-font-family-code,monospace);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.dsh-svc-menu-foot{flex:none;padding-top:4px;border-top:1px solid var(--dsw-alias-border-l1);}
-.dsh-svc-foot-button{box-sizing:border-box;width:100%;padding:6px 8px;border:0;border-radius:var(--dsw-radius-sm);background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;font-size:11px;text-align:left;cursor:pointer;}
+.dsh-svc-menu-foot{flex:none;padding-top:2px;border-top:1px solid var(--dsw-alias-border-l1);}
+.dsh-svc-foot-button{box-sizing:border-box;width:100%;padding:5px 7px;border:0;border-radius:var(--dsw-radius-md);background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;font-size:11px;text-align:left;cursor:pointer;}
 .dsh-svc-foot-button:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary);}
+/* Runtime badge: a monogram tile tinted by the tool that will run the script,
+   so a list of bare command lines still says node / npm / mvn / java at a
+   glance. Adding a tool is one entry in RUNTIMES. */
+.dsh-svc-badge{box-sizing:border-box;display:flex;flex:none;align-items:center;justify-content:center;width:20px;height:20px;border-radius:5px;font-size:9px;font-weight:600;line-height:1;letter-spacing:-.2px;text-transform:lowercase;background:color-mix(in srgb,var(--dsh-svc-tint,#8a8a8a) 16%,transparent);color:var(--dsh-svc-tint,#8a8a8a);}
+.dsh-svc-badge.is-generic{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);}
+.dsh-svc-badge svg{width:12px;height:12px;display:block;}
 .dsh-svc-entry{box-sizing:border-box;display:flex;align-items:center;justify-content:center;width:24px;height:24px;flex:none;margin:0;padding:0;border:1px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm);background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;line-height:0;vertical-align:middle;cursor:pointer;}
 .dsh-svc-entry:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary);}
 .dsh-svc-entry:active{background:var(--dsw-alias-interactive-bg-active);}
@@ -195,8 +285,13 @@ window.__ModuleLoader__.load({
             title: script.command,
           };
           const body = [
-            h('span', { className: 'dsh-svc-name', key: 'name' }, script.name),
-            h('span', { className: 'dsh-svc-command', key: 'command' }, script.command),
+            RuntimeBadge(script.command, 'badge'),
+            h(
+              'span',
+              { className: 'dsh-svc-row-text', key: 'text' },
+              h('span', { className: 'dsh-svc-name', key: 'name' }, script.name),
+              h('span', { className: 'dsh-svc-command', key: 'command' }, script.command),
+            ),
           ];
           return interactive
             ? h('button', { ...common, type: 'button', onClick: () => sendCommand(script.command) }, body)
@@ -384,8 +479,13 @@ window.__ModuleLoader__.load({
                         setOpen(false);
                       },
                     },
-                    h('span', { className: 'dsh-svc-item-name' }, script.name),
-                    h('span', { className: 'dsh-svc-item-command' }, script.command),
+                    RuntimeBadge(script.command, 'badge'),
+                    h(
+                      'span',
+                      { className: 'dsh-svc-item-text', key: 'text' },
+                      h('span', { className: 'dsh-svc-item-name' }, script.name),
+                      h('span', { className: 'dsh-svc-item-command' }, script.command),
+                    ),
                   ),
                 )
               : [
