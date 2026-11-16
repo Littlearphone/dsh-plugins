@@ -1086,6 +1086,9 @@ function createHandler(ctx) {
           const key = scriptKey(group.dir, script.name);
           return {
             ...merged,
+            // Every script carries its package.json name, overridden or not: the
+            // editor and the pin toggle both post this value back as identity.
+            original: script.name,
             pinned: doc.pinned.some(
               (entry) => entry.dir === group.dir && entry.script === script.name,
             ),

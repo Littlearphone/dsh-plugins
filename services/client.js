@@ -353,7 +353,8 @@ window.__ModuleLoader__.load({
 .dsh-svc-lastline{box-sizing:border-box;min-width:0;padding-left:6px;border-left:2px solid var(--dsw-alias-border-l2);font-family:var(--dsh-font-family-code,monospace);font-size:10px;line-height:1.4;color:var(--dsw-alias-label-tertiary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .dsh-svc-lastline::before{content:'↳ ';}
 .dsh-svc-row:hover{background:var(--dsw-alias-bg-layer-2);}
-.dsh-svc-search-input{flex:1 1 auto;min-width:0;max-width:220px;box-sizing:border-box;padding:2px 7px;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm);background:var(--dsw-specific-menu);color:var(--dsw-alias-label-primary);font:inherit;font-size:10px;}
+.dsh-svc-search-row{flex:none;padding:0 12px 6px;}
+.dsh-svc-search-input{width:100%;box-sizing:border-box;padding:3px 8px;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm);background:var(--dsw-specific-menu);color:var(--dsw-alias-label-primary);font:inherit;font-size:10px;}
 .dsh-svc-search-input:focus{border-color:var(--dsw-alias-border-l3);outline:none;}
 .dsh-svc-variant{height:20px;max-width:96px;box-sizing:border-box;padding:0 2px;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm);background:var(--dsw-specific-menu);color:var(--dsw-alias-label-secondary);font:inherit;font-size:10px;}
 .dsh-svc-pinned-head{display:flex;align-items:center;gap:6px;padding:8px 12px 2px;font-size:10px;color:var(--dsw-alias-label-tertiary);}
@@ -373,7 +374,7 @@ window.__ModuleLoader__.load({
 .dsh-svc-textarea{resize:vertical;font-family:var(--dsh-font-family-code,monospace);}
 .dsh-svc-editor-actions{display:flex;justify-content:flex-end;gap:4px;padding-top:2px;}
 .dsh-svc-icon.is-primary{border-color:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-state-business-primary);}
-.dsh-svc-icon.is-pinned{border-color:var(--dsw-alias-border-l3);color:var(--dsw-alias-label-primary);}
+.dsh-svc-icon.is-pinned{border-color:color-mix(in srgb,var(--dsw-alias-state-business-primary) 55%,transparent);background:color-mix(in srgb,var(--dsw-alias-state-business-primary) 14%,transparent);color:var(--dsw-alias-state-business-primary);}
 .dsh-svc-icon{flex:none;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;width:20px;height:20px;padding:0;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm);background:var(--dsw-specific-menu);color:var(--dsw-alias-label-secondary);cursor:pointer;}
 .dsh-svc-icon:hover{border-color:var(--dsw-alias-border-l3);color:var(--dsw-alias-label-primary);}
 .dsh-svc-icon svg{width:11px;height:11px;display:block;}
@@ -630,7 +631,7 @@ window.__ModuleLoader__.load({
         h(
           'div',
           { className: 'dsh-svc-drawer-head' },
-          h('span', { className: 'dsh-svc-drawer-title' }, labels.title + ' · ' + script.original),
+          h('span', { className: 'dsh-svc-drawer-title' }, labels.title + ' · ' + script.name),
           h(
             'button',
             {
@@ -1293,6 +1294,7 @@ window.__ModuleLoader__.load({
                       { viewBox: '0 0 16 16', 'aria-hidden': true, fill: 'none' },
                       h('path', {
                         d: 'M6 2.5h4l-.6 3.2 2.1 2.1H4.5l2.1-2.1z',
+                        fill: script.pinned === true ? 'currentColor' : 'none',
                         stroke: 'currentColor',
                         strokeWidth: 1.2,
                         strokeLinejoin: 'round',
@@ -1419,9 +1421,9 @@ window.__ModuleLoader__.load({
               String(script.name).toLowerCase().includes(needle) ||
               String(script.command).toLowerCase().includes(needle);
             state.groups.forEach((group, groupIndex) => {
-              const rest = sortScripts(group.scripts).filter(
-                (script) => script.pinned !== true && matches(script),
-              );
+              // Pinned scripts stay in their group: the top area is a shortcut,
+              // not a move, and a row that vanishes reads as a bug.
+              const rest = sortScripts(group.scripts).filter((script) => matches(script));
               if (rest.length === 0) return;
               sections.push(groupHeading(group, false, collapsed, toggleGroup));
               // While searching, a collapsed group must not hide its matches.
@@ -1443,14 +1445,6 @@ window.__ModuleLoader__.load({
               'div',
               { className: 'dsh-svc-head', key: 'head' },
               h('span', { className: 'dsh-svc-dir', title: state.dir }, state.dir),
-              h('input', {
-                key: 'search',
-                className: 'dsh-svc-search-input',
-                value: query,
-                placeholder: t('menu.search'),
-                spellCheck: false,
-                onChange: (event) => setQuery(event.target.value),
-              }),
               h(
                 'div',
                 { className: 'dsh-svc-head-actions', key: 'actions' },
@@ -1474,6 +1468,19 @@ window.__ModuleLoader__.load({
                       t('run.clear'),
                     ),
               ),
+            ),
+            h(
+              'div',
+              { className: 'dsh-svc-search-row', key: 'search-row' },
+              h('input', {
+                className: 'dsh-svc-search-input',
+                type: 'search',
+                value: query,
+                placeholder: t('menu.search'),
+                spellCheck: false,
+                'aria-label': t('menu.search'),
+                onChange: (event) => setQuery(event.target.value),
+              }),
             ),
             store.notice === ''
               ? null
