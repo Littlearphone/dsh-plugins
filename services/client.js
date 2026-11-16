@@ -49,6 +49,9 @@ window.__ModuleLoader__.load({
       'run.clear': '清理',
       'run.start': '启动',
       'run.edit': '编辑启动配置',
+      'pin.title': '固定',
+      'pin.add': '固定到顶部',
+      'pin.remove': '取消固定',
       'run.overridden': '已覆盖',
       'edit.title': '启动配置',
       'edit.name': '显示名',
@@ -100,6 +103,9 @@ window.__ModuleLoader__.load({
       'run.clear': 'Clear',
       'run.start': 'Start',
       'run.edit': 'Edit start configuration',
+      'pin.title': 'Pinned',
+      'pin.add': 'Pin to top',
+      'pin.remove': 'Unpin',
       'run.overridden': 'overridden',
       'edit.title': 'Start configuration',
       'edit.name': 'Label',
@@ -345,6 +351,9 @@ window.__ModuleLoader__.load({
 .dsh-svc-lastline{box-sizing:border-box;min-width:0;padding-left:6px;border-left:2px solid var(--dsw-alias-border-l2);font-family:var(--dsh-font-family-code,monospace);font-size:10px;line-height:1.4;color:var(--dsw-alias-label-tertiary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .dsh-svc-lastline::before{content:'↳ ';}
 .dsh-svc-row:hover{background:var(--dsw-alias-bg-layer-2);}
+.dsh-svc-pinned-head{display:flex;align-items:center;gap:6px;padding:8px 12px 2px;font-size:10px;color:var(--dsw-alias-label-tertiary);}
+.dsh-svc-pinned-title{letter-spacing:.04em;}
+.dsh-svc-group-count{opacity:.7;}
 .dsh-svc-row.is-overridden{border-left-color:var(--dsw-alias-state-warn-primary);}
 .dsh-svc-chip.is-overridden{background:color-mix(in srgb,var(--dsw-alias-state-warn-primary) 16%,transparent);color:var(--dsw-alias-state-warn-primary);}
 .dsh-svc-readonly{display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:var(--dsw-radius-sm);background:var(--dsw-alias-bg-layer-2);font-size:10px;color:var(--dsw-alias-label-tertiary);}
@@ -359,6 +368,7 @@ window.__ModuleLoader__.load({
 .dsh-svc-textarea{resize:vertical;font-family:var(--dsh-font-family-code,monospace);}
 .dsh-svc-editor-actions{display:flex;justify-content:flex-end;gap:4px;padding-top:2px;}
 .dsh-svc-icon.is-primary{border-color:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-state-business-primary);}
+.dsh-svc-icon.is-pinned{border-color:var(--dsw-alias-border-l3);color:var(--dsw-alias-label-primary);}
 .dsh-svc-icon{flex:none;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;width:20px;height:20px;padding:0;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm);background:var(--dsw-specific-menu);color:var(--dsw-alias-label-secondary);cursor:pointer;}
 .dsh-svc-icon:hover{border-color:var(--dsw-alias-border-l3);color:var(--dsw-alias-label-primary);}
 .dsh-svc-icon svg{width:11px;height:11px;display:block;}
@@ -481,6 +491,8 @@ window.__ModuleLoader__.load({
     const START_ROUTE = '/services/start/';
     const STOP_ROUTE = '/services/stop/';
     const CLEAR_ROUTE = '/services/clear/';
+    const CONFIG_ROUTE = '/services/config/';
+    const PIN_ROUTE = '/services/pin/';
     const OUTPUT_ROUTE = '/services/output/';
 
     /** Stop one started service; failures are silent because the next poll shows state. */
@@ -809,6 +821,21 @@ window.__ModuleLoader__.load({
           );
         }
 
+        /** Pin or unpin one script; the pinned area floats by recent use only. */
+        async function togglePin(sessionId, dir, script, pinned) {
+          try {
+            await postJson(PIN_ROUTE + encodeURIComponent(String(sessionId)), {
+              dir: dir ?? '',
+              script,
+              pinned,
+            });
+            emit();
+          } catch (error) {
+            store.notice = t('run.failed') + ' ' + String(error?.message ?? error);
+            emit();
+          }
+        }
+
         /**
          * Clicking a script starts it as a Host-owned process. An npm-kind script
          * goes through the package manager in its own directory — that is what
@@ -1061,7 +1088,7 @@ window.__ModuleLoader__.load({
             );
           };
 
-          const rowFor = (group, script, index) => {
+          const rowFor = (group, script, index, showPath) => {
             const key = String(script.command) + '\u0000' + String(group.dir ?? '');
             const service = latest.get(key);
             const open = openKey === key;
@@ -1166,6 +1193,9 @@ window.__ModuleLoader__.load({
                       : null,
                   ),
                   h('span', { className: 'dsh-svc-command', key: 'command' }, script.command),
+                  showPath === true
+                    ? h('span', { className: 'dsh-svc-lastline', key: 'path' }, group.name)
+                    : null,
                   service === undefined || service.lastLine === ''
                     ? null
                     : h('span', { className: 'dsh-svc-lastline', key: 'last' }, service.lastLine),
@@ -1173,6 +1203,28 @@ window.__ModuleLoader__.load({
                 h(
                   'span',
                   { className: 'dsh-svc-actions', key: 'actions' },
+                  h(
+                    'button',
+                    {
+                      key: 'pin',
+                      type: 'button',
+                      className: 'dsh-svc-icon' + (script.pinned === true ? ' is-pinned' : ''),
+                      title: script.pinned === true ? t('pin.remove') : t('pin.add'),
+                      'aria-label': script.pinned === true ? t('pin.remove') : t('pin.add'),
+                      onClick: () => void togglePin(sessionId, group.dir, script.original ?? script.name, script.pinned !== true),
+                    },
+                    h(
+                      'svg',
+                      { viewBox: '0 0 16 16', 'aria-hidden': true, fill: 'none' },
+                      h('path', {
+                        d: 'M6 2.5h4l-.6 3.2 2.1 2.1H4.5l2.1-2.1z',
+                        stroke: 'currentColor',
+                        strokeWidth: 1.2,
+                        strokeLinejoin: 'round',
+                      }),
+                      h('path', { d: 'M8 8v5.5', stroke: 'currentColor', strokeWidth: 1.2 }),
+                    ),
+                  ),
                   h(
                     'button',
                     {
@@ -1258,10 +1310,40 @@ window.__ModuleLoader__.load({
           } else if (state.phase === 'empty') {
             sections.push(h('div', { className: 'dsh-svc-empty', key: 'empty' }, t('panel.empty')));
           } else {
+            // Pinned rows leave their group and form one flat area on top, so a
+            // shortcut is never buried inside a collapsed group. Order inside it
+            // is by last start (the only place recency is allowed to reorder);
+            // groups keep a fixed order, which is what makes them findable.
+            const pinned = [];
+            for (const group of state.groups) {
+              for (const script of group.scripts) {
+                if (script.pinned === true) pinned.push({ group, script });
+              }
+            }
+            pinned.sort(
+              (left, right) =>
+                Number(right.script.lastStartedAt ?? 0) - Number(left.script.lastStartedAt ?? 0) ||
+                String(left.script.name).localeCompare(String(right.script.name)),
+            );
+            if (pinned.length > 0) {
+              sections.push(
+                h(
+                  'div',
+                  { className: 'dsh-svc-pinned-head', key: 'pinned-head' },
+                  h('span', { className: 'dsh-svc-pinned-title' }, t('pin.title')),
+                  h('span', { className: 'dsh-svc-group-count' }, String(pinned.length)),
+                ),
+              );
+              pinned.forEach((entry, index) => {
+                sections.push(rowFor(entry.group, entry.script, 'pin-' + index, true));
+              });
+            }
             state.groups.forEach((group, groupIndex) => {
+              const rest = sortScripts(group.scripts).filter((script) => script.pinned !== true);
+              if (rest.length === 0) return;
               sections.push(groupHeading(group, false, collapsed, toggleGroup));
               if (collapsed.has(group.id)) return;
-              sortScripts(group.scripts).forEach((script, index) => {
+              rest.forEach((script, index) => {
                 sections.push(rowFor(group, script, groupIndex + '-' + index));
               });
             });

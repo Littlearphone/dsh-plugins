@@ -23,32 +23,74 @@ import { dirname, join } from 'node:path';
 const CONFIG_DIR = '.dsh';
 const CONFIG_FILE = 'services.json';
 
-async function readConfigs(root) {
+/** One script's identity inside the workspace: `dir` plus the script name. */
+function scriptKey(dir, script) {
+  return String(dir ?? '') + '\u0000' + String(script ?? '');
+}
+
+/** The whole document: overrides, pinned entries and usage times. */
+async function readDoc(root) {
+  let parsed;
   try {
-    const text = await readFile(join(root, CONFIG_DIR, CONFIG_FILE), 'utf8');
-    const parsed = JSON.parse(text);
-    return Array.isArray(parsed?.configs)
-      ? parsed.configs.filter(
-          (config) =>
-            config !== null &&
-            typeof config === 'object' &&
-            typeof config.script === 'string' &&
-            typeof config.dir === 'string',
-        )
-      : [];
+    parsed = JSON.parse(await readFile(join(root, CONFIG_DIR, CONFIG_FILE), 'utf8'));
   } catch {
-    return [];
+    parsed = undefined;
+  }
+  const configs = Array.isArray(parsed?.configs)
+    ? parsed.configs.filter(
+        (config) =>
+          config !== null &&
+          typeof config === 'object' &&
+          typeof config.script === 'string' &&
+          typeof config.dir === 'string',
+      )
+    : [];
+  const pinned = Array.isArray(parsed?.pinned)
+    ? parsed.pinned.filter(
+        (entry) =>
+          entry !== null && typeof entry === 'object' && typeof entry.script === 'string',
+      )
+    : [];
+  const recent =
+    parsed?.ui !== null && typeof parsed?.ui === 'object' && typeof parsed.ui.recent === 'object'
+      ? parsed.ui.recent
+      : {};
+  const collapsed = Array.isArray(parsed?.ui?.collapsed)
+    ? parsed.ui.collapsed.filter((id) => typeof id === 'string')
+    : [];
+  return { configs, pinned, recent, collapsed };
+}
+
+async function writeDoc(root, doc) {
+  const folder = join(root, CONFIG_DIR);
+  await mkdir(folder, { recursive: true });
+  const body = {
+    version: 2,
+    configs: doc.configs ?? [],
+    pinned: doc.pinned ?? [],
+    ui: { recent: doc.recent ?? {}, collapsed: doc.collapsed ?? [] },
+  };
+  await writeFile(join(folder, CONFIG_FILE), JSON.stringify(body, null, 2) + '\n', 'utf8');
+}
+
+async function readConfigs(root) {
+  return (await readDoc(root)).configs;
+}
+
+/** Record that a script was started, for ordering the pinned area only. */
+async function rememberUse(root, dir, script, at) {
+  try {
+    const doc = await readDoc(root);
+    doc.recent[scriptKey(dir, script)] = at;
+    await writeDoc(root, doc);
+  } catch (error) {
+    console.error('[services] cannot record recent use', error);
   }
 }
 
 async function writeConfigs(root, configs) {
-  const folder = join(root, CONFIG_DIR);
-  await mkdir(folder, { recursive: true });
-  await writeFile(
-    join(folder, CONFIG_FILE),
-    JSON.stringify({ version: 1, configs }, null, 2) + '\n',
-    'utf8',
-  );
+  const doc = await readDoc(root);
+  await writeDoc(root, { ...doc, configs });
 }
 
 /** Normalise one override body into the stored shape; empty fields are dropped. */
@@ -592,6 +634,7 @@ async function spawnService(ctx, sessionId, request, root) {
   };
   RUNNING.set(key, record);
   await rememberLaunch(id);
+  void rememberUse(root, String(request.dir ?? ''), String(request.name ?? ''), Date.now());
   try {
     const handle = subprocess.spawn({
       argv,
@@ -720,7 +763,7 @@ function createHandler(ctx) {
     const slash = rest.indexOf('/');
     const action = slash === -1 ? rest : rest.slice(0, slash);
     const rawId = slash === -1 ? '' : rest.slice(slash + 1);
-    const ACTIONS = ['list', 'start', 'stop', 'state', 'output', 'clear', 'config'];
+    const ACTIONS = ['list', 'start', 'stop', 'state', 'output', 'clear', 'config', 'pin'];
     if (!ACTIONS.includes(action)) {
       reply(response, 404, { error: 'not-found' });
       return;
@@ -843,6 +886,31 @@ function createHandler(ctx) {
       return;
     }
 
+    // --- pinning ---------------------------------------------------------
+    if (action === 'pin') {
+      let body = {};
+      try {
+        body = JSON.parse(await readBody(request));
+      } catch {
+        reply(response, 400, { error: 'bad-body' });
+        return;
+      }
+      const targetDir = String(body.dir ?? '');
+      const targetScript = String(body.script ?? '');
+      if (targetScript === '') {
+        reply(response, 400, { error: 'bad-script' });
+        return;
+      }
+      const doc = await readDoc(dir);
+      const rest = doc.pinned.filter(
+        (entry) => !(entry.dir === targetDir && entry.script === targetScript),
+      );
+      if (body.pinned !== false) rest.push({ dir: targetDir, script: targetScript });
+      await writeDoc(dir, { ...doc, pinned: rest });
+      reply(response, 200, { pinned: rest });
+      return;
+    }
+
     // --- start configurations --------------------------------------------
     if (action === 'config') {
       const method = String(request.method ?? 'GET').toUpperCase();
@@ -921,9 +989,19 @@ function createHandler(ctx) {
       }
       for (const go of await goGroups(dir)) groups.push(go);
 
-      const configs = await readConfigs(dir);
+      const doc = await readDoc(dir);
       for (const group of groups) {
-        group.scripts = group.scripts.map((script) => withConfig(script, group.dir, configs));
+        group.scripts = group.scripts.map((script) => {
+          const merged = withConfig(script, group.dir, doc.configs);
+          const key = scriptKey(group.dir, script.name);
+          return {
+            ...merged,
+            pinned: doc.pinned.some(
+              (entry) => entry.dir === group.dir && entry.script === script.name,
+            ),
+            lastStartedAt: Number(doc.recent[key] ?? 0),
+          };
+        });
       }
 
       groups.sort((left, right) => {
