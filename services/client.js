@@ -353,8 +353,8 @@ window.__ModuleLoader__.load({
 .dsh-svc-lastline{box-sizing:border-box;min-width:0;padding-left:6px;border-left:2px solid var(--dsw-alias-border-l2);font-family:var(--dsh-font-family-code,monospace);font-size:10px;line-height:1.4;color:var(--dsw-alias-label-tertiary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .dsh-svc-lastline::before{content:'↳ ';}
 .dsh-svc-row:hover{background:var(--dsw-alias-bg-layer-2);}
-.dsh-svc-search{flex:1 1 auto;min-width:0;max-width:220px;box-sizing:border-box;padding:2px 7px;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm);background:var(--dsw-specific-menu);color:var(--dsw-alias-label-primary);font:inherit;font-size:10px;}
-.dsh-svc-search:focus{border-color:var(--dsw-alias-border-l3);outline:none;}
+.dsh-svc-search-input{flex:1 1 auto;min-width:0;max-width:220px;box-sizing:border-box;padding:2px 7px;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm);background:var(--dsw-specific-menu);color:var(--dsw-alias-label-primary);font:inherit;font-size:10px;}
+.dsh-svc-search-input:focus{border-color:var(--dsw-alias-border-l3);outline:none;}
 .dsh-svc-variant{height:20px;max-width:96px;box-sizing:border-box;padding:0 2px;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm);background:var(--dsw-specific-menu);color:var(--dsw-alias-label-secondary);font:inherit;font-size:10px;}
 .dsh-svc-pinned-head{display:flex;align-items:center;gap:6px;padding:8px 12px 2px;font-size:10px;color:var(--dsw-alias-label-tertiary);}
 .dsh-svc-pinned-title{letter-spacing:.04em;}
@@ -1276,7 +1276,17 @@ window.__ModuleLoader__.load({
                       className: 'dsh-svc-icon' + (script.pinned === true ? ' is-pinned' : ''),
                       title: script.pinned === true ? t('pin.remove') : t('pin.add'),
                       'aria-label': script.pinned === true ? t('pin.remove') : t('pin.add'),
-                      onClick: () => void togglePin(sessionId, group.dir, script.original ?? script.name, script.pinned !== true),
+                      onClick: () => {
+                        // Reload after the write: the row is rendered from the
+                        // list payload, so without a refetch the pin state never
+                        // flips and the button appears dead.
+                        void togglePin(
+                          sessionId,
+                          group.dir,
+                          script.original ?? script.name,
+                          script.pinned !== true,
+                        ).then(() => load());
+                      },
                     },
                     h(
                       'svg',
@@ -1435,7 +1445,7 @@ window.__ModuleLoader__.load({
               h('span', { className: 'dsh-svc-dir', title: state.dir }, state.dir),
               h('input', {
                 key: 'search',
-                className: 'dsh-svc-search',
+                className: 'dsh-svc-search-input',
                 value: query,
                 placeholder: t('menu.search'),
                 spellCheck: false,
