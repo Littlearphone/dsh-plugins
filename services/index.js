@@ -676,6 +676,15 @@ async function spawnService(ctx, sessionId, request, root) {
     startedAt: Date.now(),
     handle: undefined,
   };
+  // One record per script: starting again replaces the previous run, so history
+  // never piles up and there is nothing to clean by hand.
+  for (const [existingKey, existing] of RUNNING) {
+    if (!existingKey.startsWith(sessionId + '\u0000')) continue;
+    if (existing.dir === record.dir && existing.name === record.name) {
+      killTree(findMarkedPids(existing.id));
+      RUNNING.delete(existingKey);
+    }
+  }
   RUNNING.set(key, record);
   await rememberLaunch(id);
   void rememberUse(root, String(request.dir ?? ''), String(request.name ?? ''), Date.now());
@@ -696,10 +705,12 @@ async function spawnService(ctx, sessionId, request, root) {
       (outcome) => {
         record.state = 'exited';
         record.exitCode = outcome?.exitCode ?? null;
+        record.finishedAt = Date.now();
       },
       () => {
         record.state = 'failed';
         record.exitCode = null;
+        record.finishedAt = Date.now();
       },
     );
   } catch (error) {
@@ -739,8 +750,19 @@ function lastOutputLine(record) {
   return last.length > 200 ? '…' + last.slice(-200) : last;
 }
 
+/** How long a finished run stays visible; no manual cleanup exists. */
+const FINISHED_TTL_MS = 5 * 60_000;
+
 /** Running and recently finished services of one Session, newest first. */
 function listServices(sessionId) {
+  const now = Date.now();
+  for (const [key, record] of RUNNING) {
+    if (record.sessionId !== sessionId) continue;
+    if (record.state === 'running' || record.state === 'stopping') continue;
+    if (record.finishedAt !== undefined && now - record.finishedAt > FINISHED_TTL_MS) {
+      RUNNING.delete(key);
+    }
+  }
   const prefix = `${sessionId}\u0000`;
   const items = [];
   for (const [key, record] of RUNNING) {
@@ -807,7 +829,7 @@ function createHandler(ctx) {
     const slash = rest.indexOf('/');
     const action = slash === -1 ? rest : rest.slice(0, slash);
     const rawId = slash === -1 ? '' : rest.slice(slash + 1);
-    const ACTIONS = ['list', 'start', 'stop', 'state', 'output', 'clear', 'config', 'pin', 'ui'];
+    const ACTIONS = ['list', 'start', 'stop', 'state', 'output', 'config', 'pin', 'ui'];
     if (!ACTIONS.includes(action)) {
       reply(response, 404, { error: 'not-found' });
       return;
@@ -858,20 +880,6 @@ function createHandler(ctx) {
       return;
     }
 
-    if (action === 'clear') {
-      const prefix = `${sessionId}\u0000`;
-      let removed = 0;
-      for (const [key, record] of RUNNING) {
-        if (!key.startsWith(prefix)) continue;
-        if (record.state === 'running' || record.state === 'stopping') continue;
-        killTree(findMarkedPids(record.id));
-        await forgetLaunch(record.id);
-        RUNNING.delete(key);
-        removed += 1;
-      }
-      reply(response, 200, { removed });
-      return;
-    }
 
     if (action === 'start') {
       let body = {};
@@ -923,6 +931,7 @@ function createHandler(ctx) {
         killTree(findMarkedPids(record.id));
         await forgetLaunch(record.id);
         record.state = 'stopping';
+        record.finishedAt = Date.now();
         reply(response, 200, { ok: true });
       } catch (error) {
         reply(response, 500, { error: 'stop-failed', detail: String(error?.message ?? error) });

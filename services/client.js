@@ -46,7 +46,6 @@ window.__ModuleLoader__.load({
       'run.exited': '已结束',
       'run.hide': '收起',
       'run.finished': '已结束',
-      'run.clear': '清理已结束',
       'run.start': '启动',
       'run.edit': '编辑启动配置',
       'run.variant': '启动变体',
@@ -101,7 +100,6 @@ window.__ModuleLoader__.load({
       'run.exited': 'exited',
       'run.hide': 'Hide',
       'run.finished': 'finished',
-      'run.clear': 'Clear finished',
       'run.start': 'Start',
       'run.edit': 'Edit start configuration',
       'run.variant': 'Start variant',
@@ -496,7 +494,6 @@ window.__ModuleLoader__.load({
     const STATE_ROUTE = '/services/state/';
     const START_ROUTE = '/services/start/';
     const STOP_ROUTE = '/services/stop/';
-    const CLEAR_ROUTE = '/services/clear/';
     const CONFIG_ROUTE = '/services/config/';
     const PIN_ROUTE = '/services/pin/';
     const UI_ROUTE = '/services/ui/';
@@ -1380,7 +1377,6 @@ window.__ModuleLoader__.load({
             );
           };
 
-          const finished = services.filter((service) => service.state !== 'running').length;
           const sections = [];
           if (state.phase === 'loading') {
             sections.push(
@@ -1462,20 +1458,7 @@ window.__ModuleLoader__.load({
                   { className: 'dsh-svc-refresh', key: 'refresh', type: 'button', title: BUILD, onClick: load },
                   t('panel.refresh'),
                 ),
-                finished === 0
-                  ? null
-                  : h(
-                      'button',
-                      {
-                        className: 'dsh-svc-refresh',
-                        key: 'clear',
-                        type: 'button',
-                        onClick: () => {
-                          void postJson(CLEAR_ROUTE + encodeURIComponent(String(sessionId)), {}).catch(() => {});
-                        },
-                      },
-                      t('run.clear') + ' ' + String(finished),
-                    ),
+
               ),
             ),
             h(

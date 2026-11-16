@@ -33,7 +33,7 @@ stdout/stderr 用 collect 模式收着，浏览器轮询 `state` 与 `output`。
 停止时按标记用 WMI 找回根进程，再 `taskkill /T /F` **连子孙一起结束**——
 Windows 上只打 `cmd` 的话，`pnpm → node → vite` 会变成占着端口的孤儿。
 
-四个时机都会收：**停止**、**清理**、**插件卸载（重装/删除 bundle）**、**下一次 Host 启动**。
+三个时机都会收：**停止**、**插件卸载（重装/删除 bundle）**、**下一次 Host 启动**。
 
 最后一条靠一个落盘的注册表 `$DSH_HOME/services/running.json`：启动时写入 id，
 清理后移除。dsh 被强杀（没机会跑清理）时，下一次启动 `apply` 会读这个文件、
@@ -204,7 +204,7 @@ dsh --profile web plugin install "github:Littlearphone/dsh-plugins#path:/service
   想看完整历史要改成按 offset 增量拉取（`readFrom(nextOffset)` 已支持），再谈虚拟滚动。
 - **匹配按命令文本**：同一条命令在多个包里出现时，它们共用一个状态。要精确得给每次启动一个
   与具体行绑定的 id。
-- **结束的记录要手动清理**：点面板头部的「清理」或等下次重启；没有自动过期策略。
+- **不需要手动清理**：每个脚本只保留最近一次运行（再次启动即替换），结束的记录 5 分钟后自动消失。
 - **没有自定义命令**：只能看到 `package.json` 的 scripts 和 `package main`，不能手工添加
   （比如 `docker compose up`）。
 - **标记依赖 PowerShell**：按标记找进程用的是 `Get-CimInstance Win32_Process`，只在 Windows 生效；
