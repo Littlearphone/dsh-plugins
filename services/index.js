@@ -329,31 +329,37 @@ async function mainPackages(base) {
 }
 
 /**
- * All Go programs in one group. A workspace can hold a dozen modules, and one
- * collapsible group per module buries the npm scripts; the module relationship
- * survives in each entry's label (`ring · standalone`) and in the command, which
- * keeps the full path from the workspace root.
+ * One group per Go module. A workspace like this one holds dozens of `package
+ * main` directories; a single flat "Go" group is a wall of names, while a group
+ * per module keeps the module a reader needs and collapses the rest.
  */
-async function goGroup(root) {
+async function goGroups(root) {
   const modules = await goModuleDirs(root);
-  const scripts = [];
+  const groups = [];
   for (const moduleDir of modules) {
     const base = join(root, moduleDir);
     const mains = await mainPackages(base);
     if (mains.length === 0) continue;
-    const moduleLabel = moduleDir === '' ? 'root' : moduleDir.split('/').pop();
-    for (const relative of mains) {
+    const scripts = mains.map((relative) => {
       const last = relative === '' ? 'main' : relative.split('/').pop();
-      const full = relative === '' ? moduleDir : moduleDir === '' ? relative : `${moduleDir}/${relative}`;
-      scripts.push({
-        name: `${moduleLabel} · ${last}`,
+      const full =
+        relative === '' ? moduleDir : moduleDir === '' ? relative : `${moduleDir}/${relative}`;
+      return {
+        name: last,
+        label: moduleDir === '' ? last : `${moduleDir.split('/').pop()} · ${last}`,
         command: full === '' ? 'go run .' : `go run ./${full}`,
         category: 'go',
-      });
-    }
+      };
+    });
+    groups.push({
+      id: 'go:' + (moduleDir === '' ? 'root' : moduleDir),
+      kind: 'go',
+      name: (moduleDir === '' ? 'Go · root' : 'Go · ' + moduleDir),
+      dir: moduleDir,
+      scripts,
+    });
   }
-  if (scripts.length === 0) return undefined;
-  return { id: 'go', kind: 'go', name: 'Go', dir: '', scripts };
+  return groups;
 }
 
 /**
@@ -905,13 +911,15 @@ function createHandler(ctx) {
         groups.push({
           id: relative,
           kind: 'npm',
-          name: manifest.name === '' ? relative : manifest.name,
+          // Path, not package name: nine packages in one workspace can share the
+          // name "frontend", and a title that repeats cannot be told apart.
+          name: relative === '' ? manifest.name || 'root' : relative,
+          pkg: manifest.name,
           dir: relative,
           scripts: manifest.scripts,
         });
       }
-      const go = await goGroup(dir);
-      if (go !== undefined) groups.push(go);
+      for (const go of await goGroups(dir)) groups.push(go);
 
       const configs = await readConfigs(dir);
       for (const group of groups) {

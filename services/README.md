@@ -59,7 +59,7 @@ Invoke-WebRequest http://127.0.0.1:63428/services/list/session-<uuid> -UseBasicP
 
 ## 嵌套结构（monorepo）
 
-工作区如果声明了子包，会一并扫描，并按包分组显示：
+工作区如果声明了子包，会一并扫描，并按**目录路径**分组显示（不用包名：一个工作区里可以有几个同名 `frontend` 包，标题重复就没法区分）：
 
 - 先看 `pnpm-workspace.yaml` 的 `packages:` 列表（只读这一段，够用）；
 - 没有再读根部 `package.json` 的 `workspaces`（数组，或 `{ packages: [...] }`）；
@@ -95,11 +95,10 @@ Go 没有 `package.json` 那样的脚本清单，它的可执行目标是 **`pac
 - `go.work` 存在 → 按它列出的模块扫；否则找根部的 `go.mod`；
 - 每个模块内做**有界**的广度遍历（深度 4、最多 1200 个目录），跳过
   `node_modules`/`vendor`/`testdata`/`dist`/`build`/点开头等目录；
-- 含 `package main` 的目录生成一条，**全部 Go 程序放在同一个分组**里（一个模块一个分组会在
-  go.work 有十几个模块时把 npm 脚本挤到看不见）；
-- 包的关系靠**条目名和命令**体现：条目名是 `模块末段 · 程序名`（如 `ring · standalone`），
-  命令是工作区根目录起算的完整路径 `go run ./tools/ring/cmd/standalone`，所以既能看出属于哪个
-  模块，也能直接复制执行。
+- 含 `package main` 的目录生成一条，**按模块分组**（`Go · tools/ring`、`Go · fx/backend`）；
+  原来是把所有 Go 程序塞进一个 `Go` 组，模块一多就是一面墙，且与 npm 分组的层级语义不一致；
+- 条目名是程序名（`standalone`），`模块末段 · 程序名` 放在 `label` 上；命令是工作区根目录起算的
+  完整路径 `go run ./tools/ring/cmd/standalone`，既看得出属于哪个模块，也能直接复制执行。
 
 没有 `package main` 的库模块（例如只有 `libs/codec` 这种）不会出现在面板里。
 
