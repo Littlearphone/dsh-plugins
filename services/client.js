@@ -316,7 +316,7 @@ window.__ModuleLoader__.load({
 .dsh-svc-count{margin-left:auto;flex:none;padding:0 5px;border-radius:999px;background:var(--dsw-alias-bg-layer-2);font-size:10px;font-variant-numeric:tabular-nums;}
 .dsh-svc-notice{margin:0;padding:0 12px;font-size:10px;line-height:1.5;color:var(--dsw-alias-state-error-primary);overflow-wrap:anywhere;}
 .dsh-svc-busy{margin:0;padding:0 12px;font-size:10px;line-height:1.5;color:var(--dsw-alias-label-secondary);overflow-wrap:anywhere;}
-.dsh-svc-entry-block{display:flex;flex-direction:column;gap:4px;}
+.dsh-svc-entry-block{display:flex;flex-direction:column;box-sizing:border-box;border:.5px solid var(--dsw-alias-border-l1);border-radius:8px;background:var(--dsw-alias-bg-base);overflow:hidden;}
 .dsh-svc-chip{flex:none;padding:1px 6px;border-radius:999px;background:var(--dsw-alias-bg-layer-2);font-size:9px;line-height:1.6;color:var(--dsw-alias-label-secondary);white-space:nowrap;}
 .dsh-svc-chip.is-running{background:color-mix(in srgb,var(--dsw-alias-state-success-primary) 16%,transparent);color:var(--dsw-alias-state-success-primary);}
 .dsh-svc-chip.is-done{background:color-mix(in srgb,var(--dsw-alias-state-warn-primary) 14%,transparent);color:var(--dsw-alias-state-warn-primary);}
@@ -342,19 +342,19 @@ window.__ModuleLoader__.load({
 .dsh-svc-drawer{display:flex;flex-direction:column;gap:4px;padding:6px 8px;border:1px solid var(--dsw-alias-border-l1);border-radius:8px;background:var(--dsw-alias-bg-layer-2);}
 .dsh-svc-drawer-head{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:10px;color:var(--dsw-alias-label-secondary);}
 .dsh-svc-drawer-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--dsh-font-family-code,monospace);}
-.dsh-svc-log{display:flex;flex-direction:column;margin:2px 0 6px;border:.5px solid var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-sm);overflow:hidden;background:var(--dsw-alias-bg-base);}
-.dsh-svc-log-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 8px;background:var(--dsw-alias-bg-layer-2);border-bottom:.5px solid var(--dsw-alias-border-l1);font-size:10px;color:var(--dsw-alias-label-secondary);}
-.dsh-svc-log-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;color:var(--dsw-alias-label-primary);}
-.dsh-svc-log-body{box-sizing:border-box;margin:0;padding:8px 10px;max-height:240px;overflow:auto;background:transparent;color:var(--dsw-alias-label-primary);font-family:var(--dsh-font-family-code,monospace);font-size:10.5px;line-height:1.6;white-space:pre;tab-size:2;scrollbar-width:thin;}
+
+
+
+.dsh-svc-log-body{box-sizing:border-box;margin:0 12px 10px 48px;padding:8px 10px;max-height:200px;overflow:auto;border-radius:var(--dsw-radius-sm);background:color-mix(in srgb,var(--dsw-alias-bg-base) 86%,black);color:var(--dsw-alias-label-primary);font-family:var(--dsh-font-family-code,monospace);font-size:10.5px;line-height:1.6;white-space:pre;tab-size:2;scrollbar-width:thin;}
 .dsh-svc-list{display:flex;flex:1 1 auto;flex-direction:column;gap:4px;min-height:0;padding:2px 12px 12px;overflow-y:auto;}
-.dsh-svc-row{box-sizing:border-box;display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--dsw-alias-border-l1);border-left:3px solid var(--dsw-alias-state-business-primary);border-radius:8px;background:var(--dsw-alias-bg-base);text-align:left;}
+.dsh-svc-row{box-sizing:border-box;display:flex;flex-direction:column;gap:0;padding:0;border:0;border-left:3px solid var(--dsw-alias-border-l2);background:transparent;text-align:left;}
 .dsh-svc-row-text{display:flex;flex:1 1 auto;flex-direction:column;gap:3px;min-width:0;}
 .dsh-svc-name-line{display:flex;align-items:center;gap:6px;min-width:0;}
 .dsh-svc-actions{display:flex;flex:none;align-items:center;gap:4px;margin-left:auto;}
 .dsh-svc-lastline{box-sizing:border-box;min-width:0;padding-left:6px;border-left:2px solid var(--dsw-alias-border-l2);font-family:var(--dsh-font-family-code,monospace);font-size:10px;line-height:1.4;color:var(--dsw-alias-label-tertiary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .dsh-svc-lastline::before{content:'↳ ';}
-.dsh-svc-row:hover{background:var(--dsw-alias-bg-layer-2);}
-.dsh-svc-search-row{flex:none;padding:0 12px 6px;}
+.dsh-svc-row-main{display:flex;align-items:center;gap:10px;padding:10px 12px;width:100%;box-sizing:border-box;}
+.dsh-svc-row-main:hover{background:var(--dsw-alias-bg-layer-2);}
 .dsh-svc-search-input{width:100%;box-sizing:border-box;padding:3px 8px;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm);background:var(--dsw-specific-menu);color:var(--dsw-alias-label-primary);font:inherit;font-size:10px;}
 .dsh-svc-search-input:focus{border-color:var(--dsw-alias-border-l3);outline:none;}
 .dsh-svc-variant{height:20px;max-width:96px;box-sizing:border-box;padding:0 2px;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm);background:var(--dsw-specific-menu);color:var(--dsw-alias-label-secondary);font:inherit;font-size:10px;}
@@ -778,28 +778,8 @@ window.__ModuleLoader__.load({
             : loaded
               ? String(labels?.waiting ?? '')
               : String(labels?.reading ?? '');
-      // A log card, not another list row: its own bordered frame, a header band
-      // that carries the title and the run state, then the scrolling body.
-      return h(
-        'div',
-        { className: 'dsh-svc-log' },
-        h(
-          'div',
-          { className: 'dsh-svc-log-head' },
-          h(
-            'span',
-            { className: 'dsh-svc-log-title' },
-            String(labels?.title ?? 'output') + ' · ' + (name ?? ''),
-          ),
-          h(
-            'span',
-            { className: 'dsh-svc-log-meta' },
-            String(id),
-            labels?.state === undefined ? '' : ' · ' + String(labels.state),
-          ),
-        ),
-        h('pre', { className: 'dsh-svc-log-body' }, body),
-      );
+      // The row block is the card, so the log body carries no frame of its own.
+      return h('pre', { className: 'dsh-svc-log-body' }, body);
     }
 
 
