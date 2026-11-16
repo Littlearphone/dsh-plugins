@@ -351,6 +351,8 @@ window.__ModuleLoader__.load({
 .dsh-svc-lastline{box-sizing:border-box;min-width:0;padding-left:6px;border-left:2px solid var(--dsw-alias-border-l2);font-family:var(--dsh-font-family-code,monospace);font-size:10px;line-height:1.4;color:var(--dsw-alias-label-tertiary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .dsh-svc-lastline::before{content:'↳ ';}
 .dsh-svc-row:hover{background:var(--dsw-alias-bg-layer-2);}
+.dsh-svc-search{flex:1 1 auto;min-width:0;max-width:220px;box-sizing:border-box;padding:2px 7px;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm);background:var(--dsw-specific-menu);color:var(--dsw-alias-label-primary);font:inherit;font-size:10px;}
+.dsh-svc-search:focus{border-color:var(--dsw-alias-border-l3);outline:none;}
 .dsh-svc-pinned-head{display:flex;align-items:center;gap:6px;padding:8px 12px 2px;font-size:10px;color:var(--dsw-alias-label-tertiary);}
 .dsh-svc-pinned-title{letter-spacing:.04em;}
 .dsh-svc-group-count{opacity:.7;}
@@ -493,6 +495,7 @@ window.__ModuleLoader__.load({
     const CLEAR_ROUTE = '/services/clear/';
     const CONFIG_ROUTE = '/services/config/';
     const PIN_ROUTE = '/services/pin/';
+    const UI_ROUTE = '/services/ui/';
     const OUTPUT_ROUTE = '/services/output/';
 
     /** Stop one started service; failures are silent because the next poll shows state. */
@@ -1026,16 +1029,37 @@ window.__ModuleLoader__.load({
         }
 
         /** Collapsed group ids; a group stays collapsed across refreshes. */
-        function useCollapsedGroups() {
-          const [collapsed, setCollapsed] = React.useState(() => new Set());
-          const toggle = React.useCallback((id) => {
-            setCollapsed((current) => {
-              const next = new Set(current);
-              if (next.has(id)) next.delete(id);
-              else next.add(id);
-              return next;
-            });
-          }, []);
+        /**
+         * Collapsed group ids. The set is seeded from the workspace document and
+         * written back on change, so the panel opens the way it was left — with a
+         * dozen groups that is the difference between a list and a wall.
+         */
+        function useCollapsedGroups(sessionId, initial) {
+          const [collapsed, setCollapsed] = React.useState(() => new Set(initial ?? []));
+          const seeded = React.useRef(false);
+          React.useEffect(() => {
+            if (seeded.current || !Array.isArray(initial)) return;
+            seeded.current = true;
+            setCollapsed(new Set(initial));
+          }, [initial]);
+          const toggle = React.useCallback(
+            (id) => {
+              setCollapsed((current) => {
+                const next = new Set(current);
+                if (next.has(id)) next.delete(id);
+                else next.add(id);
+                if (sessionId !== undefined && sessionId !== null) {
+                  void fetch(UI_ROUTE + encodeURIComponent(String(sessionId)), {
+                    method: 'PUT',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify({ collapsed: [...next] }),
+                  }).catch(() => {});
+                }
+                return next;
+              });
+            },
+            [sessionId],
+          );
           return [collapsed, toggle];
         }
 
@@ -1050,8 +1074,9 @@ window.__ModuleLoader__.load({
           useStoreRevision();
           const sessionId = props?.sessionId ?? store.sessionId;
           const [state, load] = useScripts(sessionId);
-          const [collapsed, toggleGroup] = useCollapsedGroups();
+          const [collapsed, toggleGroup] = useCollapsedGroups(sessionId, state.collapsed);
           const services = useServices(sessionId);
+          const [query, setQuery] = React.useState('');
           const [openKey, setOpenKey] = React.useState('');
           const [editKey, setEditKey] = React.useState('');
           const [armedStop, armStop, disarmStop] = useArmedStop();
@@ -1338,15 +1363,26 @@ window.__ModuleLoader__.load({
                 sections.push(rowFor(entry.group, entry.script, 'pin-' + index, true));
               });
             }
+            const needle = query.trim().toLowerCase();
+            const matches = (script) =>
+              needle === '' ||
+              String(script.name).toLowerCase().includes(needle) ||
+              String(script.command).toLowerCase().includes(needle);
             state.groups.forEach((group, groupIndex) => {
-              const rest = sortScripts(group.scripts).filter((script) => script.pinned !== true);
+              const rest = sortScripts(group.scripts).filter(
+                (script) => script.pinned !== true && matches(script),
+              );
               if (rest.length === 0) return;
               sections.push(groupHeading(group, false, collapsed, toggleGroup));
-              if (collapsed.has(group.id)) return;
+              // While searching, a collapsed group must not hide its matches.
+              if (needle === '' && collapsed.has(group.id)) return;
               rest.forEach((script, index) => {
                 sections.push(rowFor(group, script, groupIndex + '-' + index));
               });
             });
+            if (needle !== '' && sections.length === 0) {
+              sections.push(h('div', { className: 'dsh-svc-empty', key: 'no-match' }, t('menu.noMatch')));
+            }
           }
 
           return h(
@@ -1357,6 +1393,14 @@ window.__ModuleLoader__.load({
               'div',
               { className: 'dsh-svc-head', key: 'head' },
               h('span', { className: 'dsh-svc-dir', title: state.dir }, state.dir),
+              h('input', {
+                key: 'search',
+                className: 'dsh-svc-search',
+                value: query,
+                placeholder: t('menu.search'),
+                spellCheck: false,
+                onChange: (event) => setQuery(event.target.value),
+              }),
               h(
                 'div',
                 { className: 'dsh-svc-head-actions', key: 'actions' },

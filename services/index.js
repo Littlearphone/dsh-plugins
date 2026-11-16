@@ -763,7 +763,7 @@ function createHandler(ctx) {
     const slash = rest.indexOf('/');
     const action = slash === -1 ? rest : rest.slice(0, slash);
     const rawId = slash === -1 ? '' : rest.slice(slash + 1);
-    const ACTIONS = ['list', 'start', 'stop', 'state', 'output', 'clear', 'config', 'pin'];
+    const ACTIONS = ['list', 'start', 'stop', 'state', 'output', 'clear', 'config', 'pin', 'ui'];
     if (!ACTIONS.includes(action)) {
       reply(response, 404, { error: 'not-found' });
       return;
@@ -883,6 +883,28 @@ function createHandler(ctx) {
       } catch (error) {
         reply(response, 500, { error: 'stop-failed', detail: String(error?.message ?? error) });
       }
+      return;
+    }
+
+    // --- view state ------------------------------------------------------
+    if (action === 'ui') {
+      if (String(request.method ?? 'GET').toUpperCase() !== 'PUT') {
+        reply(response, 405, { error: 'method-not-allowed' });
+        return;
+      }
+      let body = {};
+      try {
+        body = JSON.parse(await readBody(request));
+      } catch {
+        reply(response, 400, { error: 'bad-body' });
+        return;
+      }
+      const doc = await readDoc(dir);
+      const collapsed = Array.isArray(body.collapsed)
+        ? body.collapsed.filter((id) => typeof id === 'string')
+        : doc.collapsed;
+      await writeDoc(dir, { ...doc, collapsed });
+      reply(response, 200, { collapsed });
       return;
     }
 
@@ -1014,6 +1036,7 @@ function createHandler(ctx) {
         dir,
         hasManifest: root !== undefined,
         groups: groups.filter((group) => group.scripts.length > 0),
+        collapsed: doc.collapsed,
         workspacePatterns: globs,
         skippedPatterns: skipped,
       });
