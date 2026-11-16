@@ -46,7 +46,7 @@ window.__ModuleLoader__.load({
       'run.exited': '已结束',
       'run.hide': '收起',
       'run.finished': '已结束',
-      'run.clear': '清理',
+      'run.clear': '清理已结束',
       'run.start': '启动',
       'run.edit': '编辑启动配置',
       'run.variant': '启动变体',
@@ -101,7 +101,7 @@ window.__ModuleLoader__.load({
       'run.exited': 'exited',
       'run.hide': 'Hide',
       'run.finished': 'finished',
-      'run.clear': 'Clear',
+      'run.clear': 'Clear finished',
       'run.start': 'Start',
       'run.edit': 'Edit start configuration',
       'run.variant': 'Start variant',
@@ -575,10 +575,13 @@ window.__ModuleLoader__.load({
           if (reset === true) {
             const query =
               script.configId === undefined
-                ? '?dir=' + encodeURIComponent(dir ?? '') + '&script=' + encodeURIComponent(script.original)
+                ? '?dir=' + encodeURIComponent(dir ?? '') + '&script=' + encodeURIComponent(scriptName)
                 : '?id=' + encodeURIComponent(String(script.configId));
             const response = await fetch(url + query, { method: 'DELETE' });
-            if (!response.ok) throw new Error('HTTP ' + response.status);
+            if (!response.ok) {
+              const detail = await response.json().catch(() => null);
+              throw new Error('HTTP ' + response.status + ' ' + String(detail?.error ?? ''));
+            }
           } else {
             const envEntries = {};
             for (const line of env.split(/\r?\n/)) {
@@ -594,14 +597,17 @@ window.__ModuleLoader__.load({
               body: JSON.stringify({
                 id: script.configId ?? undefined,
                 dir: dir ?? '',
-                script: script.original,
+                script: scriptName,
                 label: label.trim(),
                 args: args.trim(),
                 env: envEntries,
                 cwd: cwd.trim(),
               }),
             });
-            if (!response.ok) throw new Error('HTTP ' + response.status);
+            if (!response.ok) {
+              const detail = await response.json().catch(() => null);
+              throw new Error('HTTP ' + response.status + ' ' + String(detail?.error ?? ''));
+            }
           }
           setBusy(false);
           if (typeof onSaved === 'function') onSaved();
@@ -631,7 +637,7 @@ window.__ModuleLoader__.load({
         h(
           'div',
           { className: 'dsh-svc-drawer-head' },
-          h('span', { className: 'dsh-svc-drawer-title' }, labels.title + ' · ' + script.name),
+          h('span', { className: 'dsh-svc-drawer-title' }, labels.title + ' · ' + scriptName),
           h(
             'button',
             {
@@ -1120,10 +1126,13 @@ window.__ModuleLoader__.load({
             );
           };
 
-          const rowFor = (group, script, index, showPath) => {
+          const rowFor = (group, script, index, showPath, instance) => {
             const key = String(script.command) + '\u0000' + String(group.dir ?? '');
+            // Two rows can show the same script (pinned area plus its group); the
+            // drawer key carries the row instance so only the clicked one opens.
+            const rowKey = String(instance ?? 'group') + '|' + key;
             const service = latest.get(key);
-            const open = openKey === key;
+            const open = openKey === rowKey;
             const running = service?.state === 'running';
             const actions = [];
             if (!running) {
@@ -1186,7 +1195,7 @@ window.__ModuleLoader__.load({
                     className: 'dsh-svc-icon',
                     title: open ? t('run.hide') : t('run.output'),
                     'aria-label': open ? t('run.hide') : t('run.output'),
-                    onClick: () => setOpenKey(open ? '' : key),
+                    onClick: () => setOpenKey(open ? '' : rowKey),
                   },
                   h(
                     'svg',
@@ -1310,7 +1319,7 @@ window.__ModuleLoader__.load({
                       className: 'dsh-svc-icon',
                       title: t('run.edit'),
                       'aria-label': t('run.edit'),
-                      onClick: () => setEditKey(editKey === key ? '' : key),
+                      onClick: () => setEditKey(editKey === rowKey ? '' : rowKey),
                     },
                     h(
                       'svg',
@@ -1326,7 +1335,7 @@ window.__ModuleLoader__.load({
                   actions,
                 ),
               ),
-              editKey === key
+              editKey === rowKey
                 ? h(ConfigEditor, {
                     key: 'editor',
                     sessionId,
@@ -1412,7 +1421,7 @@ window.__ModuleLoader__.load({
                 ),
               );
               pinned.forEach((entry, index) => {
-                sections.push(rowFor(entry.group, entry.script, 'pin-' + index, true));
+                sections.push(rowFor(entry.group, entry.script, 'pin-' + index, true, 'pin'));
               });
             }
             const needle = query.trim().toLowerCase();
@@ -1429,7 +1438,7 @@ window.__ModuleLoader__.load({
               // While searching, a collapsed group must not hide its matches.
               if (needle === '' && collapsed.has(group.id)) return;
               rest.forEach((script, index) => {
-                sections.push(rowFor(group, script, groupIndex + '-' + index));
+                sections.push(rowFor(group, script, groupIndex + '-' + index, false, 'group'));
               });
             });
             if (needle !== '' && sections.length === 0) {
@@ -1465,7 +1474,7 @@ window.__ModuleLoader__.load({
                           void postJson(CLEAR_ROUTE + encodeURIComponent(String(sessionId)), {}).catch(() => {});
                         },
                       },
-                      t('run.clear'),
+                      t('run.clear') + ' ' + String(finished),
                     ),
               ),
             ),
