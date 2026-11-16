@@ -342,10 +342,10 @@ window.__ModuleLoader__.load({
 .dsh-svc-drawer{display:flex;flex-direction:column;gap:4px;padding:6px 8px;border:1px solid var(--dsw-alias-border-l1);border-radius:8px;background:var(--dsw-alias-bg-layer-2);}
 .dsh-svc-drawer-head{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:10px;color:var(--dsw-alias-label-secondary);}
 .dsh-svc-drawer-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--dsh-font-family-code,monospace);}
-.dsh-svc-drawer.is-log{background:transparent;border:0;padding:2px 0 0;gap:2px;}
-.dsh-svc-drawer.is-log .dsh-svc-drawer-head{padding:0 2px;border:0;opacity:.85;}
-.dsh-svc-drawer.is-log .dsh-svc-output{margin-top:2px;border-left:2px solid var(--dsw-alias-state-business-primary);}
-.dsh-svc-output{box-sizing:border-box;margin:0;padding:8px 10px;max-height:240px;overflow:auto;border:0;border-radius:var(--dsw-radius-xs);background:color-mix(in srgb,var(--dsw-alias-bg-base) 88%,black);color:var(--dsw-alias-label-primary);font-family:var(--dsh-font-family-code,monospace);font-size:10.5px;line-height:1.6;white-space:pre;tab-size:2;scrollbar-width:thin;}
+.dsh-svc-log{display:flex;flex-direction:column;margin:2px 0 6px;border:.5px solid var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-sm);overflow:hidden;background:var(--dsw-alias-bg-base);}
+.dsh-svc-log-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 8px;background:var(--dsw-alias-bg-layer-2);border-bottom:.5px solid var(--dsw-alias-border-l1);font-size:10px;color:var(--dsw-alias-label-secondary);}
+.dsh-svc-log-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;color:var(--dsw-alias-label-primary);}
+.dsh-svc-log-body{box-sizing:border-box;margin:0;padding:8px 10px;max-height:240px;overflow:auto;background:transparent;color:var(--dsw-alias-label-primary);font-family:var(--dsh-font-family-code,monospace);font-size:10.5px;line-height:1.6;white-space:pre;tab-size:2;scrollbar-width:thin;}
 .dsh-svc-list{display:flex;flex:1 1 auto;flex-direction:column;gap:4px;min-height:0;padding:2px 12px 12px;overflow-y:auto;}
 .dsh-svc-row{box-sizing:border-box;display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--dsw-alias-border-l1);border-left:3px solid var(--dsw-alias-state-business-primary);border-radius:8px;background:var(--dsw-alias-bg-base);text-align:left;}
 .dsh-svc-row-text{display:flex;flex:1 1 auto;flex-direction:column;gap:3px;min-width:0;}
@@ -778,16 +778,27 @@ window.__ModuleLoader__.load({
             : loaded
               ? String(labels?.waiting ?? '')
               : String(labels?.reading ?? '');
+      // A log card, not another list row: its own bordered frame, a header band
+      // that carries the title and the run state, then the scrolling body.
       return h(
         'div',
-        { className: 'dsh-svc-drawer is-log' },
+        { className: 'dsh-svc-log' },
         h(
           'div',
-          { className: 'dsh-svc-drawer-head' },
-          h('span', { className: 'dsh-svc-drawer-title' }, (name ?? '') + ' · ' + String(id)),
-
+          { className: 'dsh-svc-log-head' },
+          h(
+            'span',
+            { className: 'dsh-svc-log-title' },
+            String(labels?.title ?? 'output') + ' · ' + (name ?? ''),
+          ),
+          h(
+            'span',
+            { className: 'dsh-svc-log-meta' },
+            String(id),
+            labels?.state === undefined ? '' : ' · ' + String(labels.state),
+          ),
         ),
-        h('pre', { className: 'dsh-svc-output' }, body),
+        h('pre', { className: 'dsh-svc-log-body' }, body),
       );
     }
 
@@ -1358,6 +1369,11 @@ window.__ModuleLoader__.load({
                     id: service.id,
                     name: script.name,
                     labels: {
+                      title: t('run.output'),
+                      state:
+                        service.state === 'running'
+                          ? t('run.running')
+                          : t('run.exited') + ' ' + String(service.exitCode ?? '?'),
                       waiting: t('output.waiting'),
                       reading: t('output.reading'),
                       hide: t('run.hide'),
