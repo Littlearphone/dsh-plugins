@@ -342,10 +342,10 @@ window.__ModuleLoader__.load({
 .dsh-svc-drawer{display:flex;flex-direction:column;gap:4px;padding:6px 8px;border:1px solid var(--dsw-alias-border-l1);border-radius:8px;background:var(--dsw-alias-bg-layer-2);}
 .dsh-svc-drawer-head{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:10px;color:var(--dsw-alias-label-secondary);}
 .dsh-svc-drawer-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--dsh-font-family-code,monospace);}
-.dsh-svc-drawer.is-log{background:var(--dsw-alias-bg-base);border-color:var(--dsw-alias-border-l1);}
-.dsh-svc-drawer.is-log .dsh-svc-drawer-head{padding-bottom:2px;border-bottom:.5px solid var(--dsw-alias-border-l1);}
-.dsh-svc-drawer.is-log .dsh-svc-output{margin-top:4px;background:transparent;}
-.dsh-svc-output{box-sizing:border-box;margin:0;padding:8px 10px;max-height:240px;overflow:auto;border:.5px solid var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-sm);background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font-family:var(--dsh-font-family-code,monospace);font-size:10.5px;line-height:1.6;white-space:pre;tab-size:2;scrollbar-width:thin;}
+.dsh-svc-drawer.is-log{background:transparent;border:0;padding:2px 0 0;gap:2px;}
+.dsh-svc-drawer.is-log .dsh-svc-drawer-head{padding:0 2px;border:0;opacity:.85;}
+.dsh-svc-drawer.is-log .dsh-svc-output{margin-top:2px;border-left:2px solid var(--dsw-alias-state-business-primary);}
+.dsh-svc-output{box-sizing:border-box;margin:0;padding:8px 10px;max-height:240px;overflow:auto;border:0;border-radius:var(--dsw-radius-xs);background:color-mix(in srgb,var(--dsw-alias-bg-base) 88%,black);color:var(--dsw-alias-label-primary);font-family:var(--dsh-font-family-code,monospace);font-size:10.5px;line-height:1.6;white-space:pre;tab-size:2;scrollbar-width:thin;}
 .dsh-svc-list{display:flex;flex:1 1 auto;flex-direction:column;gap:4px;min-height:0;padding:2px 12px 12px;overflow-y:auto;}
 .dsh-svc-row{box-sizing:border-box;display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--dsw-alias-border-l1);border-left:3px solid var(--dsw-alias-state-business-primary);border-radius:8px;background:var(--dsw-alias-bg-base);text-align:left;}
 .dsh-svc-row-text{display:flex;flex:1 1 auto;flex-direction:column;gap:3px;min-width:0;}
@@ -785,32 +785,7 @@ window.__ModuleLoader__.load({
           'div',
           { className: 'dsh-svc-drawer-head' },
           h('span', { className: 'dsh-svc-drawer-title' }, (name ?? '') + ' · ' + String(id)),
-          h(
-            'button',
-            {
-              type: 'button',
-              // Same control as the row that opened this drawer: one affordance
-              // for "collapse", 20px icon button, not a second text button.
-              className: 'dsh-svc-icon',
-              title: String(labels?.hide ?? ''),
-              'aria-label': String(labels?.hide ?? ''),
-              onClick: (event) => {
-                event.stopPropagation();
-                if (typeof onClose === 'function') onClose();
-              },
-            },
-            h(
-              'svg',
-              { viewBox: '0 0 16 16', 'aria-hidden': true, fill: 'none' },
-              h('path', {
-                d: 'M4 10l4-4 4 4',
-                stroke: 'currentColor',
-                strokeWidth: 1.4,
-                strokeLinecap: 'round',
-                strokeLinejoin: 'round',
-              }),
-            ),
-          ),
+
         ),
         h('pre', { className: 'dsh-svc-output' }, body),
       );
