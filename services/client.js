@@ -381,9 +381,9 @@ window.__ModuleLoader__.load({
 .dsh-svc-item:hover{background:var(--dsw-alias-bg-layer-2);}
 .dsh-svc-item:focus-visible{outline:1px solid var(--dsw-alias-state-business-primary);outline-offset:-1px;}
 .dsh-svc-item.is-running .dsh-svc-item-name{color:var(--dsw-alias-state-success-primary);}
-.dsh-svc-item-stop{margin-left:auto;}
+
 .dsh-svc-item-stop:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-state-error-primary);}
-.dsh-svc-item-text{display:flex;flex-direction:column;gap:1px;min-width:0;}
+.dsh-svc-item-text{display:flex;flex:1 1 auto;flex-direction:column;gap:1px;min-width:0;}
 .dsh-svc-item-name{font-size:12px;line-height:1.3;}
 .dsh-svc-item-command{font-size:10px;line-height:1.3;color:var(--dsw-alias-label-secondary);font-family:var(--dsh-font-family-code,monospace);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .dsh-svc-menu-foot{flex:none;padding-top:2px;border-top:1px solid var(--dsw-alias-border-l1);}
@@ -930,50 +930,54 @@ window.__ModuleLoader__.load({
                     h('span', { className: 'dsh-svc-item-name' }, script.name),
                     h('span', { className: 'dsh-svc-item-command' }, script.command),
                   ),
-                  running
-                    ? h(
-                        'button',
-                        {
-                          key: 'stop',
-                          type: 'button',
-                          className: 'dsh-svc-stop' + (armedStop === runningId ? ' is-armed' : ''),
-                          title: armedStop === runningId ? t('run.confirmStop') : t('run.stop'),
-                          'aria-label': armedStop === runningId ? t('run.confirmStop') : t('run.stop'),
-                          onClick: () => {
-                            if (armedStop === runningId) {
-                              disarmStop();
-                              void stopService(runningId);
-                              return;
-                            }
-                            armStop(runningId);
+                  h(
+                    'span',
+                    { className: 'dsh-svc-actions', key: 'actions' },
+                    running
+                      ? h(
+                          'button',
+                          {
+                            key: 'stop',
+                            type: 'button',
+                            className: 'dsh-svc-stop' + (armedStop === runningId ? ' is-armed' : ''),
+                            title: armedStop === runningId ? t('run.confirmStop') : t('run.stop'),
+                            'aria-label': armedStop === runningId ? t('run.confirmStop') : t('run.stop'),
+                            onClick: () => {
+                              if (armedStop === runningId) {
+                                disarmStop();
+                                void stopService(runningId);
+                                return;
+                              }
+                              armStop(runningId);
+                            },
                           },
-                        },
-                        armedStop === runningId
-                          ? h('span', { className: 'dsh-svc-stop-label' }, t('run.confirmStop'))
-                          : h(
-                              'svg',
-                              { viewBox: '0 0 16 16', 'aria-hidden': true },
-                              h('rect', { x: 4, y: 4, width: 8, height: 8, rx: 1.5, fill: 'currentColor' }),
-                            ),
-                      )
-                    : h(
-                        'button',
-                        {
-                          key: 'start',
-                          type: 'button',
-                          className: 'dsh-svc-icon',
-                          title: t('run.start'),
-                          'aria-label': t('run.start'),
-                          onClick: () => {
-                            void launch(script, group.dir, group.kind);
+                          armedStop === runningId
+                            ? h('span', { className: 'dsh-svc-stop-label' }, t('run.confirmStop'))
+                            : h(
+                                'svg',
+                                { viewBox: '0 0 16 16', 'aria-hidden': true },
+                                h('rect', { x: 4, y: 4, width: 8, height: 8, rx: 1.5, fill: 'currentColor' }),
+                              ),
+                        )
+                      : h(
+                          'button',
+                          {
+                            key: 'start',
+                            type: 'button',
+                            className: 'dsh-svc-icon',
+                            title: t('run.start'),
+                            'aria-label': t('run.start'),
+                            onClick: () => {
+                              void launch(script, group.dir, group.kind);
+                            },
                           },
-                        },
-                        h(
-                          'svg',
-                          { viewBox: '0 0 16 16', 'aria-hidden': true },
-                          h('path', { d: 'M5.5 3.5 12 8l-6.5 4.5z', fill: 'currentColor' }),
+                          h(
+                            'svg',
+                            { viewBox: '0 0 16 16', 'aria-hidden': true },
+                            h('path', { d: 'M5.5 3.5 12 8l-6.5 4.5z', fill: 'currentColor' }),
+                          ),
                         ),
-                      ),
+                  ),
                 ),
               );
             });
