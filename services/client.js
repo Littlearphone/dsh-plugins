@@ -48,6 +48,20 @@ window.__ModuleLoader__.load({
       'run.finished': '已结束',
       'run.clear': '清理',
       'run.start': '启动',
+      'run.edit': '编辑启动配置',
+      'run.overridden': '已覆盖',
+      'edit.title': '启动配置',
+      'edit.name': '显示名',
+      'edit.args': '参数',
+      'edit.argsHint': '--port 8899 --watch（原样透传给脚本，引号会保留）',
+      'edit.env': '环境变量',
+      'edit.cwd': '工作目录',
+      'edit.cwdHint': '相对工作区根；留空 = 脚本所在包目录',
+      'edit.locked': '来自 package.json，不能在这里修改',
+      'edit.save': '保存',
+      'edit.reset': '还原为原生',
+      'edit.close': '收起',
+      'edit.badEnv': '环境变量要写成 KEY=VALUE',
       'run.stop': '停止',
       'run.confirmStop': '确认停止',
       'output.truncated': '（已省略较早的输出）',
@@ -85,6 +99,20 @@ window.__ModuleLoader__.load({
       'run.finished': 'finished',
       'run.clear': 'Clear',
       'run.start': 'Start',
+      'run.edit': 'Edit start configuration',
+      'run.overridden': 'overridden',
+      'edit.title': 'Start configuration',
+      'edit.name': 'Label',
+      'edit.args': 'Arguments',
+      'edit.argsHint': '--port 8899 --watch (passed through verbatim, quotes kept)',
+      'edit.env': 'Environment',
+      'edit.cwd': 'Working directory',
+      'edit.cwdHint': 'Relative to the workspace root; empty = the package directory',
+      'edit.locked': 'Owned by package.json — read-only here',
+      'edit.save': 'Save',
+      'edit.reset': 'Reset to package.json',
+      'edit.close': 'Close',
+      'edit.badEnv': 'Environment must be KEY=VALUE',
       'run.stop': 'Stop',
       'run.confirmStop': 'Confirm stop',
       'output.truncated': '(earlier output omitted)',
@@ -317,6 +345,20 @@ window.__ModuleLoader__.load({
 .dsh-svc-lastline{box-sizing:border-box;min-width:0;padding-left:6px;border-left:2px solid var(--dsw-alias-border-l2);font-family:var(--dsh-font-family-code,monospace);font-size:10px;line-height:1.4;color:var(--dsw-alias-label-tertiary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .dsh-svc-lastline::before{content:'↳ ';}
 .dsh-svc-row:hover{background:var(--dsw-alias-bg-layer-2);}
+.dsh-svc-row.is-overridden{border-left-color:var(--dsw-alias-state-warn-primary);}
+.dsh-svc-chip.is-overridden{background:color-mix(in srgb,var(--dsw-alias-state-warn-primary) 16%,transparent);color:var(--dsw-alias-state-warn-primary);}
+.dsh-svc-readonly{display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:var(--dsw-radius-sm);background:var(--dsw-alias-bg-layer-2);font-size:10px;color:var(--dsw-alias-label-tertiary);}
+.dsh-svc-readonly-text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--dsh-font-family-code,monospace);}
+.dsh-svc-readonly-note{margin-left:auto;flex:none;font-size:9px;opacity:.8;}
+.dsh-svc-lock{flex:none;font-size:9px;}
+.dsh-svc-editor{gap:6px;}
+.dsh-svc-field{display:flex;align-items:center;gap:8px;font-size:10px;color:var(--dsw-alias-label-secondary);}
+.dsh-svc-field-label{flex:none;width:56px;}
+.dsh-svc-input{flex:1 1 auto;min-width:0;box-sizing:border-box;padding:3px 6px;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm);background:var(--dsw-specific-menu);color:var(--dsw-alias-label-primary);font:inherit;font-size:10px;}
+.dsh-svc-input:focus{border-color:var(--dsw-alias-border-l3);outline:none;}
+.dsh-svc-textarea{resize:vertical;font-family:var(--dsh-font-family-code,monospace);}
+.dsh-svc-editor-actions{display:flex;justify-content:flex-end;gap:4px;padding-top:2px;}
+.dsh-svc-icon.is-primary{border-color:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-state-business-primary);}
 .dsh-svc-icon{flex:none;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;width:20px;height:20px;padding:0;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm);background:var(--dsw-specific-menu);color:var(--dsw-alias-label-secondary);cursor:pointer;}
 .dsh-svc-icon:hover{border-color:var(--dsw-alias-border-l3);color:var(--dsw-alias-label-primary);}
 .dsh-svc-icon svg{width:11px;height:11px;display:block;}
@@ -487,6 +529,173 @@ window.__ModuleLoader__.load({
         };
       }, [sessionId]);
       return services;
+    }
+
+    /**
+     * The start-configuration editor. The script body is shown read-only and
+     * carries a lock: it belongs to package.json, and this plugin only ever adds
+     * parameters, environment and a working directory around it.
+     */
+    function ConfigEditor({ sessionId, script, dir, labels, onSaved, onCancel }) {
+      const [name, setName] = React.useState(script.name === script.original ? '' : script.name);
+      const [args, setArgs] = React.useState(script.args ?? '');
+      const [env, setEnv] = React.useState(
+        Object.entries(script.env ?? {})
+          .map(([key, value]) => key + '=' + value)
+          .join('\n'),
+      );
+      const [cwd, setCwd] = React.useState(script.cwd ?? '');
+      const [busy, setBusy] = React.useState(false);
+      const [error, setError] = React.useState('');
+
+      const save = async (reset) => {
+        setBusy(true);
+        setError('');
+        try {
+          const url = CONFIG_ROUTE + encodeURIComponent(String(sessionId));
+          if (reset === true) {
+            const query =
+              '?dir=' + encodeURIComponent(dir ?? '') + '&script=' + encodeURIComponent(script.original);
+            const response = await fetch(url + query, { method: 'DELETE' });
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+          } else {
+            const envEntries = {};
+            for (const line of env.split(/\r?\n/)) {
+              const trimmed = line.trim();
+              if (trimmed === '' || trimmed.startsWith('#')) continue;
+              const at = trimmed.indexOf('=');
+              if (at <= 0) throw new Error(labels.badEnv + ': ' + trimmed);
+              envEntries[trimmed.slice(0, at).trim()] = trimmed.slice(at + 1);
+            }
+            const response = await fetch(url, {
+              method: 'PUT',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({
+                dir: dir ?? '',
+                script: script.original,
+                name: name.trim(),
+                args: args.trim(),
+                env: envEntries,
+                cwd: cwd.trim(),
+              }),
+            });
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+          }
+          setBusy(false);
+          if (typeof onSaved === 'function') onSaved();
+        } catch (failure) {
+          setBusy(false);
+          setError(String(failure?.message ?? failure));
+        }
+      };
+
+      const field = (key, value, onChange, placeholder) =>
+        h(
+          'label',
+          { className: 'dsh-svc-field', key },
+          h('span', { className: 'dsh-svc-field-label' }, labels[key]),
+          h('input', {
+            className: 'dsh-svc-input',
+            value,
+            spellCheck: false,
+            placeholder: placeholder ?? '',
+            onChange: (event) => onChange(event.target.value),
+          }),
+        );
+
+      return h(
+        'div',
+        { className: 'dsh-svc-drawer dsh-svc-editor' },
+        h(
+          'div',
+          { className: 'dsh-svc-drawer-head' },
+          h('span', { className: 'dsh-svc-drawer-title' }, labels.title + ' · ' + script.original),
+          h(
+            'button',
+            {
+              type: 'button',
+              className: 'dsh-svc-run-button',
+              onClick: () => {
+                if (typeof onCancel === 'function') onCancel();
+              },
+            },
+            labels.close,
+          ),
+        ),
+        h(
+          'div',
+          { className: 'dsh-svc-readonly', title: labels.locked },
+          h('span', { className: 'dsh-svc-lock', 'aria-hidden': true }, '🔒'),
+          h('code', { className: 'dsh-svc-readonly-text' }, script.command),
+          h('span', { className: 'dsh-svc-readonly-note' }, labels.locked),
+        ),
+        field('name', name, setName, script.original),
+        field('args', args, setArgs, labels.argsHint),
+        h(
+          'label',
+          { className: 'dsh-svc-field' },
+          h('span', { className: 'dsh-svc-field-label' }, labels.env),
+          h('textarea', {
+            className: 'dsh-svc-input dsh-svc-textarea',
+            value: env,
+            spellCheck: false,
+            rows: 2,
+            placeholder: 'KEY=VALUE',
+            onChange: (event) => setEnv(event.target.value),
+          }),
+        ),
+        field('cwd', cwd, setCwd, labels.cwdHint),
+        error === '' ? null : h('p', { className: 'dsh-svc-notice is-error' }, error),
+        h(
+          'div',
+          { className: 'dsh-svc-editor-actions' },
+          h(
+            'button',
+            {
+              type: 'button',
+              className: 'dsh-svc-icon is-primary',
+              title: labels.save,
+              'aria-label': labels.save,
+              disabled: busy,
+              onClick: () => void save(false),
+            },
+            h(
+              'svg',
+              { viewBox: '0 0 16 16', 'aria-hidden': true, fill: 'none' },
+              h('path', {
+                d: 'M3.5 8.5 6.5 11.5 12.5 4.5',
+                stroke: 'currentColor',
+                strokeWidth: 1.6,
+                strokeLinecap: 'round',
+                strokeLinejoin: 'round',
+              }),
+            ),
+          ),
+          script.overridden === true
+            ? h(
+                'button',
+                {
+                  type: 'button',
+                  className: 'dsh-svc-icon',
+                  title: labels.reset,
+                  'aria-label': labels.reset,
+                  disabled: busy,
+                  onClick: () => void save(true),
+                },
+                h(
+                  'svg',
+                  { viewBox: '0 0 16 16', 'aria-hidden': true, fill: 'none' },
+                  h('path', {
+                    d: 'M4 6.5A5 5 0 1 1 5.5 11',
+                    stroke: 'currentColor',
+                    strokeWidth: 1.4,
+                    strokeLinecap: 'round',
+                  }),
+                ),
+              )
+            : null,
+        ),
+      );
     }
 
     /**
@@ -813,6 +1022,7 @@ window.__ModuleLoader__.load({
           const [collapsed, toggleGroup] = useCollapsedGroups();
           const services = useServices(sessionId);
           const [openKey, setOpenKey] = React.useState('');
+          const [editKey, setEditKey] = React.useState('');
           const [armedStop, armStop, disarmStop] = useArmedStop();
           // An arm belongs to one running service; once it is gone there is
           // nothing left to confirm, so drop it (no timer involved).
@@ -947,14 +1157,69 @@ window.__ModuleLoader__.load({
                     { className: 'dsh-svc-name-line', key: 'name-line' },
                     h('span', { className: 'dsh-svc-name', key: 'name' }, script.name),
                     statusChip(service),
+                    script.overridden === true
+                      ? h('span', { className: 'dsh-svc-chip is-overridden', key: 'ov' }, t('run.overridden'))
+                      : null,
                   ),
                   h('span', { className: 'dsh-svc-command', key: 'command' }, script.command),
                   service === undefined || service.lastLine === ''
                     ? null
                     : h('span', { className: 'dsh-svc-lastline', key: 'last' }, service.lastLine),
                 ),
-                h('span', { className: 'dsh-svc-actions', key: 'actions' }, actions),
+                h(
+                  'span',
+                  { className: 'dsh-svc-actions', key: 'actions' },
+                  h(
+                    'button',
+                    {
+                      key: 'edit',
+                      type: 'button',
+                      className: 'dsh-svc-icon',
+                      title: t('run.edit'),
+                      'aria-label': t('run.edit'),
+                      onClick: () => setEditKey(editKey === key ? '' : key),
+                    },
+                    h(
+                      'svg',
+                      { viewBox: '0 0 16 16', 'aria-hidden': true, fill: 'none' },
+                      h('path', {
+                        d: 'M10.8 2.9 13.1 5.2 6 12.3 3 13l.7-3z',
+                        stroke: 'currentColor',
+                        strokeWidth: 1.3,
+                        strokeLinejoin: 'round',
+                      }),
+                    ),
+                  ),
+                  actions,
+                ),
               ),
+              editKey === key
+                ? h(ConfigEditor, {
+                    key: 'editor',
+                    sessionId,
+                    script,
+                    dir: group.dir ?? '',
+                    labels: {
+                      title: t('edit.title'),
+                      name: t('edit.name'),
+                      args: t('edit.args'),
+                      argsHint: t('edit.argsHint'),
+                      env: t('edit.env'),
+                      cwd: t('edit.cwd'),
+                      cwdHint: t('edit.cwdHint'),
+                      locked: t('edit.locked'),
+                      save: t('edit.save'),
+                      reset: t('edit.reset'),
+                      close: t('edit.close'),
+                      badEnv: t('edit.badEnv'),
+                    },
+                    onSaved: () => {
+                      setEditKey('');
+                      load();
+                    },
+                    onCancel: () => setEditKey(''),
+                  })
+                : null,
               open && service !== undefined
                 ? h(OutputView, {
                     key: 'output-view',

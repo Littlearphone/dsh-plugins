@@ -15,6 +15,85 @@ import { mkdir, readFile, readdir, rename, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 
+/**
+ * Start configurations live in the workspace, not in this machine's home:
+ * .dsh/services.json travels with the project, can be reviewed and committed,
+ * and never rewrites the package.json scripts it overrides.
+ */
+const CONFIG_DIR = '.dsh';
+const CONFIG_FILE = 'services.json';
+
+async function readConfigs(root) {
+  try {
+    const text = await readFile(join(root, CONFIG_DIR, CONFIG_FILE), 'utf8');
+    const parsed = JSON.parse(text);
+    return Array.isArray(parsed?.configs)
+      ? parsed.configs.filter(
+          (config) =>
+            config !== null &&
+            typeof config === 'object' &&
+            typeof config.script === 'string' &&
+            typeof config.dir === 'string',
+        )
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+async function writeConfigs(root, configs) {
+  const folder = join(root, CONFIG_DIR);
+  await mkdir(folder, { recursive: true });
+  await writeFile(
+    join(folder, CONFIG_FILE),
+    JSON.stringify({ version: 1, configs }, null, 2) + '\n',
+    'utf8',
+  );
+}
+
+/** Normalise one override body into the stored shape; empty fields are dropped. */
+function normaliseConfig(body) {
+  const config = {
+    dir: String(body.dir ?? ''),
+    script: String(body.script ?? ''),
+  };
+  if (config.script === '') return undefined;
+  const name = String(body.name ?? '').trim();
+  if (name !== '') config.name = name;
+  // Passed through verbatim: `npm run x -- <args>` hands this string to the
+  // script, so any tokenising here would lose quotes and argument grouping.
+  const args = typeof body.args === 'string' ? body.args.trim() : '';
+  if (args !== '') config.args = args;
+  const env = {};
+  if (body.env !== null && typeof body.env === 'object') {
+    for (const [key, value] of Object.entries(body.env)) {
+      const trimmed = String(key).trim();
+      if (trimmed !== '' && value !== null && value !== undefined && String(value) !== '') {
+        env[trimmed] = String(value);
+      }
+    }
+  }
+  if (Object.keys(env).length > 0) config.env = env;
+  const cwd = String(body.cwd ?? '').trim();
+  if (cwd !== '') config.cwd = cwd;
+  return config;
+}
+
+/** Overlay one override onto a discovered script. */
+function withConfig(script, dir, configs) {
+  const config = configs.find((entry) => entry.dir === dir && entry.script === script.name);
+  if (config === undefined) return script;
+  return {
+    ...script,
+    original: script.name,
+    name: config.name ?? script.name,
+    args: config.args ?? '',
+    env: config.env ?? {},
+    cwd: config.cwd ?? '',
+    overridden: true,
+  };
+}
+
 /** Route the browser half calls, relative to the page origin. */
 const ROUTE_PATH = '/services';
 /** Guards against a pathological glob fanning out over a huge directory. */
@@ -337,6 +416,7 @@ async function reapPreviousLaunches() {
   console.error('[services] reaped ' + ids.length + ' launch(es) from a previous run');
 }
 
+
 /**
  * Every launch carries a unique marker in its command line, in the shell's own
  * syntax: `set "DSH_SVC=<id>"` / `$env:DSH_SVC=...`. The marker is what makes a
@@ -457,23 +537,39 @@ async function spawnService(ctx, sessionId, request, root) {
   const cwd = request.cwd;
   const id = 'svc-' + Math.random().toString(36).slice(2, 10);
 
+  // An override may change the parameters, the environment and the directory,
+  // but never the script body — that line stays owned by package.json.
+  const configs = await readConfigs(root);
+  const override = configs.find(
+    (config) => config.dir === String(request.dir ?? '') && config.script === String(request.name ?? ''),
+  );
+  const extraArgs = String(override?.args ?? '').trim();
+  const launchCwd =
+    typeof override?.cwd === 'string' && override.cwd !== '' ? join(root, override.cwd) : cwd;
+
   let command;
   if (request.kind === 'go') {
-    command = String(request.command ?? '');
+    const base = String(request.command ?? '');
+    command = extraArgs === '' ? base : `${base} ${extraArgs}`;
   } else {
     const name = String(request.name ?? '');
     if (name === '') return { error: 'empty-script' };
-    const manager = await packageManagerFor(cwd, root);
-    command = `${manager} run ${name}`;
+    const manager = await packageManagerFor(launchCwd, root);
+    const base = `${manager} run ${name}`;
+    command = extraArgs === '' ? base : `${base} -- ${extraArgs}`;
   }
   if (command === '') return { error: 'empty-command' };
   const shell = environment.defaultShell;
   if (shell === undefined) return { error: 'no-shell' };
   const argv = shellArgv(shell, markedCommand(shell, id, command));
-  const env = withLocalBins(environment, [
-    join(cwd, 'node_modules', '.bin'),
+  const localBins = withLocalBins(environment, [
+    join(launchCwd, 'node_modules', '.bin'),
     join(root, 'node_modules', '.bin'),
   ]);
+  const env =
+    override?.env === undefined
+      ? localBins
+      : { ...(localBins ?? process.env), ...override.env };
   const key = serviceKey(sessionId, id);
   const record = {
     id,
@@ -493,7 +589,7 @@ async function spawnService(ctx, sessionId, request, root) {
   try {
     const handle = subprocess.spawn({
       argv,
-      cwd,
+      cwd: launchCwd,
       env,
       stdio: {
         stdin: 'ignore',
@@ -618,7 +714,7 @@ function createHandler(ctx) {
     const slash = rest.indexOf('/');
     const action = slash === -1 ? rest : rest.slice(0, slash);
     const rawId = slash === -1 ? '' : rest.slice(slash + 1);
-    const ACTIONS = ['list', 'start', 'stop', 'state', 'output', 'clear'];
+    const ACTIONS = ['list', 'start', 'stop', 'state', 'output', 'clear', 'config'];
     if (!ACTIONS.includes(action)) {
       reply(response, 404, { error: 'not-found' });
       return;
@@ -741,6 +837,58 @@ function createHandler(ctx) {
       return;
     }
 
+    // --- start configurations --------------------------------------------
+    if (action === 'config') {
+      const method = String(request.method ?? 'GET').toUpperCase();
+      if (method === 'GET') {
+        reply(response, 200, { configs: await readConfigs(dir) });
+        return;
+      }
+      if (method === 'DELETE') {
+        const targetDir = url.searchParams.get('dir') ?? '';
+        const targetScript = url.searchParams.get('script') ?? '';
+        const kept = (await readConfigs(dir)).filter(
+          (config) => !(config.dir === targetDir && config.script === targetScript),
+        );
+        await writeConfigs(dir, kept);
+        reply(response, 200, { configs: kept });
+        return;
+      }
+      if (method === 'PUT' || method === 'POST') {
+        let body = {};
+        try {
+          body = JSON.parse(await readBody(request));
+        } catch {
+          reply(response, 400, { error: 'bad-body' });
+          return;
+        }
+        // `command` is deliberately not part of this: the script body belongs to
+        // package.json, so an override can only add parameters, env and a cwd.
+        const config = normaliseConfig(body);
+        if (config === undefined) {
+          reply(response, 400, { error: 'bad-config' });
+          return;
+        }
+        const empty =
+          config.name === undefined &&
+          config.args === undefined &&
+          config.env === undefined &&
+          config.cwd === undefined;
+        const next = (await readConfigs(dir)).filter(
+          (entry) => !(entry.dir === config.dir && entry.script === config.script),
+        );
+        if (!empty) next.push(config);
+        next.sort((left, right) =>
+          (left.dir + '\u0000' + left.script).localeCompare(right.dir + '\u0000' + right.script),
+        );
+        await writeConfigs(dir, next);
+        reply(response, 200, { configs: next });
+        return;
+      }
+      reply(response, 405, { error: 'method-not-allowed' });
+      return;
+    }
+
     // --- discovery -------------------------------------------------------
     try {
       const root = await readManifest(dir);
@@ -764,6 +912,11 @@ function createHandler(ctx) {
       }
       const go = await goGroup(dir);
       if (go !== undefined) groups.push(go);
+
+      const configs = await readConfigs(dir);
+      for (const group of groups) {
+        group.scripts = group.scripts.map((script) => withConfig(script, group.dir, configs));
+      }
 
       groups.sort((left, right) => {
         if (left.dir === '' && right.dir !== '') return -1;
