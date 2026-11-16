@@ -28,6 +28,22 @@ function scriptKey(dir, script) {
   return String(dir ?? '') + '\u0000' + String(script ?? '');
 }
 
+/** Small stable hash, so a config written without an id still gets the same one. */
+function hashString(text) {
+  let hash = 2166136261;
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+/** Every config carries an id: that is what lets one script own several variants. */
+function withId(config) {
+  if (typeof config.id === 'string' && config.id !== '') return config;
+  return { ...config, id: 'c-' + hashString(JSON.stringify(config)) };
+}
+
 /** The whole document: overrides, pinned entries and usage times. */
 async function readDoc(root) {
   let parsed;
@@ -37,14 +53,18 @@ async function readDoc(root) {
     parsed = undefined;
   }
   const configs = Array.isArray(parsed?.configs)
-    ? parsed.configs.filter(
-        (config) =>
-          config !== null &&
-          typeof config === 'object' &&
-          typeof config.script === 'string' &&
-          typeof config.dir === 'string',
-      )
+    ? parsed.configs
+        .filter(
+          (config) =>
+            config !== null &&
+            typeof config === 'object' &&
+            typeof config.script === 'string' &&
+            typeof config.dir === 'string',
+        )
+        .map(withId)
     : [];
+  const selected =
+    parsed?.selected !== null && typeof parsed?.selected === 'object' ? parsed.selected : {};
   const pinned = Array.isArray(parsed?.pinned)
     ? parsed.pinned.filter(
         (entry) =>
@@ -58,16 +78,17 @@ async function readDoc(root) {
   const collapsed = Array.isArray(parsed?.ui?.collapsed)
     ? parsed.ui.collapsed.filter((id) => typeof id === 'string')
     : [];
-  return { configs, pinned, recent, collapsed };
+  return { configs, pinned, recent, collapsed, selected };
 }
 
 async function writeDoc(root, doc) {
   const folder = join(root, CONFIG_DIR);
   await mkdir(folder, { recursive: true });
   const body = {
-    version: 2,
+    version: 3,
     configs: doc.configs ?? [],
     pinned: doc.pinned ?? [],
+    selected: doc.selected ?? {},
     ui: { recent: doc.recent ?? {}, collapsed: doc.collapsed ?? [] },
   };
   await writeFile(join(folder, CONFIG_FILE), JSON.stringify(body, null, 2) + '\n', 'utf8');
@@ -100,8 +121,8 @@ function normaliseConfig(body) {
     script: String(body.script ?? ''),
   };
   if (config.script === '') return undefined;
-  const name = String(body.name ?? '').trim();
-  if (name !== '') config.name = name;
+  const label = String(body.label ?? body.name ?? '').trim();
+  if (label !== '') config.label = label;
   // Passed through verbatim: `npm run x -- <args>` hands this string to the
   // script, so any tokenising here would lose quotes and argument grouping.
   const args = typeof body.args === 'string' ? body.args.trim() : '';
@@ -121,18 +142,35 @@ function normaliseConfig(body) {
   return config;
 }
 
-/** Overlay one override onto a discovered script. */
-function withConfig(script, dir, configs) {
-  const config = configs.find((entry) => entry.dir === dir && entry.script === script.name);
-  if (config === undefined) return script;
+/**
+ * Overlay the selected variant onto a discovered script. A script may own several
+ * variants; the document remembers which one was last chosen, and an untouched
+ * script keeps its `package.json` identity.
+ */
+function withConfig(script, dir, doc) {
+  const variants = (doc?.configs ?? []).filter(
+    (entry) => entry.dir === dir && entry.script === script.name,
+  );
+  if (variants.length === 0) return script;
+  const key = scriptKey(dir, script.name);
+  const chosen =
+    variants.find((entry) => entry.id === doc?.selected?.[key]) ?? variants[0];
   return {
     ...script,
     original: script.name,
-    name: config.name ?? script.name,
-    args: config.args ?? '',
-    env: config.env ?? {},
-    cwd: config.cwd ?? '',
+    // The script keeps its package.json name; the variant label is a separate
+    // thing, otherwise a row could no longer be recognised by its script.
+    variantLabel: chosen.label ?? '',
+    args: chosen.args ?? '',
+    env: chosen.env ?? {},
+    cwd: chosen.cwd ?? '',
     overridden: true,
+    configId: chosen.id,
+    variants: variants.map((entry) => ({
+      id: entry.id,
+      label: entry.label ?? entry.name ?? 'variant',
+      args: entry.args ?? '',
+    })),
   };
 }
 
@@ -587,10 +625,16 @@ async function spawnService(ctx, sessionId, request, root) {
 
   // An override may change the parameters, the environment and the directory,
   // but never the script body — that line stays owned by package.json.
-  const configs = await readConfigs(root);
-  const override = configs.find(
-    (config) => config.dir === String(request.dir ?? '') && config.script === String(request.name ?? ''),
+  const doc = await readDoc(root);
+  const targetDir = String(request.dir ?? '');
+  const targetName = String(request.name ?? '');
+  const own = doc.configs.filter(
+    (config) => config.dir === targetDir && config.script === targetName,
   );
+  const override =
+    own.find((config) => config.id === String(request.configId ?? '')) ??
+    own.find((config) => config.id === doc.selected?.[scriptKey(targetDir, targetName)]) ??
+    own[0];
   const extraArgs = String(override?.args ?? '').trim();
   const launchCwd =
     typeof override?.cwd === 'string' && override.cwd !== '' ? join(root, override.cwd) : cwd;
@@ -903,8 +947,14 @@ function createHandler(ctx) {
       const collapsed = Array.isArray(body.collapsed)
         ? body.collapsed.filter((id) => typeof id === 'string')
         : doc.collapsed;
-      await writeDoc(dir, { ...doc, collapsed });
-      reply(response, 200, { collapsed });
+      const selected = { ...doc.selected };
+      if (typeof body.dir === 'string' && typeof body.script === 'string') {
+        const key = scriptKey(body.dir, body.script);
+        if (body.configId === undefined || body.configId === '') delete selected[key];
+        else selected[key] = String(body.configId);
+      }
+      await writeDoc(dir, { ...doc, collapsed, selected });
+      reply(response, 200, { collapsed, selected });
       return;
     }
 
@@ -941,12 +991,24 @@ function createHandler(ctx) {
         return;
       }
       if (method === 'DELETE') {
+        const targetId = url.searchParams.get('id') ?? '';
         const targetDir = url.searchParams.get('dir') ?? '';
         const targetScript = url.searchParams.get('script') ?? '';
-        const kept = (await readConfigs(dir)).filter(
-          (config) => !(config.dir === targetDir && config.script === targetScript),
+        const doc = await readDoc(dir);
+        const kept = doc.configs.filter((config) =>
+          targetId !== ''
+            ? config.id !== targetId
+            : !(config.dir === targetDir && config.script === targetScript),
         );
-        await writeConfigs(dir, kept);
+        const selected = { ...doc.selected };
+        if (targetId !== '') {
+          for (const [key, value] of Object.entries(selected)) {
+            if (value === targetId) delete selected[key];
+          }
+        } else {
+          delete selected[scriptKey(targetDir, targetScript)];
+        }
+        await writeDoc(dir, { ...doc, configs: kept, selected });
         reply(response, 200, { configs: kept });
         return;
       }
@@ -959,26 +1021,32 @@ function createHandler(ctx) {
           return;
         }
         // `command` is deliberately not part of this: the script body belongs to
-        // package.json, so an override can only add parameters, env and a cwd.
-        const config = normaliseConfig(body);
-        if (config === undefined) {
+        // package.json, so a variant can only add parameters, env and a cwd.
+        const draft = normaliseConfig(body);
+        if (draft === undefined) {
           reply(response, 400, { error: 'bad-config' });
           return;
         }
+        const doc = await readDoc(dir);
+        const id =
+          typeof body.id === 'string' && body.id !== '' ? body.id : 'c-' + hashString(JSON.stringify(draft) + Date.now());
+        const config = { ...draft, id };
+        const next = doc.configs.filter((entry) => entry.id !== id);
+        // An empty variant is a deletion, not a blank entry.
         const empty =
-          config.name === undefined &&
+          config.label === undefined &&
           config.args === undefined &&
           config.env === undefined &&
           config.cwd === undefined;
-        const next = (await readConfigs(dir)).filter(
-          (entry) => !(entry.dir === config.dir && entry.script === config.script),
-        );
         if (!empty) next.push(config);
         next.sort((left, right) =>
-          (left.dir + '\u0000' + left.script).localeCompare(right.dir + '\u0000' + right.script),
+          (left.dir + '\u0000' + left.script + '\u0000' + (left.label ?? '')).localeCompare(
+            right.dir + '\u0000' + right.script + '\u0000' + (right.label ?? ''),
+          ),
         );
-        await writeConfigs(dir, next);
-        reply(response, 200, { configs: next });
+        const selected = { ...doc.selected, [scriptKey(config.dir, config.script)]: id };
+        await writeDoc(dir, { ...doc, configs: next, selected });
+        reply(response, 200, { configs: next, id });
         return;
       }
       reply(response, 405, { error: 'method-not-allowed' });
@@ -1014,7 +1082,7 @@ function createHandler(ctx) {
       const doc = await readDoc(dir);
       for (const group of groups) {
         group.scripts = group.scripts.map((script) => {
-          const merged = withConfig(script, group.dir, doc.configs);
+          const merged = withConfig(script, group.dir, doc);
           const key = scriptKey(group.dir, script.name);
           return {
             ...merged,

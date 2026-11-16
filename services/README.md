@@ -174,6 +174,30 @@ dsh --profile web plugin install "github:Littlearphone/dsh-plugins#path:/service
 
 或用 `plugin_manager` 的 `install_bundle`，目标传上面两种字符串之一。
 以上两种写法都实测装成过（`application: applied`，版本 0.1.1）。
+## 启动变体（IDEA 式）
+
+一条脚本可以挂**多条启动配置**，像 IDEA 的 run configuration 那样：`dev:all` 可以同时有
+「默认」「调试（--watch）」「剖面（--inspect）」，各自带参数、环境与工作目录。
+
+```jsonc
+{
+  "version": 3,
+  "configs": [
+    { "id": "c-xxx", "dir": "", "script": "dev:all", "label": "调试", "args": "--watch" },
+    { "id": "c-yyy", "dir": "", "script": "dev:all", "label": "剖面", "args": "--inspect" }
+  ],
+  "selected": { "|dev:all": "c-xxx" },   // 该脚本上次选中的变体
+  "pinned": [{ "dir": "", "script": "dev:all" }],
+  "ui": { "recent": {}, "collapsed": [] }
+}
+```
+
+- **键是 `id`**，不是 `(dir, script)`；`selected` 记住每条脚本上次用哪个；
+- **启动请求带 `configId`**，Host 按 id 取那一条，参数、环境、目录都从它来；
+- **`args` 是原始字符串、原样透传**：`npm run x -- <args>`，引号与分组不会被拆散；
+- **脚本正文永远只读**：`normaliseConfig` 不接受 `command` 字段，覆盖不了 `package.json`；
+- **行内选择器**：有变体的行多一个下拉，切换即时写回 `selected`；
+- **迁移**：v2 的单条覆盖读出来会自动补上 id，等价于「只有一条变体」，行为不变。
 ## 已知取舍
 
 - **输出只回传尾部**：Host 每次回**最后 64KB**（带 `truncated` 标记），客户端最多渲染 400 行。

@@ -49,6 +49,7 @@ window.__ModuleLoader__.load({
       'run.clear': '清理',
       'run.start': '启动',
       'run.edit': '编辑启动配置',
+      'run.variant': '启动变体',
       'pin.title': '固定',
       'pin.add': '固定到顶部',
       'pin.remove': '取消固定',
@@ -103,6 +104,7 @@ window.__ModuleLoader__.load({
       'run.clear': 'Clear',
       'run.start': 'Start',
       'run.edit': 'Edit start configuration',
+      'run.variant': 'Start variant',
       'pin.title': 'Pinned',
       'pin.add': 'Pin to top',
       'pin.remove': 'Unpin',
@@ -353,6 +355,7 @@ window.__ModuleLoader__.load({
 .dsh-svc-row:hover{background:var(--dsw-alias-bg-layer-2);}
 .dsh-svc-search{flex:1 1 auto;min-width:0;max-width:220px;box-sizing:border-box;padding:2px 7px;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm);background:var(--dsw-specific-menu);color:var(--dsw-alias-label-primary);font:inherit;font-size:10px;}
 .dsh-svc-search:focus{border-color:var(--dsw-alias-border-l3);outline:none;}
+.dsh-svc-variant{height:20px;max-width:96px;box-sizing:border-box;padding:0 2px;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm);background:var(--dsw-specific-menu);color:var(--dsw-alias-label-secondary);font:inherit;font-size:10px;}
 .dsh-svc-pinned-head{display:flex;align-items:center;gap:6px;padding:8px 12px 2px;font-size:10px;color:var(--dsw-alias-label-tertiary);}
 .dsh-svc-pinned-title{letter-spacing:.04em;}
 .dsh-svc-group-count{opacity:.7;}
@@ -552,7 +555,7 @@ window.__ModuleLoader__.load({
      * parameters, environment and a working directory around it.
      */
     function ConfigEditor({ sessionId, script, dir, labels, onSaved, onCancel }) {
-      const [name, setName] = React.useState(script.name === script.original ? '' : script.name);
+      const [label, setLabel] = React.useState(script.variantLabel ?? '');
       const [args, setArgs] = React.useState(script.args ?? '');
       const [env, setEnv] = React.useState(
         Object.entries(script.env ?? {})
@@ -570,7 +573,9 @@ window.__ModuleLoader__.load({
           const url = CONFIG_ROUTE + encodeURIComponent(String(sessionId));
           if (reset === true) {
             const query =
-              '?dir=' + encodeURIComponent(dir ?? '') + '&script=' + encodeURIComponent(script.original);
+              script.configId === undefined
+                ? '?dir=' + encodeURIComponent(dir ?? '') + '&script=' + encodeURIComponent(script.original)
+                : '?id=' + encodeURIComponent(String(script.configId));
             const response = await fetch(url + query, { method: 'DELETE' });
             if (!response.ok) throw new Error('HTTP ' + response.status);
           } else {
@@ -586,9 +591,10 @@ window.__ModuleLoader__.load({
               method: 'PUT',
               headers: { 'content-type': 'application/json' },
               body: JSON.stringify({
+                id: script.configId ?? undefined,
                 dir: dir ?? '',
                 script: script.original,
-                name: name.trim(),
+                label: label.trim(),
                 args: args.trim(),
                 env: envEntries,
                 cwd: cwd.trim(),
@@ -644,7 +650,7 @@ window.__ModuleLoader__.load({
           h('code', { className: 'dsh-svc-readonly-text' }, script.command),
           h('span', { className: 'dsh-svc-readonly-note' }, labels.locked),
         ),
-        field('name', name, setName, script.original),
+        field('label', label, setLabel, script.name),
         field('args', args, setArgs, labels.argsHint),
         h(
           'label',
@@ -1214,7 +1220,13 @@ window.__ModuleLoader__.load({
                     h('span', { className: 'dsh-svc-name', key: 'name' }, script.name),
                     statusChip(service),
                     script.overridden === true
-                      ? h('span', { className: 'dsh-svc-chip is-overridden', key: 'ov' }, t('run.overridden'))
+                      ? h(
+                          'span',
+                          { className: 'dsh-svc-chip is-overridden', key: 'ov' },
+                          script.variantLabel === '' || script.variantLabel === undefined
+                            ? t('run.overridden')
+                            : script.variantLabel,
+                        )
                       : null,
                   ),
                   h('span', { className: 'dsh-svc-command', key: 'command' }, script.command),
@@ -1228,6 +1240,34 @@ window.__ModuleLoader__.load({
                 h(
                   'span',
                   { className: 'dsh-svc-actions', key: 'actions' },
+                  Array.isArray(script.variants) && script.variants.length > 0
+                    ? h(
+                        'select',
+                        {
+                          key: 'variant',
+                          className: 'dsh-svc-variant',
+                          title: t('run.variant'),
+                          value: script.configId ?? '',
+                          onChange: (event) => {
+                            const value = event.target.value;
+                            void postJson(UI_ROUTE + encodeURIComponent(String(sessionId)), {
+                              dir: group.dir ?? '',
+                              script: script.original ?? script.name,
+                              configId: value,
+                            })
+                              .then(() => load())
+                              .catch(() => {});
+                          },
+                        },
+                        script.variants.map((variant) =>
+                          h(
+                            'option',
+                            { key: variant.id, value: variant.id },
+                            variant.label === '' ? variant.id : variant.label,
+                          ),
+                        ),
+                      )
+                    : null,
                   h(
                     'button',
                     {
