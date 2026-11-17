@@ -392,7 +392,7 @@ window.__ModuleLoader__.load({
 .dsh-svc-log-body.is-wrap{white-space:pre-wrap;overflow-wrap:anywhere;}
 .dsh-svc-icon.is-tiny{width:16px;height:16px;border-radius:4px;}
 .dsh-svc-icon.is-tiny svg{width:9px;height:9px;}
-.dsh-svc-icon.is-tiny.is-active{border-color:var(--dsw-alias-border-l3);color:var(--dsw-alias-label-primary);}
+.dsh-svc-icon.is-tiny.is-active{border-color:color-mix(in srgb,var(--dsw-alias-state-business-primary) 55%,transparent);background:color-mix(in srgb,var(--dsw-alias-state-business-primary) 16%,transparent);color:var(--dsw-alias-state-business-primary);}
 @keyframes dsh-svc-spin{to{transform:rotate(360deg);}}
 /* The overlay layer is click-through by design, so the dropdown opts back into
    pointer events. */
@@ -840,13 +840,20 @@ window.__ModuleLoader__.load({
                 strokeLinecap: 'round',
                 strokeLinejoin: 'round',
               }),
-              h('path', {
-                d: 'M7.2 11 5.2 13l2 2',
-                stroke: 'currentColor',
-                strokeWidth: 1.3,
-                strokeLinecap: 'round',
-                strokeLinejoin: 'round',
-              }),
+              wrap
+                ? h('path', {
+                    d: 'M7.2 11 5.2 13l2 2',
+                    stroke: 'currentColor',
+                    strokeWidth: 1.3,
+                    strokeLinecap: 'round',
+                    strokeLinejoin: 'round',
+                  })
+                : h('path', {
+                    d: 'M3.2 13 12.8 3',
+                    stroke: 'currentColor',
+                    strokeWidth: 1.3,
+                    strokeLinecap: 'round',
+                  }),
             ),
           ),
           h(
