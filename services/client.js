@@ -73,6 +73,8 @@ window.__ModuleLoader__.load({
       'run.failed': '启动失败：',
       'output.waiting': '（还没有输出）',
       'output.reading': '（正在读取输出…）',
+      'output.wrap': '自动换行',
+      'output.noWrap': '不换行',
       'menu.hint': '点击一项，命令会填进输入框并发送。',
       'menu.open': '在侧栏打开',
     };
@@ -127,6 +129,8 @@ window.__ModuleLoader__.load({
       'run.failed': 'Start failed: ',
       'output.waiting': '(no output yet)',
       'output.reading': '(reading output…)',
+      'output.wrap': 'Wrap lines',
+      'output.noWrap': 'No wrap',
       'menu.hint': 'Clicking a script fills the composer and sends it.',
       'menu.open': 'Open in sidebar',
     };
@@ -385,6 +389,10 @@ window.__ModuleLoader__.load({
 .dsh-svc-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:22px 0;font-size:11px;line-height:1.6;color:var(--dsw-alias-label-secondary);text-align:center;}
 .dsh-svc-spinner{width:16px;height:16px;border-radius:50%;border:2px solid var(--dsw-alias-border-l2);border-top-color:var(--dsw-alias-state-business-primary);animation:dsh-svc-spin .8s linear infinite;}
 .dsh-svc-spinner.is-small{width:10px;height:10px;border-width:1.5px;}
+.dsh-svc-log-body.is-wrap{white-space:pre-wrap;overflow-wrap:anywhere;}
+.dsh-svc-icon.is-tiny{width:16px;height:16px;border-radius:4px;}
+.dsh-svc-icon.is-tiny svg{width:9px;height:9px;}
+.dsh-svc-icon.is-tiny.is-active{border-color:var(--dsw-alias-border-l3);color:var(--dsw-alias-label-primary);}
 @keyframes dsh-svc-spin{to{transform:rotate(360deg);}}
 /* The overlay layer is click-through by design, so the dropdown opts back into
    pointer events. */
@@ -737,6 +745,26 @@ window.__ModuleLoader__.load({
       const [issue, setIssue] = React.useState('');
       const [loaded, setLoaded] = React.useState(false);
       const [truncated, setTruncated] = React.useState(false);
+      // Line wrapping is a reading preference, not a per-run decision, so it is
+      // remembered per browser rather than per service.
+      const [wrap, setWrap] = React.useState(() => {
+        try {
+          return window.localStorage.getItem('dsh.services.logWrap') === '1';
+        } catch {
+          return false;
+        }
+      });
+      const toggleWrap = () => {
+        setWrap((current) => {
+          const next = !current;
+          try {
+            window.localStorage.setItem('dsh.services.logWrap', next ? '1' : '0');
+          } catch {
+            /* storage may be unavailable */
+          }
+          return next;
+        });
+      };
       React.useEffect(() => {
         let alive = true;
         const tick = async () => {
@@ -793,13 +821,42 @@ window.__ModuleLoader__.load({
             String(labels?.title ?? 'output') + ' · ' + (name ?? ''),
           ),
           h(
+            'button',
+            {
+              type: 'button',
+              className: 'dsh-svc-icon is-tiny' + (wrap ? ' is-active' : ''),
+              title: wrap ? labels?.noWrap : labels?.wrap,
+              'aria-label': wrap ? labels?.noWrap : labels?.wrap,
+              'aria-pressed': wrap ? 'true' : 'false',
+              onClick: toggleWrap,
+            },
+            h(
+              'svg',
+              { viewBox: '0 0 16 16', 'aria-hidden': true, fill: 'none' },
+              h('path', {
+                d: 'M3 4.5h10M3 8h6.5a2.5 2.5 0 0 1 0 5H6',
+                stroke: 'currentColor',
+                strokeWidth: 1.3,
+                strokeLinecap: 'round',
+                strokeLinejoin: 'round',
+              }),
+              h('path', {
+                d: 'M7.2 11 5.2 13l2 2',
+                stroke: 'currentColor',
+                strokeWidth: 1.3,
+                strokeLinecap: 'round',
+                strokeLinejoin: 'round',
+              }),
+            ),
+          ),
+          h(
             'span',
             { className: 'dsh-svc-log-meta' },
             String(id),
             labels?.state === undefined ? '' : ' · ' + String(labels.state),
           ),
         ),
-        h('pre', { className: 'dsh-svc-log-body' }, body),
+        h('pre', { className: 'dsh-svc-log-body' + (wrap ? ' is-wrap' : '') }, body),
       );
     }
 
@@ -1391,6 +1448,8 @@ window.__ModuleLoader__.load({
                       reading: t('output.reading'),
                       hide: t('run.hide'),
                       truncated: t('output.truncated'),
+                      wrap: t('output.wrap'),
+                      noWrap: t('output.noWrap'),
                     },
                     onClose: () => setOpenKey(''),
                   })
