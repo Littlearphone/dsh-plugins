@@ -384,6 +384,7 @@ window.__ModuleLoader__.load({
 .dsh-svc-command::before{content:'$ ';color:var(--dsw-alias-label-tertiary);}
 .dsh-svc-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:22px 0;font-size:11px;line-height:1.6;color:var(--dsw-alias-label-secondary);text-align:center;}
 .dsh-svc-spinner{width:16px;height:16px;border-radius:50%;border:2px solid var(--dsw-alias-border-l2);border-top-color:var(--dsw-alias-state-business-primary);animation:dsh-svc-spin .8s linear infinite;}
+.dsh-svc-spinner.is-small{width:10px;height:10px;border-width:1.5px;}
 @keyframes dsh-svc-spin{to{transform:rotate(360deg);}}
 /* The overlay layer is click-through by design, so the dropdown opts back into
    pointer events. */
@@ -1090,6 +1091,12 @@ window.__ModuleLoader__.load({
           const [collapsed, toggleGroup] = useCollapsedGroups(sessionId, state.collapsed);
           const services = useServices(sessionId);
           const [query, setQuery] = React.useState('');
+          // rowKey -> 'starting' | 'stopping', cleared when the service reaches the
+          // expected state, so the button shows the work it is doing.
+          const [pending, setPending] = React.useState({});
+          // A pin flips locally first: refetching the list just to paint a pin made
+          // the whole tab re-render, which is far too much for one boolean.
+          const [pinOverride, setPinOverride] = React.useState({});
           const [openKey, setOpenKey] = React.useState('');
           const [editKey, setEditKey] = React.useState('');
           const [armedStop, armStop, disarmStop] = useArmedStop();
@@ -1110,6 +1117,25 @@ window.__ModuleLoader__.load({
             const previous = latest.get(key);
             if (previous === undefined || previous.startedAt <= service.startedAt) latest.set(key, service);
           }
+
+          // Clear a pending button once the run settles into the state it asked
+          // for, so a spinner never sticks when the service is already there.
+          React.useEffect(() => {
+            const entries = Object.entries(pending);
+            if (entries.length === 0) return;
+            const next = {};
+            let changed = false;
+            for (const [serviceKey, phase] of entries) {
+              const service = latest.get(serviceKey);
+              const settled =
+                phase === 'starting'
+                  ? service !== undefined && service.state !== 'starting' && service.state !== 'stopped'
+                  : service === undefined || service.state !== 'running';
+              if (settled) changed = true;
+              else next[serviceKey] = phase;
+            }
+            if (changed) setPending(next);
+          }, [services]);
 
           const statusChip = (service) => {
             if (service === undefined) return null;
@@ -1133,6 +1159,9 @@ window.__ModuleLoader__.load({
             const rowKey = String(instance ?? 'group') + '|' + key;
             const service = latest.get(key);
             const open = openKey === rowKey;
+            const pinKey = String(group.dir ?? '') + '\u0000' + String(script.original ?? script.name);
+            const pinned = pinOverride[pinKey] === undefined ? script.pinned === true : pinOverride[pinKey];
+            const phase = pending[key] ?? '';
             const running = service?.state === 'running';
             const actions = [];
             if (!running) {
@@ -1143,17 +1172,21 @@ window.__ModuleLoader__.load({
                     key: 'start',
                     type: 'button',
                     className: 'dsh-svc-icon',
-                    title: t('run.start'),
+                    title: phase === 'starting' ? t('run.starting') : t('run.start'),
                     'aria-label': t('run.start'),
+                    disabled: phase === 'starting',
                     onClick: () => {
+                      setPending((current) => ({ ...current, [key]: 'starting' }));
                       void launch(script, group.dir, group.kind);
                     },
                   },
-                  h(
-                    'svg',
-                    { viewBox: '0 0 16 16', 'aria-hidden': true },
-                    h('path', { d: 'M5.5 3.5 12 8l-6.5 4.5z', fill: 'currentColor' }),
-                  ),
+                  phase === 'starting'
+                    ? h('span', { className: 'dsh-svc-spinner is-small' })
+                    : h(
+                        'svg',
+                        { viewBox: '0 0 16 16', 'aria-hidden': true },
+                        h('path', { d: 'M5.5 3.5 12 8l-6.5 4.5z', fill: 'currentColor' }),
+                      ),
                 ),
               );
             } else {
@@ -1163,21 +1196,28 @@ window.__ModuleLoader__.load({
                   {
                     key: 'stop',
                     type: 'button',
-                    className: 'dsh-svc-stop' + (armedStop === service.id ? ' is-armed' : ''),
+                    className:
+                      'dsh-svc-stop' +
+                      (armedStop === service.id ? ' is-armed' : '') +
+                      (phase === 'stopping' ? ' is-busy' : ''),
+                    disabled: phase === 'stopping',
                     title: armedStop === service.id ? t('run.confirmStop') : t('run.stop'),
                     'aria-label': armedStop === service.id ? t('run.confirmStop') : t('run.stop'),
                     onClick: () => {
                       if (armedStop === service.id) {
                         disarmStop();
+                        setPending((current) => ({ ...current, [key]: 'stopping' }));
                         void stopService(sessionId, service.id);
                         return;
                       }
                       armStop(service.id);
                     },
                   },
-                  armedStop === service.id
-                    ? h('span', { className: 'dsh-svc-stop-label' }, t('run.confirmStop'))
-                    : h(
+                  phase === 'stopping'
+                    ? h('span', { className: 'dsh-svc-spinner is-small' })
+                    : armedStop === service.id
+                      ? h('span', { className: 'dsh-svc-stop-label' }, t('run.confirmStop'))
+                      : h(
                         'svg',
                         { viewBox: '0 0 16 16', 'aria-hidden': true },
                         h('rect', { x: 4, y: 4, width: 8, height: 8, rx: 1.5, fill: 'currentColor' }),
@@ -1283,19 +1323,20 @@ window.__ModuleLoader__.load({
                     {
                       key: 'pin',
                       type: 'button',
-                      className: 'dsh-svc-icon' + (script.pinned === true ? ' is-pinned' : ''),
-                      title: script.pinned === true ? t('pin.remove') : t('pin.add'),
-                      'aria-label': script.pinned === true ? t('pin.remove') : t('pin.add'),
+                      className: 'dsh-svc-icon' + (pinned ? ' is-pinned' : ''),
+                      title: pinned ? t('pin.remove') : t('pin.add'),
+                      'aria-label': pinned ? t('pin.remove') : t('pin.add'),
                       onClick: () => {
-                        // Reload after the write: the row is rendered from the
-                        // list payload, so without a refetch the pin state never
-                        // flips and the button appears dead.
+                        const next = !pinned;
+                        setPinOverride((current) => ({ ...current, [pinKey]: next }));
                         void togglePin(
                           sessionId,
                           group.dir,
                           script.original ?? script.name,
-                          script.pinned !== true,
-                        ).then(() => load());
+                          next,
+                        ).catch(() =>
+                          setPinOverride((current) => ({ ...current, [pinKey]: !next })),
+                        );
                       },
                     },
                     h(
@@ -1303,7 +1344,7 @@ window.__ModuleLoader__.load({
                       { viewBox: '0 0 16 16', 'aria-hidden': true, fill: 'none' },
                       h('path', {
                         d: 'M6 2.5h4l-.6 3.2 2.1 2.1H4.5l2.1-2.1z',
-                        fill: script.pinned === true ? 'currentColor' : 'none',
+                        fill: pinned ? 'currentColor' : 'none',
                         stroke: 'currentColor',
                         strokeWidth: 1.2,
                         strokeLinejoin: 'round',

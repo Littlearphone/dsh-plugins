@@ -409,37 +409,31 @@ async function mainPackages(base) {
 }
 
 /**
- * One group per Go module. A workspace like this one holds dozens of `package
- * main` directories; a single flat "Go" group is a wall of names, while a group
- * per module keeps the module a reader needs and collapses the rest.
+ * All Go programs of the workspace in one group, because that is how a reader
+ * looks for them ("where is the Go stuff"). The module still shows up in each
+ * entry's label (`ring · standalone`) and its command carries the full path.
  */
 async function goGroups(root) {
   const modules = await goModuleDirs(root);
-  const groups = [];
+  const scripts = [];
   for (const moduleDir of modules) {
     const base = join(root, moduleDir);
     const mains = await mainPackages(base);
     if (mains.length === 0) continue;
-    const scripts = mains.map((relative) => {
+    for (const relative of mains) {
       const last = relative === '' ? 'main' : relative.split('/').pop();
       const full =
         relative === '' ? moduleDir : moduleDir === '' ? relative : `${moduleDir}/${relative}`;
-      return {
+      scripts.push({
         name: last,
         label: moduleDir === '' ? last : `${moduleDir.split('/').pop()} · ${last}`,
         command: full === '' ? 'go run .' : `go run ./${full}`,
         category: 'go',
-      };
-    });
-    groups.push({
-      id: 'go:' + (moduleDir === '' ? 'root' : moduleDir),
-      kind: 'go',
-      name: (moduleDir === '' ? 'Go · root' : 'Go · ' + moduleDir),
-      dir: moduleDir,
-      scripts,
-    });
+      });
+    }
   }
-  return groups;
+  if (scripts.length === 0) return [];
+  return [{ id: 'go', kind: 'go', name: 'Go', dir: '', scripts }];
 }
 
 /**
