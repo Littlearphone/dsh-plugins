@@ -437,13 +437,13 @@ async function goGroups(root) {
 }
 
 /**
- * Started services, keyed by `<sessionId>\u0000<id>`. The Host owns the process,
+ * Started services, keyed by `<workingDirectory>\u0000<id>` — services belong to the\n * workspace, so every Session opened on that folder sees the same processes. The Host owns the process,
  * so it outlives a panel reload; the browser half only reads state and output.
  */
 const RUNNING = new Map();
 
-function serviceKey(sessionId, id) {
-  return `${sessionId}\u0000${id}`;
+function serviceKey(root, id) {
+  return `${root}\u0000${id}`;
 }
 
 /**
@@ -656,8 +656,9 @@ async function spawnService(ctx, sessionId, request, root) {
     override?.env === undefined
       ? localBins
       : { ...(localBins ?? process.env), ...override.env };
-  const key = serviceKey(sessionId, id);
+  const key = serviceKey(root, id);
   const record = {
+    root,
     id,
     name: String(request.name ?? 'script'),
     // command is what actually runs (a package-manager invocation); source
@@ -673,7 +674,7 @@ async function spawnService(ctx, sessionId, request, root) {
   // One record per script: starting again replaces the previous run, so history
   // never piles up and there is nothing to clean by hand.
   for (const [existingKey, existing] of RUNNING) {
-    if (!existingKey.startsWith(sessionId + '\u0000')) continue;
+    if (!existingKey.startsWith(root + '\u0000')) continue;
     if (existing.dir === record.dir && existing.name === record.name) {
       killTree(findMarkedPids(existing.id));
       RUNNING.delete(existingKey);
@@ -748,16 +749,16 @@ function lastOutputLine(record) {
 const FINISHED_TTL_MS = 5 * 60_000;
 
 /** Running and recently finished services of one Session, newest first. */
-function listServices(sessionId) {
+function listServices(root) {
   const now = Date.now();
+  const prefix = root + '\u0000';
   for (const [key, record] of RUNNING) {
-    if (record.sessionId !== sessionId) continue;
+    if (!key.startsWith(prefix)) continue;
     if (record.state === 'running' || record.state === 'stopping') continue;
     if (record.finishedAt !== undefined && now - record.finishedAt > FINISHED_TTL_MS) {
       RUNNING.delete(key);
     }
   }
-  const prefix = `${sessionId}\u0000`;
   const items = [];
   for (const [key, record] of RUNNING) {
     if (!key.startsWith(prefix)) continue;
@@ -784,8 +785,8 @@ const MAX_OUTPUT_BYTES = 64 * 1024;
  * whole buffer is read and then sliced here; the slice is what keeps a chatty
  * service from shipping hundreds of kilobytes to the browser every second.
  */
-function serviceOutput(sessionId, id) {
-  const record = RUNNING.get(serviceKey(sessionId, id));
+function serviceOutput(root, id) {
+  const record = RUNNING.get(serviceKey(root, id));
   if (record === undefined || record.handle === undefined) return undefined;
   const collected = record.handle.collected;
   const read = (reader) => {
@@ -859,13 +860,13 @@ function createHandler(ctx) {
 
     // --- process control -------------------------------------------------
     if (action === 'state') {
-      reply(response, 200, { services: listServices(sessionId) });
+      reply(response, 200, { services: listServices(dir) });
       return;
     }
 
     if (action === 'output') {
       const id = url.searchParams.get('id') ?? '';
-      const output = serviceOutput(sessionId, id);
+      const output = serviceOutput(dir, id);
       if (output === undefined) {
         reply(response, 404, { error: 'unknown-service' });
         return;
@@ -915,7 +916,7 @@ function createHandler(ctx) {
         reply(response, 400, { error: 'bad-body' });
         return;
       }
-      const record = RUNNING.get(serviceKey(sessionId, String(body.id ?? '')));
+      const record = RUNNING.get(serviceKey(dir, String(body.id ?? '')));
       if (record === undefined) {
         reply(response, 404, { error: 'unknown-service' });
         return;
