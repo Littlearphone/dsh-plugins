@@ -13,6 +13,11 @@
   "files": [
     "index.js",
     "client.js",
+    "client.board.js",
+    "client.board.view.js",
+    "client.board.data.js",
+    "client.board.actions.js",
+    "client.css.js",
     "cordis.patch.yml",
     "locale/*.json",
     "icon.svg"

@@ -12,6 +12,10 @@
                 },
     "files":  [
                   "index.js",
+                  "config.js",
+                  "discover.js",
+                  "processes.js",
+                  "routes.js",
                   "client.js",
                   "cordis.patch.yml",
                   "locale/*.json",

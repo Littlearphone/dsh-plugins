@@ -198,6 +198,22 @@ dsh --profile web plugin install "github:Littlearphone/dsh-plugins#path:/service
 - **脚本正文永远只读**：`normaliseConfig` 不接受 `command` 字段，覆盖不了 `package.json`；
 - **行内选择器**：有变体的行多一个下拉，切换即时写回 `selected`；
 - **迁移**：v2 的单条覆盖读出来会自动补上 id，等价于「只有一条变体」，行为不变。
+## 代码结构
+
+Host 半侧按职责拆开（普通 ESM，`import` 直接引）：
+
+| 文件 | 职责 |
+|---|---|
+| `index.js` | 注册 `/services` 前缀路由、卸载时杀干净 |
+| `config.js` | `.dsh/services.json` 的读写、归一化、变体选择 |
+| `discover.js` | 扫描：package.json、workspace 包、Go module |
+| `processes.js` | 启动、输出缓冲、标记式注册表与上次运行的回收 |
+| `routes.js` | HTTP 处理（list / start / stop / state / output / config / pin / ui） |
+
+依赖是单向的：`config → discover → processes → routes → index`。
+
+客户端半侧（`client.js`）是单个 bundle，Markdown 里不再重复它的结构。
+
 ## 已知取舍
 
 - **输出只回传尾部**：Host 每次回**最后 64KB**（带 `truncated` 标记），客户端最多渲染 400 行。
