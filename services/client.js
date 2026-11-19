@@ -26,6 +26,7 @@ window.__ModuleLoader__.load({
     const ZH = {
       'tab.title': '服务管理',
       'entry.label': '服务管理',
+      'entry.running': '个运行中',
       'guide.title': '服务管理',
       'guide.description': '列出工作区的启动脚本与 Go 程序，启动后可看输出、可停止。',
       'panel.loading': '正在读取脚本…',
@@ -82,6 +83,7 @@ window.__ModuleLoader__.load({
     const EN = {
       'tab.title': 'Service manager',
       'entry.label': 'Service manager',
+      'entry.running': 'running',
       'guide.title': 'Service manager',
       'guide.description': 'Workspace start scripts and Go programs, with output and a stop control.',
       'panel.loading': 'Reading scripts…',
@@ -422,6 +424,7 @@ window.__ModuleLoader__.load({
 .dsh-svc-badge.is-generic{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);}
 .dsh-svc-badge svg{width:14px;height:14px;display:block;}
 .dsh-svc-entry{box-sizing:border-box;display:flex;align-items:center;justify-content:center;width:24px;height:24px;flex:none;margin:0;padding:0;border:1px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm);background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;line-height:0;vertical-align:middle;cursor:pointer;}
+.dsh-svc-entry.is-running{color:var(--dsw-alias-state-success-primary);border-color:color-mix(in srgb,var(--dsw-alias-state-success-primary) 45%,transparent);}
 .dsh-svc-entry:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary);}
 .dsh-svc-entry:active{background:var(--dsw-alias-interactive-bg-active);}
 .dsh-svc-entry svg{width:15px;height:15px;display:block;}
@@ -1608,6 +1611,7 @@ window.__ModuleLoader__.load({
          */
         function HeaderEntry(props) {
           useLocaleRevision();
+          const services = useServices(props?.sessionId);
           store.sessionId = props?.sessionId;
           store.actions = props?.inputActions;
           const ref = React.useRef(null);
@@ -1640,7 +1644,11 @@ window.__ModuleLoader__.load({
             return () => window.removeEventListener('keydown', onKey);
           }, [store.open]);
 
-          const label = t('entry.label');
+          const running = services.filter((service) => service.state === 'running');
+          const label =
+            running.length === 0
+              ? t('entry.label')
+              : t('entry.label') + ' · ' + String(running.length) + ' ' + t('entry.running');
           return h(
             React.Fragment,
             null,
@@ -1652,7 +1660,7 @@ window.__ModuleLoader__.load({
                 id: 'dsh-services-entry',
                 type: 'button',
                 ref,
-                className: 'dsh-svc-entry',
+                className: 'dsh-svc-entry' + (running.length === 0 ? '' : ' is-running'),
                 title: label,
                 'aria-label': label,
                 'aria-expanded': store.open ? 'true' : 'false',
@@ -1664,13 +1672,15 @@ window.__ModuleLoader__.load({
               h(
                 'svg',
                 { viewBox: '0 0 16 16', width: 15, height: 15, 'aria-hidden': true, fill: 'none' },
-                h('path', {
-                  d: 'M5.5 3.6 11.4 8l-5.9 4.4z',
-                  stroke: 'currentColor',
-                  strokeWidth: 1.2,
-                  strokeLinejoin: 'round',
-                  fill: 'currentColor',
-                }),
+                running.length === 0
+                  ? h('path', {
+                      d: 'M5.5 3.6 11.4 8l-5.9 4.4z',
+                      stroke: 'currentColor',
+                      strokeWidth: 1.2,
+                      strokeLinejoin: 'round',
+                      fill: 'currentColor',
+                    })
+                  : h('rect', { x: 4.2, y: 4.2, width: 7.6, height: 7.6, rx: 1.6, fill: 'currentColor' }),
               ),
             ),
           );
