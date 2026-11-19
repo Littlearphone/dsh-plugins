@@ -219,6 +219,138 @@ export async function mainPackages(base) {
 }
 
 /**
+ * Maven lifecycle phases: the rows IDEA's Maven panel always offers, in the
+ * order a reader expects them.
+ */
+const MAVEN_LIFECYCLE = ['clean', 'compile', 'test', 'package', 'install'];
+
+/**
+ * Plugin goals worth a row, keyed by the plugin artifact that provides them.
+ * Spring Boot is the common case, the rest are the runners people actually use.
+ */
+const MAVEN_GOALS = [
+  ['spring-boot-maven-plugin', 'spring-boot:run', 'Spring Boot'],
+  ['exec-maven-plugin', 'exec:java', 'exec'],
+  ['jetty-maven-plugin', 'jetty:run', 'Jetty'],
+  ['tomcat7-maven-plugin', 'tomcat7:run', 'Tomcat 7'],
+  ['cargo-maven3-plugin', 'cargo:run', 'Cargo'],
+];
+
+/** Gradle tasks: the lifecycle ones plus the two Spring Boot entry points. */
+const GRADLE_TASKS = [
+  ['build', 'build'],
+  ['test', 'test'],
+  ['bootRun', 'Spring Boot'],
+  ['run', 'run'],
+];
+
+/** Directories below `base` that hold a file named `name`, to a shallow depth. */
+async function dirsWithFile(base, name, depth) {
+  const found = [];
+  const queue = [''];
+  while (queue.length > 0) {
+    const relative = queue.shift();
+    const absolute = relative === '' ? base : join(base, relative);
+    let entries;
+    try {
+      entries = await readdir(absolute, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      if (entry.isFile() && entry.name === name) found.push(relative);
+      if (!entry.isDirectory() || entry.name.startsWith('.') || SKIP_DIRS.has(entry.name)) continue;
+      if ((relative === '' ? 0 : relative.split('/').length) >= depth) continue;
+      queue.push(relative === '' ? entry.name : `${relative}/${entry.name}`);
+    }
+  }
+  return found;
+}
+
+/** Quote a path for a shell command line; Windows only needs it for spaces. */
+function shellPath(value) {
+  return /\s/.test(value) ? `"${value}"` : value;
+}
+
+/**
+ * Maven projects in one group: every pom's lifecycle phases plus the goals its
+ * plugins provide. `-f` names the pom, so the working directory never decides
+ * which project runs — a workspace can hold a dozen of them.
+ */
+export async function mavenGroups(root, known = []) {
+  const dirs = [...new Set(['', ...known, ...(await dirsWithFile(root, 'pom.xml', 2))])];
+  const scripts = [];
+  for (const relative of dirs) {
+    let text;
+    try {
+      text = await readFile(join(root, relative, 'pom.xml'), 'utf8');
+    } catch {
+      continue;
+    }
+    const artifact = /<artifactId>\s*([^<\s]+)\s*<\/artifactId>/.exec(text)?.[1] ?? 'pom';
+    const label = relative === '' ? artifact : `${relative} · ${artifact}`;
+    const pom = join(relative, 'pom.xml');
+    const file = relative === '' ? '' : ` -f ${shellPath(pom)}`;
+    const add = (goal, hint) => {
+      scripts.push({
+        name: goal,
+        label,
+        command: `mvn -q${file} ${goal}`,
+        category: 'maven',
+        hint,
+      });
+    };
+    for (const phase of MAVEN_LIFECYCLE) add(phase);
+    for (const [plugin, goal, hint] of MAVEN_GOALS) {
+      if (text.includes(`<artifactId>${plugin}</artifactId>`)) add(goal, hint);
+    }
+    // A Spring Boot app inherits the starter parent even without the plugin
+    // declaration in its own pom.
+    if (/<artifactId>\s*spring-boot-starter-parent\s*<\/artifactId>/.test(text)) {
+      add('spring-boot:run', 'Spring Boot');
+    }
+  }
+  if (scripts.length === 0) return [];
+  return [{ id: 'maven', kind: 'maven', name: 'Maven', dir: '', scripts }];
+}
+
+/** Gradle projects in one group, mirroring the Maven group. */
+export async function gradleGroups(root, known = []) {
+  const dirs = [...new Set(['', ...known, ...(await dirsWithFile(root, 'build.gradle', 2)), ...(await dirsWithFile(root, 'build.gradle.kts', 2))])];
+  const scripts = [];
+  for (const relative of dirs) {
+    const base = join(root, relative);
+    let text;
+    try {
+      text = await readFile(join(base, 'build.gradle'), 'utf8');
+    } catch {
+      try {
+        text = await readFile(join(base, 'build.gradle.kts'), 'utf8');
+      } catch {
+        continue;
+      }
+    }
+    const wrapper = (await readdir(base).catch(() => [])).some((name) => name === 'gradlew' || name === 'gradlew.bat');
+    const runner = wrapper ? './gradlew' : 'gradle';
+    const label = relative === '' ? 'gradle' : relative;
+    const springBoot = text.includes('org.springframework.boot') || text.includes('spring-boot');
+    for (const [task, hint] of GRADLE_TASKS) {
+      if (task === 'bootRun' && !springBoot) continue;
+      if (task === 'run' && springBoot) continue;
+      scripts.push({
+        name: task,
+        label,
+        command: `${runner} ${task}`,
+        category: 'gradle',
+        hint,
+      });
+    }
+  }
+  if (scripts.length === 0) return [];
+  return [{ id: 'gradle', kind: 'gradle', name: 'Gradle', dir: '', scripts }];
+}
+
+/**
  * All Go programs of the workspace in one group, because that is how a reader
  * looks for them ("where is the Go stuff"). The module still shows up in each
  * entry's label (`ring · standalone`) and its command carries the full path.

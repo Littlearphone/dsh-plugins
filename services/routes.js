@@ -15,6 +15,8 @@ import {
 } from './config.js';
 import {
   MAX_BODY_BYTES,
+  gradleGroups,
+  mavenGroups,
   ROUTE_PATH,
   goGroups,
   packageDirs,
@@ -333,6 +335,8 @@ export function createHandler(ctx) {
         });
       }
       for (const go of await goGroups(dir)) groups.push(go);
+      for (const maven of await mavenGroups(dir, dirs)) groups.push(maven);
+      for (const gradle of await gradleGroups(dir, dirs)) groups.push(gradle);
 
       const doc = await readDoc(dir);
       for (const group of groups) {

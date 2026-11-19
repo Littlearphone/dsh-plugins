@@ -238,7 +238,7 @@ export async function spawnService(ctx, sessionId, request, root) {
 
   let command;
   let direct = null;
-  if (request.kind === 'go') {
+  if (request.kind === 'go' || request.kind === 'maven' || request.kind === 'gradle') {
     const base = String(request.command ?? '');
     command = extraArgs === '' ? base : `${base} ${extraArgs}`;
   } else {

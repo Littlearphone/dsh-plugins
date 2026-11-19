@@ -116,6 +116,25 @@ Go 没有 `package.json` 那样的脚本清单，它的可执行目标是 **`pac
 
 Makefile / Taskfile / justfile **目前不解析**：它们不是 Go 的约定，解析成本也高，等真的遇到再说。
 
+## Maven / Gradle / Spring
+
+JVM 项目没有脚本清单，能"运行"的是**构建工具的目标**。所以和 Go 一样单独扫，产出同样形状的分组：
+
+- 找 `pom.xml`（根 + 工作区包 + 两层以内的子目录），每个 pom 生成一组脚本：
+  - **生命周期**：`clean`、`compile`、`test`、`package`、`install`——就是 IDEA Maven 面板里那排；
+  - **插件 goal**：pom 里出现对应插件才给，现在认 `spring-boot:run`、`exec:java`、`jetty:run`、
+    `tomcat7:run`、`cargo:run`；
+  - **Spring**：除了 `spring-boot-maven-plugin`，继承 `spring-boot-starter-parent` 也算，
+    所以标准的 Spring Boot 工程一定会有一行 `spring-boot:run`。
+- 命令带 `-f <pom>`：一个工作区里十几个 pom 时，工作目录决定不了跑哪个项目，pom 文件决定。
+- Gradle 同理：`build.gradle`/`.kts` → `build`、`test`，含 `org.springframework.boot` 时给
+  `bootRun`（不再给 `run`）；有 `gradlew` 就用 `./gradlew`。
+
+所有 Maven 条目归到 `Maven` 那一个组，Gradle 归到 `Gradle`，和 Go 组并列——分组标题是
+"这些脚本属于哪个工具"，不是每个项目一个组。
+
+还没做：纯 `javac`/`java` 的散装工程（没有构建工具就没有可靠的主类发现），以及 `Makefile`。
+
 ## 排序与搜索
 
 排序是**两级**的，先按"谁执行"，再按"干什么"：
