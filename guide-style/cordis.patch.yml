@@ -1,0 +1,3 @@
+- insert:
+    - id: guide-style
+      name: '@local/guide-style'

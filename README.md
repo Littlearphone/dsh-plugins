@@ -8,13 +8,14 @@
 
 | 目录 | 包名 | 说明 |
 |---|---|---|
-| [`task-board`](task-board/README.md) | `@local/task-board` | 按状态分轨道的任务列表（交互原型）+ 右侧栏指南页的方块网格样式 |
+| [`guide-style`](guide-style/README.md) | `@local/guide-style` | 右侧栏指南页（开始页面）的外观：居中方块网格、玻璃高光与悬停效果；纯样式，无 Host |
+| [`task-board`](task-board/README.md) | `@local/task-board` | 按状态分轨道的任务列表（交互原型），入口在会话头部右侧工具区 |
 | [`services`](services/README.md) | `@local/services` | 工作区启动脚本与 Go 程序：右侧栏「服务管理」面板 + 会话头部下拉，Host 侧自管进程、可看输出、可停止 |
 
 `sidebar-notes/` 曾在早期作为 Host 存储与同源路由的参考实现，插件与目录都已移除；
 指南页的方块网格样式搬到了 `task-board`。
 
-仓库根有一个 `package.json`，只提供 `npm run check`（逐个 `node --check` 两个插件的
+仓库根有一个 `package.json`，只提供 `npm run check`（逐个 `node --check` 三个插件的
 Host/Client 半并校验 locale JSON），不参与插件安装。
 
 ## 安装
@@ -26,6 +27,7 @@ GUI 的插件安装入口填的也是同一个值。
 
 | 插件 | target |
 |---|---|
+| 指南页样式 | `D:\DataCenter\Documents\IdeaProjects\dsh-plugins\guide-style` |
 | 任务列表 | `D:\DataCenter\Documents\IdeaProjects\dsh-plugins\task-board` |
 | 服务管理 | `D:\DataCenter\Documents\IdeaProjects\dsh-plugins\services` |
 
@@ -38,6 +40,7 @@ GUI 的插件安装入口填的也是同一个值。
 
 | 插件 | target |
 |---|---|
+| 指南页样式 | `github:Littlearphone/dsh-plugins#path:/guide-style` |
 | 任务列表 | `github:Littlearphone/dsh-plugins#path:/task-board` |
 | 服务管理 | `github:Littlearphone/dsh-plugins#path:/services` |
 

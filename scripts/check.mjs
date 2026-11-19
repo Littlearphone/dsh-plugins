@@ -9,7 +9,9 @@ import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 
 const ROOT = new URL('..', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
-const PLUGINS = ['task-board', 'services'];
+const PLUGINS = ['guide-style', 'task-board', 'services'];
+/** Bundles without a locale directory to validate. */
+const NO_LOCALE = new Set(['guide-style']);
 const FILES = ['index.js', 'client.js'];
 
 let failed = 0;
@@ -24,6 +26,7 @@ for (const plugin of PLUGINS) {
       console.error(`fail ${plugin}/${file}`);
     }
   }
+  if (NO_LOCALE.has(plugin)) continue;
   try {
     await readdir(join(ROOT, plugin, 'locale'));
     JSON.parse(await (await import('node:fs/promises')).readFile(join(ROOT, plugin, 'locale', 'zh.json'), 'utf8'));
