@@ -27,6 +27,18 @@ stdout/stderr 用 collect 模式收着，浏览器轮询 `state` 与 `output`。
 走包管理器而不是直接跑脚本正文，是因为 `npm run` 才会把 `node_modules/.bin` 放进 PATH——
 `concurrently` 这类本地 CLI 只有这样才能找到。作为双保险，也把包与根的 `.bin` 注入 PATH。
 
+**脚本名是用户数据，不能拼进命令行**：`build&update` 是合法名字，而 `&` 在每个 shell 里都是
+命令分隔符（`%`、`$`、反引号同理）。所以：
+
+- **非 Windows**：直接 `spawn('<pm>', ['run', name, ...])`，不经过任何 shell，名字里有
+  什么都不会被解释；
+- **Windows**：npm / pnpm / yarn 是 `.cmd` 垫片，Node 只能通过 `cmd.exe` 才能启动它们，
+  所以这一条路仍然过 shell，但名字按目标 shell 转义（cmd 用双引号、PowerShell 用单引号、
+  POSIX 用 `'\''`），`npm run "build&update"` 里的 `&` 因此是字面量。
+
+Windows 上的残留边界是 `%VAR%`：cmd 在引号内也会展开百分号，而命令行下没有可靠的转义写法。
+真要在名字里用 `%` 得走非 Windows，或者把该脚本改名。
+
 ## 生命周期：重装、卸载、关闭 dsh 都要收干净
 
 一条启动命令会带上唯一标记（`set "DSH_SVC=<id>" && …` / `$env:DSH_SVC=…`），

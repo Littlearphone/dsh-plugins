@@ -122,6 +122,36 @@ export function killTree(pids) {
 }
 
 /**
+ * Quote one user-supplied token for the shell that will parse it. A script name
+ * is user data: `build&update` is a legal name and `&` is a command separator in
+ * every shell, so an unquoted name runs half a command and silently does the
+ * wrong thing.
+ */
+export function quoteForShell(shell, value) {
+  const text = String(value);
+  const name = String(shell).toLowerCase();
+  if (name.endsWith('cmd.exe') || name.endsWith('\\cmd')) return '"' + text.replace(/"/g, '""') + '"';
+  if (name.endsWith('powershell.exe') || name.endsWith('pwsh.exe')) {
+    return "'" + text.replace(/'/g, "''") + "'";
+  }
+  return "'" + text.replace(/'/g, "'\\''") + "'";
+}
+
+/**
+ * The argv for one npm-family launch away from Windows, where the package
+ * manager is a real executable: nothing parses the script name, so `&`, spaces
+ * and quotes all survive as themselves. Windows cannot take this path — npm,
+ * pnpm and yarn are `.cmd` shims that Node only runs through cmd.exe — which is
+ * why the shell branch above quotes the name for that parser instead.
+ */
+export function directScriptArgv(manager, name, extraArgs) {
+  const argv = [manager, 'run', name];
+  const args = String(extraArgs ?? '').trim();
+  if (args !== '') argv.push('--', ...args.split(/\s+/));
+  return argv;
+}
+
+/**
  * One command line, wrapped in the flags the chosen shell actually understands.
  * The default shell is not always pwsh — on Windows it is often cmd.exe, which
  * rejects `-Command` and silently shows its banner instead.
@@ -207,6 +237,7 @@ export async function spawnService(ctx, sessionId, request, root) {
     typeof override?.cwd === 'string' && override.cwd !== '' ? join(root, override.cwd) : cwd;
 
   let command;
+  let direct = null;
   if (request.kind === 'go') {
     const base = String(request.command ?? '');
     command = extraArgs === '' ? base : `${base} ${extraArgs}`;
@@ -214,13 +245,17 @@ export async function spawnService(ctx, sessionId, request, root) {
     const name = String(request.name ?? '');
     if (name === '') return { error: 'empty-script' };
     const manager = await packageManagerFor(launchCwd, root);
-    const base = `${manager} run ${name}`;
-    command = extraArgs === '' ? base : `${base} -- ${extraArgs}`;
+    const tail = extraArgs === '' ? '' : ` -- ${extraArgs}`;
+    command = `${manager} run ${quoteForShell(environment.defaultShell, name)}${tail}`;
+    // Away from Windows the manager is an executable, so it can be spawned
+    // directly: nothing parses the name, whatever it contains.
+    if (process.platform !== 'win32') direct = directScriptArgv(manager, name, extraArgs);
+
   }
   if (command === '') return { error: 'empty-command' };
   const shell = environment.defaultShell;
   if (shell === undefined) return { error: 'no-shell' };
-  const argv = shellArgv(shell, markedCommand(shell, id, command));
+  const argv = direct === null ? shellArgv(shell, markedCommand(shell, id, command)) : direct;
   const localBins = withLocalBins(environment, [
     join(launchCwd, 'node_modules', '.bin'),
     join(root, 'node_modules', '.bin'),
