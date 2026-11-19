@@ -641,7 +641,7 @@ async function spawnService(ctx, sessionId, request, root) {
     const name = String(request.name ?? '');
     if (name === '') return { error: 'empty-script' };
     const manager = await packageManagerFor(launchCwd, root);
-    const base = `${manager} run ${name}`;
+    const base = `${manager} run "${name}"`;
     command = extraArgs === '' ? base : `${base} -- ${extraArgs}`;
   }
   if (command === '') return { error: 'empty-command' };
