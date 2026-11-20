@@ -12,11 +12,14 @@ const ROOT = new URL('..', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '
 const PLUGINS = ['guide-style', 'task-board', 'services'];
 /** Bundles without a locale directory to validate. */
 const NO_LOCALE = new Set(['guide-style']);
-const FILES = ['index.js', 'client.js'];
 
 let failed = 0;
 for (const plugin of PLUGINS) {
-  for (const file of FILES) {
+  // Every bundle, including the package-local chunks (`client.<name>.js`).
+  const files = (await readdir(join(ROOT, plugin)))
+    .filter((name) => name === 'index.js' || /^client(\.[\w-]+)?\.js$/.test(name))
+    .sort();
+  for (const file of files) {
     const target = join(ROOT, plugin, file);
     const result = spawnSync(process.execPath, ['--check', target], { stdio: 'inherit' });
     if (result.status === 0) {

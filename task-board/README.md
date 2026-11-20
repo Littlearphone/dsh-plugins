@@ -8,10 +8,16 @@
 | 文件 | 行数 | 内容 |
 |---|---|---|
 | `index.js` | — | Host 半侧（路由、插件记录） |
-| `client.js` | 2006 | 看板全部客户端代码：locale、样式、标签页与顶栏入口、轨道状态机、卡片视图 |
+| `client.js` | 686 | 入口：locale、样式、标签页与顶栏入口、chunk 装载与失败提示 |
+| `client.board.js` | 1380 | 看板本体：种子数据、轨道状态机、卡片视图、动作 |
 
-客户端必须是**单个自包含模块**：包内 chunk（`require.async('./client.<name>.js')`）在当前
-GUI 里加载不到，拆成 chunk 会让标签页整块空白，所以这里不拆。
+`client.board.js` 是**包内 chunk**：入口用 `require.async('./client.board.js')` 在标签页首次
+打开时拉取，同期复用同一份 HTTP 缓存。契约是文件名 `client.<name>.js` + `chunk: '文件名'`
+注册 + 自包含。
+
+加载失败时面板显示一行错误文本而不是空白——空白和"看板没有卡片"无法区分，那正是上一次
+拆分事故里最难查的地方。验证方式：`node scripts/check.mjs`、渲染 harness（chunk 直接渲染
+15 张卡 + 入口走完整 effect 交接），以及带 token 的 HTTP 探针（chunk URL 必须 200）。
 
 
 ## 卡片视觉
