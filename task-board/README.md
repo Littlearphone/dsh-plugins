@@ -8,17 +8,11 @@
 | 文件 | 行数 | 内容 |
 |---|---|---|
 | `index.js` | — | Host 半侧（路由、插件记录） |
-| `client.js` | 459 | 入口：locale、标签页与顶栏入口、chunk 装载 |
-| `client.css.js` | 290 | 两张样式表（guide + 看板） |
-| `client.board.data.js` | 315 | 种子数据、轨道配色、纯几何helper |
-| `client.board.actions.js` | 193 | 点击行为：跳会话、改轨道、菜单、弹窗 |
-| `client.board.js` | 444 | 状态机：轨道、拖拽、新建 |
-| `client.board.view.js` | 490 | 视图：状态词汇、图标、卡片 |
+| `client.js` | 2006 | 看板全部客户端代码：locale、样式、标签页与顶栏入口、轨道状态机、卡片视图 |
 
-后六个是**包内 chunk**，入口用 `require.async` 并行拉取（`Promise.all`），首次打开标签页多几次本地请求，此后常驻。
+客户端必须是**单个自包含模块**：包内 chunk（`require.async('./client.<name>.js')`）在当前
+GUI 里加载不到，拆成 chunk 会让标签页整块空白，所以这里不拆。
 
-分工是"状态 / 行为 / 视图 / 数据 / 样式"五层：`client.board.js` 只持有 React state 和拖拽，
-点击副作用在 `actions`，纯函数在 `data`，渲染在 `view`。改卡片外观不需要碰状态机。
 
 ## 卡片视觉
 
