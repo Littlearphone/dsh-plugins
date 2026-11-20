@@ -17,13 +17,6 @@
                   "processes.js",
                   "routes.js",
                   "client.js",
-                  "client.data.js",
-                  "client.css.js",
-                  "client.store.js",
-                  "client.editor.js",
-                  "client.actions.js",
-                  "client.panel.js",
-                  "client.menu.js",
                   "cordis.patch.yml",
                   "locale/*.json",
                   "icon.svg"

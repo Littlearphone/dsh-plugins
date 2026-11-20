@@ -243,23 +243,8 @@ Host 半侧按职责拆开（普通 ESM，`import` 直接引）：
 
 依赖是单向的：`config → discover → processes → routes → index`。
 
-客户端半侧是**一组包内 chunk**，入口在首次渲染时并行拉取：
-
-| 文件 | 职责 |
-|---|---|
-| `client.js` | 入口：locale、注册、chunk 装载与包装组件 |
-| `client.data.js` | 运行时识别、品牌图标、排序与过滤 |
-| `client.css.js` | 样式表 |
-| `client.store.js` | 客户端 store、hooks、各路由常量 |
-| `client.actions.js` | 面板与下拉共用的动作（启动、停止、固定、分组标题） |
-| `client.editor.js` | 启动配置编辑器与输出视图 |
-| `client.panel.js` | 右侧栏面板 |
-| `client.menu.js` | 会话头部下拉 |
-
-契约：文件名必须是 `client.<name>.js`，脚本自己
-`__ModuleLoader__.load({ id: '@local/services', chunk: '文件名', factory })` 注册，且每个 chunk
-必须自包含（chunk 之间不能同步 `require`）。入口用 `require.async` 并行加载后，把
-data / store / actions / editor 组装成一个 `shared` 对象传给面板与下拉的工厂。
+客户端半侧保持单个 `client.js`：它必须是自包含模块（模块系统不保证相对 chunk 在本环境可用），
+所以客户端不做拆分。
 
 ## 已知取舍
 
