@@ -243,15 +243,10 @@ Host 半侧按职责拆开（普通 ESM，`import` 直接引）：
 
 依赖是单向的：`config → discover → processes → routes → index`。
 
-客户端半侧拆成两个文件：
-
-| 文件 | 行数 | 职责 |
-|---|---|---|
-| `client.js` | 437 | 入口：locale、样式、四个界面的注册、chunk 装载与失败提示 |
-| `client.services.js` | 1513 | 面板、下拉、编辑器、输出视图、store 与全部动作 |
-
-`client.services.js` 是包内 chunk，入口在界面首次渲染时用 `require.async` 拉取；失败时
-渲染「服务面板加载失败：<原因>」，不留空面板。
+客户端半侧保持单个 `client.js`（1874 行）。**拆成 chunk 的版本在真实界面里坏了**：下拉不再
+请求 `/services/list/`（`useScripts` 的 effect 没跑），「在侧栏打开」也没反应。用
+`scripts/ui-probe.ps1` 对比验证：单文件下拉能列出脚本、面板能打开；chunk 版本两者都空。
+在找到原因之前不再拆它。
 
 ## 已知取舍
 
