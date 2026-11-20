@@ -243,8 +243,15 @@ Host 半侧按职责拆开（普通 ESM，`import` 直接引）：
 
 依赖是单向的：`config → discover → processes → routes → index`。
 
-客户端半侧保持单个 `client.js`：它必须是自包含模块（模块系统不保证相对 chunk 在本环境可用），
-所以客户端不做拆分。
+客户端半侧拆成两个文件：
+
+| 文件 | 行数 | 职责 |
+|---|---|---|
+| `client.js` | 437 | 入口：locale、样式、四个界面的注册、chunk 装载与失败提示 |
+| `client.services.js` | 1513 | 面板、下拉、编辑器、输出视图、store 与全部动作 |
+
+`client.services.js` 是包内 chunk，入口在界面首次渲染时用 `require.async` 拉取；失败时
+渲染「服务面板加载失败：<原因>」，不留空面板。
 
 ## 已知取舍
 

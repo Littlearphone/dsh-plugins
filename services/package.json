@@ -17,6 +17,7 @@
                   "processes.js",
                   "routes.js",
                   "client.js",
+                  "client.services.js",
                   "cordis.patch.yml",
                   "locale/*.json",
                   "icon.svg"
