@@ -243,10 +243,30 @@ Host 半侧按职责拆开（普通 ESM，`import` 直接引）：
 
 依赖是单向的：`config → discover → processes → routes → index`。
 
-客户端半侧保持单个 `client.js`（1874 行）。**拆成 chunk 的版本在真实界面里坏了**：下拉不再
-请求 `/services/list/`（`useScripts` 的 effect 没跑），「在侧栏打开」也没反应。用
-`scripts/ui-probe.ps1` 对比验证：单文件下拉能列出脚本、面板能打开；chunk 版本两者都空。
-在找到原因之前不再拆它。
+客户端半侧拆成入口 + 7 个包内 chunk，最大 480 行：
+
+| 文件 | 行数 | 职责 |
+|---|---|---|
+| `client.js` | 330 | 入口：locale、注册、chunk 装载与拼装 |
+| `client.data.js` | 173 | 运行时识别、图标、排序与过滤 |
+| `client.css.js` | 161 | 两张样式表 |
+| `client.store.js` | 153 | store、emit、四个取数 hook、路由常量 |
+| `client.editor.js` | 325 | 启动配置编辑器 |
+| `client.actions.js` | 244 | 固定、启动、分组标题、菜单项 |
+| `client.panel.js` | 480 | 侧栏面板与标题 |
+| `client.menu.js` | 250 | 头部入口与下拉覆盖层 |
+
+拆分的两个硬约束（都踩过）：
+
+1. **chunk 拿不到别的 chunk 里的标识符**。`useScripts` 和 `menuItems` 都调用过
+   `sortScripts`，它在 data chunk 里；拆开后抛 `ReferenceError`，而这个异常落在
+   `fetch().catch()` 链里被吞掉，界面只表现为"没有可用的脚本"。凡跨 chunk 使用，
+   必须经由入口的 deps 显式传入。
+2. **chunk 的 rev 跟着入口走**。只改 chunk 不改入口，`?rev=` 不变，浏览器继续用旧
+   chunk；改 chunk 时必须同时动一下入口，否则测的是旧代码。
+
+验证：`node scripts/check.mjs` + `scripts/ui-probe.ps1`（下拉列出脚本、面板打开、
+14 张看板卡不受影响）。
 
 ## 已知取舍
 
