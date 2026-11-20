@@ -88,6 +88,8 @@ try {
   Start-Sleep -Seconds 6
   "panel rows: " + (Eval 70 "document.querySelectorAll('[class*=dsh-svc-row], [class*=dsh-svc-item]').length")
   "panel text: " + (Eval 71 "(() => { const n = [...document.querySelectorAll('[class*=dsh-svc]')].map((x) => (x.innerText || '')).filter(Boolean).join(' | '); return (n || 'none').replace(/\s+/g, ' ').slice(0, 260); })()")
+  "debug list: " + (Eval 72 "String(window.__svcList)")
+  "debug panel: " + (Eval 73 "String(window.__svcPanel)")
 
   $png = Send-Cdp 50 'Page.captureScreenshot' @{ format = 'png' }
   if ($png.result.data) {
