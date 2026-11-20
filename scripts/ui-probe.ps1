@@ -81,6 +81,13 @@ try {
   "services entry: $services"
   Start-Sleep -Seconds 6
   "svc nodes: " + (Eval 40 "document.querySelectorAll('[class*=dsh-svc]').length")
+  "svc text: " + (Eval 42 "(() => { const n = [...document.querySelectorAll('[class*=dsh-svc]')].map((x) => (x.innerText || '')).filter(Boolean)[0]; return (n || 'none').replace(/\s+/g, ' ').slice(0, 220); })()")
+  "svc fetches: " + (Eval 43 "[...performance.getEntriesByType('resource')].map((e) => e.name).filter((n) => n.indexOf('/services/') !== -1).slice(-6).join(' , ')")
+  $openSidebar = Click 60 "[...document.querySelectorAll('button')].find((b) => (b.innerText || '').trim() === '在侧栏打开')"
+  "open in sidebar: $openSidebar"
+  Start-Sleep -Seconds 6
+  "panel rows: " + (Eval 70 "document.querySelectorAll('[class*=dsh-svc-row], [class*=dsh-svc-item]').length")
+  "panel text: " + (Eval 71 "(() => { const n = [...document.querySelectorAll('[class*=dsh-svc]')].map((x) => (x.innerText || '')).filter(Boolean).join(' | '); return (n || 'none').replace(/\s+/g, ' ').slice(0, 260); })()")
 
   $png = Send-Cdp 50 'Page.captureScreenshot' @{ format = 'png' }
   if ($png.result.data) {
