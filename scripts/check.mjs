@@ -17,7 +17,7 @@ let failed = 0;
 for (const plugin of PLUGINS) {
   // Every bundle, including the package-local chunks (`client.<name>.js`).
   const files = (await readdir(join(ROOT, plugin)))
-    .filter((name) => name === 'index.js' || /^client(\.[\w-]+)?\.js$/.test(name))
+    .filter((name) => name === 'index.js' || /^client(\.[\w-]+)*\.js$/.test(name))
     .sort();
   for (const file of files) {
     const target = join(ROOT, plugin, file);
