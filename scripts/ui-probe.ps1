@@ -15,6 +15,22 @@ $ErrorActionPreference = 'Stop'
 $edge = 'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe'
 $ud = Join-Path $env:TEMP "edge-cdp-$Port"
 
+# A headless browser is a whole process tree, and Stop-Process/taskkill are denied
+# for these children here: terminate through WMI, which reaches every one of them.
+# Match on this run's own profile directory so a real Edge session is never hit.
+function Stop-ProbeBrowser {
+  $victims = @(
+    Get-CimInstance Win32_Process -Filter "Name='msedge.exe'" -ErrorAction SilentlyContinue |
+      Where-Object { $_.CommandLine -like "*$ud*" }
+  )
+  foreach ($victim in $victims) {
+    Invoke-CimMethod -InputObject $victim -MethodName Terminate -ErrorAction SilentlyContinue | Out-Null
+  }
+  return $victims.Count
+}
+
+# Leftovers from an interrupted earlier run of this same profile.
+Stop-ProbeBrowser | Out-Null
 Remove-Item $ud -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item $Shot -Force -ErrorAction SilentlyContinue
 
@@ -99,5 +115,9 @@ try {
 }
 finally {
   try { $ws.Dispose() } catch { }
-  Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+  # Stop-Process leaves the renderers behind; take the whole tree down and say how
+  # many processes went, so a leftover is visible instead of silent.
+  $stopped = Stop-ProbeBrowser
+  "browser processes stopped: $stopped"
+  Remove-Item $ud -Recurse -Force -ErrorAction SilentlyContinue
 }
