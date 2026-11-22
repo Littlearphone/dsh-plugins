@@ -217,14 +217,19 @@ window.__ModuleLoader__.load({
                   );
             return h(
               'div',
-              { key: 'entry-' + index, className: 'dsh-svc-entry-block' },
+              {
+                key: 'entry-' + index,
+                className:
+                  'dsh-svc-entry-block' +
+                  (running ? ' is-running' : '') +
+                  (script.overridden === true ? ' is-overridden' : '') +
+                  (flashKey === key ? ' is-focus' : '') +
+                  (editKey === rowKey ? ' is-open' : ''),
+              },
               h(
                 'div',
                 {
-                  className:
-                    'dsh-svc-row' +
-                    (running ? ' is-running' : '') +
-                    (flashKey === key ? ' is-focus' : ''),
+                  className: 'dsh-svc-row' + (flashKey === key ? ' is-focus' : ''),
                   'data-svc-key': key,
                   title: script.command,
                 },
