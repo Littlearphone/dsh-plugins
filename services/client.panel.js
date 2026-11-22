@@ -60,6 +60,17 @@ window.__ModuleLoader__.load({
           // A pin flips locally first: refetching the list just to paint a pin made
           // the whole tab re-render, which is far too much for one boolean.
           const [pinOverride, setPinOverride] = React.useState({});
+          // One answer for every surface: the row's icon, its tooltip and the
+          // pinned area all read this. Reading `script.pinned` directly in the
+          // pinned area was the bug — the click flipped the override, so the
+          // icon filled while nothing ever moved to the top.
+          const pinStateOf = (group, script) => {
+            const pinKey =
+              String(group.dir ?? '') + '\u0000' + String(script.original ?? script.name);
+            return pinOverride[pinKey] === undefined
+              ? script.pinned === true
+              : pinOverride[pinKey];
+          };
           const [openKey, setOpenKey] = React.useState('');
           const [editKey, setEditKey] = React.useState('');
           const [armed, arm, disarm] = useArmedAction();
@@ -115,7 +126,7 @@ window.__ModuleLoader__.load({
             const service = latest.get(key);
             const open = openKey === rowKey;
             const pinKey = String(group.dir ?? '') + '\u0000' + String(script.original ?? script.name);
-            const pinned = pinOverride[pinKey] === undefined ? script.pinned === true : pinOverride[pinKey];
+            const pinned = pinStateOf(group, script);
             const phase = pending[key] ?? '';
             const running = service?.state === 'running';
             const actions = [];
@@ -438,7 +449,7 @@ window.__ModuleLoader__.load({
             const pinned = [];
             for (const group of state.groups) {
               for (const script of group.scripts) {
-                if (script.pinned === true) pinned.push({ group, script });
+                if (pinStateOf(group, script)) pinned.push({ group, script });
               }
             }
             pinned.sort(
