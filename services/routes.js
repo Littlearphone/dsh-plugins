@@ -15,6 +15,8 @@ import {
 } from './config.js';
 import {
   MAX_BODY_BYTES,
+  MAX_PACKAGES,
+  dirsWithFile,
   gradleGroups,
   mavenGroups,
   ROUTE_PATH,
@@ -334,12 +336,21 @@ export function createHandler(ctx) {
       const root = await readManifest(dir);
       const globs = await workspaceGlobs(dir, root);
       const { dirs, skipped } = await packageDirs(dir, globs);
+      // Workspace declarations are not the only source of packages: a nested
+      // project (its own git repo, its own lockfile) is often checked into a
+      // folder without being declared, and Maven/Gradle already look two levels
+      // down for their manifests. Do the same for package.json so a nested
+      // script list is not invisible just because pnpm did not enumerate it.
+      const nested = await dirsWithFile(dir, 'package.json', 2);
+      const packageDirsFound = [...new Set([...dirs, ...nested])]
+        .filter((relative) => relative !== '')
+        .slice(0, MAX_PACKAGES);
 
       const groups = [];
       if (root !== undefined) {
         groups.push({ id: 'root', kind: 'npm', name: root.name, dir: '', scripts: root.scripts });
       }
-      for (const relative of dirs) {
+      for (const relative of packageDirsFound) {
         const manifest = await readManifest(join(dir, relative));
         if (manifest === undefined) continue;
         groups.push({

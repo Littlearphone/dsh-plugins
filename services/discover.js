@@ -245,7 +245,7 @@ const GRADLE_TASKS = [
 ];
 
 /** Directories below `base` that hold a file named `name`, to a shallow depth. */
-async function dirsWithFile(base, name, depth) {
+export async function dirsWithFile(base, name, depth) {
   const found = [];
   const queue = [''];
   while (queue.length > 0) {

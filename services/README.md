@@ -94,7 +94,14 @@ Invoke-WebRequest http://127.0.0.1:63428/services/list/session-<uuid> -UseBasicP
 
 ## 嵌套结构（monorepo）
 
-工作区如果声明了子包，会一并扫描，并按**目录路径**分组显示（不用包名：一个工作区里可以有几个同名 `frontend` 包，标题重复就没法区分）：
+工作区声明的子包会扫描，**没有声明但向下两层存在 `package.json` 的目录也会扫描**（和
+Maven 的 `pom.xml`、Gradle 的 `build.gradle` 扫描深度一致）：像 `ohohoho/` 这种自带
+`.git`、`package-lock.json`、没有写进 workspace 的嵌套项目，也应当出现在列表里，而不是
+因为 pnpm 没枚举就消失。扫描同样跳过 `node_modules`、`dist`、`build`、`target` 等目录。
+分组标题用**目录路径**而不是包名：一个工作区里可以有几个同名 `frontend` 包，标题重复就
+没法区分。
+
+声明的来源按优先级：
 
 - 先看 `pnpm-workspace.yaml` 的 `packages:` 列表（只读这一段，够用）；
 - 没有再读根部 `package.json` 的 `workspaces`（数组，或 `{ packages: [...] }`）；
@@ -102,6 +109,8 @@ Invoke-WebRequest http://127.0.0.1:63428/services/list/session-<uuid> -UseBasicP
   而不是猜一个近似结果；
 - 以 `!` 开头的排除项忽略，`node_modules` 和点开头的目录不扫；
 - 上限 60 个包，防止异常 glob 把目录翻个底朝天。
+
+两层的 `package.json` 回退扫描也受同一个 60 包上限约束；显式声明的包优先占用名额。
 
 响应形状：
 
