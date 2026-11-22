@@ -153,14 +153,18 @@ window.__ModuleLoader__.load({
             // resolves it once and every editor of this list shares it.
             const jdk =
               data?.jdk !== null && typeof data?.jdk === 'object' ? data.jdk : undefined;
+            const warnings = Array.isArray(data?.warnings)
+              ? data.warnings.filter((warning) => typeof warning === 'string')
+              : [];
             setState({
               phase: groups.length === 0 ? 'empty' : 'ready',
               dir: data?.dir ?? '',
               groups,
               jdk,
+              warnings,
             });
           })
-          .catch(() => setState({ phase: 'error', dir: '', groups: [], jdk: undefined }));
+          .catch(() => setState({ phase: 'error', dir: '', groups: [], jdk: undefined, warnings: [] }));
       }, [sessionId]);
 
       React.useEffect(() => {

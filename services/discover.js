@@ -279,7 +279,10 @@ export function mavenRunners(wrapper, onPath) {
   if (wrapper !== undefined) ids.push('mvnw');
   if (onPath.mvn) ids.push('mvn');
   if (onPath.mvnd) ids.push('mvnd');
-  return ids.length > 0 ? ids : ['mvn'];
+  // An empty list is real information: the machine has no Maven at all. The
+  // caller still writes `mvn` into the command (the shell's own "not recognized"
+  // is the honest failure), but the panel warns before anyone clicks it.
+  return ids;
 }
 
 /** Swap the leading runner of a Maven command; the rest of the line is untouched. */
@@ -377,7 +380,7 @@ export async function mavenGroups(root, known = []) {
     // Every row of one pom offers the same choices; `runner` is the one the
     // command is written with, and the configuration editor can override it.
     const runners = mavenRunners(wrapper, onPath);
-    const runner = runners[0];
+    const runner = runners[0] ?? '';
     const command = runnerCommand(runner, wrapper);
     const add = (goal, hint) => {
       scripts.push({
@@ -507,7 +510,7 @@ export async function javaGroups(root, known = []) {
     const file = relative === '' ? '' : ` -f ${shellPath(join(relative, 'pom.xml'))}`;
     const wrapper = mavenWrapper(root, relative);
     const runners = mavenRunners(wrapper, onPath);
-    const runner = runners[0];
+    const runner = runners[0] ?? '';
     const command = runnerCommand(runner, wrapper);
     const entries = await mainClassesIn(join(root, relative, JAVA_SOURCE_DIR));
     for (const { className } of entries) {
@@ -549,6 +552,29 @@ export async function javaGroups(root, known = []) {
   }
   if (scripts.length === 0) return [];
   return [{ id: 'java', kind: 'java', name: 'Java', dir: '', scripts }];
+}
+
+/**
+ * What the panel should say before anyone clicks a row: a JVM project whose
+ * rows cannot possibly start. Discovery still lists those rows — they are the
+ * project's own targets and work the moment the tool is installed — but the
+ * shell's "not recognized" is a poor first answer on a fresh machine.
+ */
+export function environmentWarnings(groups, hasJdk) {
+  const rows = groups.flatMap((group) => group.scripts);
+  const jvm = rows.filter((row) =>
+    row.category === 'maven' ||
+    row.category === 'java' ||
+    row.category === 'gradle' ||
+    row.category === 'javac',
+  );
+  const maven = rows.filter((row) => row.category === 'maven' || row.category === 'java');
+  const warnings = [];
+  if (maven.length > 0 && maven.every((row) => row.runner === undefined || row.runner === '')) {
+    warnings.push('maven');
+  }
+  if (jvm.length > 0 && hasJdk !== true) warnings.push('jdk');
+  return warnings;
 }
 
 /** Gradle projects in one group, mirroring the Maven group. */

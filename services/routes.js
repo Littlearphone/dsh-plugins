@@ -17,6 +17,7 @@ import {
   MAX_BODY_BYTES,
   MAX_PACKAGES,
   dirsWithFile,
+  environmentWarnings,
   gradleGroups,
   javaGroups,
   mavenGroups,
@@ -28,7 +29,7 @@ import {
   workspaceGlobs,
   wrapperOfCommand,
 } from './discover.js';
-import { jdkChoices } from './jdk.js';
+import { jdkAvailable, jdkChoices } from './jdk.js';
 import {
   listServices,
   restartService,
@@ -389,6 +390,12 @@ export function createHandler(ctx) {
       )
         ? await jdkChoices(dir)
         : undefined;
+      // Missing prerequisites are reported per list, not per run: a fresh machine
+      // has no Maven and no JDK, and the panel should say that up front.
+      const warnings =
+        jdk === undefined
+          ? []
+          : environmentWarnings(groups, (jdk.project ?? '') !== '' || (await jdkAvailable(dir)));
       for (const group of groups) {
         group.scripts = group.scripts.map((script) => {
           const merged = withConfig(script, group.dir, doc);
@@ -428,6 +435,7 @@ export function createHandler(ctx) {
         workspacePatterns: globs,
         skippedPatterns: skipped,
         jdk,
+        warnings,
       });
     } catch (error) {
       reply(response, 500, { error: 'unreadable', detail: String(error?.message ?? error) });

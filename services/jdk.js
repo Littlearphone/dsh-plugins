@@ -155,3 +155,30 @@ export async function jdkChoices(root) {
     options: homes.map(({ name, home }) => ({ name, home })),
   };
 }
+
+/** Whether a command name resolves through the Host's PATH. */
+function onPath(name) {
+  const raw = process.env.PATH ?? process.env.Path ?? '';
+  const suffixes =
+    process.platform === 'win32'
+      ? (process.env.PATHEXT ?? '.EXE;.CMD;.BAT;.COM').split(';').filter((suffix) => suffix !== '')
+      : [''];
+  return raw
+    .split(process.platform === 'win32' ? ';' : ':')
+    .filter((entry) => entry !== '')
+    .some((entry) => suffixes.some((suffix) => existsSync(join(entry, name + suffix))));
+}
+
+/**
+ * Whether a JVM launch has any JDK at all: the project's own, the Host's
+ * `JAVA_HOME`, or a `javac` on PATH. A new machine can have none of them, and
+ * every Maven/Gradle/Java row then fails — this is what lets the panel say so
+ * before the shell does.
+ */
+export async function jdkAvailable(root) {
+  if ((await projectJavaHome(root)) !== undefined) return true;
+  const home = process.env.JAVA_HOME;
+  const launcher = join('bin', process.platform === 'win32' ? 'java.exe' : 'java');
+  if (home !== undefined && home !== '' && existsSync(join(home, launcher))) return true;
+  return onPath('javac');
+}

@@ -347,6 +347,8 @@ window.__ModuleLoader__.load({
                       runnerAuto: t('edit.runnerAuto'),
                       jdk: t('edit.jdk'),
                       jdkAuto: t('edit.jdkAuto'),
+                      jdkCustom: t('edit.jdkCustom'),
+                      jdkPathHint: t('edit.jdkPathHint'),
                       locked: t('edit.locked'),
                       save: t('edit.save'),
                       reset: t('edit.reset'),
@@ -445,6 +447,16 @@ window.__ModuleLoader__.load({
                   t('panel.refresh'),
                 ),
 
+              ),
+            ),
+            // A missing Maven or JDK is a property of the machine, not of one
+            // row: say it once, above the list, instead of letting the shell's
+            // "not recognized" be the first answer.
+            ...(Array.isArray(state.warnings) ? state.warnings : []).map((warning) =>
+              h(
+                'p',
+                { className: 'dsh-svc-notice is-warn', key: 'warn-' + warning },
+                t('warn.' + warning),
               ),
             ),
             h(

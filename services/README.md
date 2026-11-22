@@ -213,9 +213,26 @@ Maven / Gradle 跑在 Host 继承来的 `JAVA_HOME` 上（这台机器是机器�
    `maven.compiler.release|source|target`，在 `~/.jdks` 里取同主版本、版本号最高的那个；
 4. 都没有就保持 Host 的环境不动——不猜比猜错好。
 
-只对 `kind` 是 `maven` / `gradle` 的启动生效；`~/.jdks` 里没有 `bin/java`（Windows 是 `bin\java.exe`）
-的目录不算候选，`~/.jdks` 不存在时整段跳过。优先级是：启动配置里的 **JDK 字段** > 启动配置里写的
-**`JAVA_HOME` 环境变量** > 上面这套自动解析；都没有就保持 Host 的环境不动。
+只对 `kind` 是 `maven` / `java` / `gradle` / `javac` 的启动生效；`~/.jdks` 里没有 `bin/java`
+（Windows 是 `bin\java.exe`）的目录不算候选，`~/.jdks` 不存在时整段跳过。优先级是：启动配置里的
+**JDK 字段** > 启动配置里写的 **`JAVA_HOME` 环境变量** > 上面这套自动解析 > Host 自己的 `JAVA_HOME`。
+选中的 JDK 会同时写进 `JAVA_HOME` 和 `PATH` 最前面，所以自己调 `javac`/`java` 的行也用它。
+
+「JDK」是**下拉 + 自由输入**：下拉列出 `~/.jdks` 扫到的每一个 JDK（显示目录名，`title` 是完整路径），
+最后一项「自定义…」把控件换成文本框，可以填任意 `JAVA_HOME` 路径；保存后再打开，路径不在扫描结果里
+就自动回到文本框，不会被悄悄当成"自动"。留空仍然是自动解析。
+
+## 缺工具时
+
+新电脑上什么都没装也照样能看清单，但面板顶部会先给一句提示，而不是等点下去才由 shell 报错：
+
+- **没找到 Maven**（`mvnw` / `mvn` / `mvnd` 一个都没有）→ `warn.maven`：Maven 行和 Java 启动类
+  （`exec:java`）点开会报"不是内部或外部命令"；
+- **没找到 JDK**（`~/.jdks`、`.idea`、`JAVA_HOME`、`PATH` 都没有）→ `warn.jdk`：Maven / Gradle /
+  Java 的启动都需要它。
+
+行本身**不会消失**：它们是这个工程的目标，装好工具刷新一下就能跑。没有构建工具的纯 Java 工程不在此列，
+它用 JDK 直接编译运行（见「Java 启动类」）。
 
 ## 排序与搜索
 
@@ -357,17 +374,17 @@ Host 半侧按职责拆开（普通 ESM，`import` 直接引）：
 
 依赖是单向的：`config → discover → processes → routes → index`；`jdk` 被 `processes` 和 `routes` 用。
 
-客户端半侧拆成入口 + 8 个包内 chunk，最大 480 行：
+客户端半侧拆成入口 + 8 个包内 chunk，最大 492 行：
 
 | 文件 | 行数 | 职责 |
 |---|---|---|
-| `client.js` | 375 | 入口：locale、注册、chunk 装载与拼装 |
+| `client.js` | 383 | 入口：locale、注册、chunk 装载与拼装 |
 | `client.data.js` | 197 | 运行时识别、图标、排序与过滤 |
-| `client.css.js` | 194 | 两张样式表 |
-| `client.store.js` | 281 | store、emit、取数 hook、完成的运行、toast 队列 |
-| `client.editor.js` | 389 | 按脚本类型变的启动配置编辑器、输出视图 |
+| `client.css.js` | 195 | 两张样式表 |
+| `client.store.js` | 285 | store、emit、取数 hook、完成的运行、toast 队列 |
+| `client.editor.js` | 424 | 按脚本类型变的启动配置编辑器、输出视图 |
 | `client.actions.js` | 395 | 固定、启动、分组标题、菜单项、两步确认按钮 |
-| `client.panel.js` | 480 | 侧栏面板与标题 |
+| `client.panel.js` | 492 | 侧栏面板与标题 |
 | `client.menu.js` | 262 | 头部入口与下拉覆盖层 |
 | `client.toast.js` | 87 | 执行结束的右下角 toast |
 

@@ -38,6 +38,15 @@ window.__ModuleLoader__.load({
         runner === '' || runners.includes(runner) ? runners : [runner, ...runners];
       const jdkOptions = Array.isArray(jdkInfo?.options) ? jdkInfo.options : [];
       const detectedJdk = typeof jdkInfo?.project === 'string' ? jdkInfo.project : '';
+      // The JDK field is a picker *and* a text field: a saved path that no scan
+      // found (a JDK outside ~/.jdks) must start in the free-text part, or the
+      // select would silently fall back to "auto" for a real choice.
+      const customJdkOption = '__custom__';
+      const [customJdk, setCustomJdk] = React.useState(
+        script.jdk !== undefined &&
+          script.jdk !== '' &&
+          !jdkOptions.some((option) => option.home === script.jdk),
+      );
 
       const save = async (reset) => {
         setBusy(true);
@@ -157,24 +166,50 @@ window.__ModuleLoader__.load({
               'label',
               { className: 'dsh-svc-field', key: 'jdk' },
               h('span', { className: 'dsh-svc-field-label' }, labels.jdk),
+              h(
+                'select',
+                {
+                  className: 'dsh-svc-input',
+                  value: customJdk ? customJdkOption : jdk,
+                  onChange: (event) => {
+                    const value = event.target.value;
+                    if (value === customJdkOption) {
+                      setCustomJdk(true);
+                      if (!customJdk) setJdk('');
+                      return;
+                    }
+                    setCustomJdk(false);
+                    setJdk(value);
+                  },
+                },
+                h(
+                  'option',
+                  { value: '' },
+                  labels.jdkAuto + (detectedJdk === '' ? '' : ' · ' + detectedJdk),
+                ),
+                jdkOptions.map((option) =>
+                  h(
+                    'option',
+                    { key: option.home, value: option.home, title: option.home },
+                    option.name,
+                  ),
+                ),
+                h('option', { value: customJdkOption }, labels.jdkCustom),
+              ),
+            )
+          : null,
+        isJvm && customJdk
+          ? h(
+              'label',
+              { className: 'dsh-svc-field', key: 'jdk-path' },
+              h('span', { className: 'dsh-svc-field-label' }, ''),
               h('input', {
                 className: 'dsh-svc-input',
                 value: jdk,
                 spellCheck: false,
-                list: 'dsh-svc-jdk-options',
-                placeholder:
-                  detectedJdk === '' ? labels.jdkAuto : labels.jdkAuto + ' · ' + detectedJdk,
+                placeholder: labels.jdkPathHint,
                 onChange: (event) => setJdk(event.target.value),
               }),
-            )
-          : null,
-        isJvm && jdkOptions.length > 0
-          ? h(
-              'datalist',
-              { id: 'dsh-svc-jdk-options', key: 'jdk-options' },
-              jdkOptions.map((option) =>
-                h('option', { key: option.home, value: option.home }, option.name),
-              ),
             )
           : null,
         field('name', label, setLabel, script.name),

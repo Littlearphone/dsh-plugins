@@ -22,7 +22,7 @@ window.__ModuleLoader__.load({
     const NS = 'services';
     const ROUTE = '/services/list/';
     /** Shown on the refresh control so a stale page is recognisable at a glance. */
-    const BUILD = 'services 0.1.11';
+    const BUILD = 'services 0.1.12';
 
     const ZH = {
       'tab.title': '服务管理',
@@ -65,6 +65,8 @@ window.__ModuleLoader__.load({
       'edit.runnerAuto': '自动',
       'edit.jdk': 'JDK',
       'edit.jdkAuto': '留空 = 自动',
+      'edit.jdkCustom': '自定义…',
+      'edit.jdkPathHint': 'C:\\path\\to\\jdk（JAVA_HOME）',
       'edit.env': '环境变量',
       'edit.cwd': '工作目录',
       'edit.cwdHint': '相对工作区根；留空 = 脚本所在包目录',
@@ -73,6 +75,8 @@ window.__ModuleLoader__.load({
       'edit.reset': '还原为原生',
       'edit.close': '收起',
       'edit.badEnv': '环境变量要写成 KEY=VALUE',
+      'warn.maven': '没找到 Maven（mvnw / mvn / mvnd 都没有）：Maven 行和 Java 启动类会报"不是内部或外部命令"。',
+      'warn.jdk': '没找到可用的 JDK（~/.jdks、.idea、JAVA_HOME、PATH 都没有）：JVM 的启动都需要它。',
       'run.stop': '停止',
       'run.confirmStop': '确认停止',
       'run.restart': '重启',
@@ -137,6 +141,8 @@ window.__ModuleLoader__.load({
       'edit.runnerAuto': 'auto',
       'edit.jdk': 'JDK',
       'edit.jdkAuto': 'empty = auto',
+      'edit.jdkCustom': 'custom…',
+      'edit.jdkPathHint': 'C:\\path\\to\\jdk (JAVA_HOME)',
       'edit.env': 'Environment',
       'edit.cwd': 'Working directory',
       'edit.cwdHint': 'Relative to the workspace root; empty = the package directory',
@@ -145,6 +151,8 @@ window.__ModuleLoader__.load({
       'edit.reset': 'Reset to package.json',
       'edit.close': 'Close',
       'edit.badEnv': 'Environment must be KEY=VALUE',
+      'warn.maven': 'No Maven found (no mvnw, mvn or mvnd): Maven rows and Java main classes will fail with "not recognized".',
+      'warn.jdk': 'No usable JDK found (none in ~/.jdks, .idea, JAVA_HOME or PATH): every JVM start needs one.',
       'run.stop': 'Stop',
       'run.confirmStop': 'Confirm stop',
       'run.restart': 'Restart',
