@@ -45,6 +45,8 @@ window.__ModuleLoader__.load({
       'run.running': '运行中',
       'run.stopping': '停止中',
       'run.exited': '已结束',
+      'run.exitOk': '正常',
+      'run.exitFail': '失败',
       'run.hide': '收起',
       'run.finished': '已结束',
       'run.start': '启动',
@@ -72,6 +74,11 @@ window.__ModuleLoader__.load({
       'run.confirmRestart': '确认重启',
       'run.restarting': '重启中…',
       'run.restartFailed': '重启失败：',
+      'toast.done': '执行结束',
+      'toast.failed': '执行失败',
+      'toast.exitCode': '退出码',
+      'toast.close': '关闭',
+      'toast.service': '服务',
       'output.truncated': '（已省略较早的输出）',
       'run.output': '输出',
       'run.starting': '正在启动…',
@@ -106,6 +113,8 @@ window.__ModuleLoader__.load({
       'run.running': 'running',
       'run.stopping': 'stopping',
       'run.exited': 'exited',
+      'run.exitOk': 'ok',
+      'run.exitFail': 'failed',
       'run.hide': 'Hide',
       'run.finished': 'finished',
       'run.start': 'Start',
@@ -133,6 +142,11 @@ window.__ModuleLoader__.load({
       'run.confirmRestart': 'Confirm restart',
       'run.restarting': 'Restarting…',
       'run.restartFailed': 'Restart failed: ',
+      'toast.done': 'Finished',
+      'toast.failed': 'Failed',
+      'toast.exitCode': 'exit code',
+      'toast.close': 'Dismiss',
+      'toast.service': 'Service',
       'output.truncated': '(earlier output omitted)',
       'run.output': 'Output',
       'run.starting': 'Starting…',
@@ -226,7 +240,8 @@ window.__ModuleLoader__.load({
               require.async('./client.actions.js'),
               require.async('./client.panel.js'),
               require.async('./client.menu.js'),
-            ]).then(([dataModule, cssModule, storeModule, editorModule, actionsModule, panelModule, menuModule]) => {
+              require.async('./client.toast.js'),
+            ]).then(([dataModule, cssModule, storeModule, editorModule, actionsModule, panelModule, menuModule, toastModule]) => {
               const data = dataModule.createData({ t });
               const styles = cssModule.createCss({ t });
               const storeApi = storeModule.createStore({ t, ROUTE, PACKAGE, KIND, sortScripts: data.sortScripts });
@@ -251,9 +266,18 @@ window.__ModuleLoader__.load({
                 ...editor,
                 ...actions,
               };
+              const toast = toastModule.createToast({
+                t,
+                store: storeApi.store,
+                useLocaleRevision,
+                useStoreRevision: storeApi.useStoreRevision,
+                CSS: styles.CSS,
+                dismissToast: storeApi.dismissToast,
+              });
               surfaces = {
                 panel: panelModule.createPanel(shared),
                 menu: menuModule.createMenu(shared),
+                toast,
               };
               return surfaces;
             });
@@ -297,6 +321,7 @@ window.__ModuleLoader__.load({
         const PanelTitle = () => surface((loaded) => loaded.panel.PanelTitle);
         const HeaderEntry = (props) => surface((loaded) => loaded.menu.HeaderEntry, props);
         const MenuOverlay = () => surface((loaded) => loaded.menu.MenuOverlay);
+        const ToastOverlay = () => surface((loaded) => loaded.toast.ToastOverlay);
 
         ctx.effect(
           () =>
@@ -331,6 +356,9 @@ window.__ModuleLoader__.load({
         );
         slots.inject('shell.overlay', () =>
           slots.register({ name: 'shell.overlay', id: 'services-menu', order: 860 }, MenuOverlay),
+        );
+        slots.inject('shell.overlay', () =>
+          slots.register({ name: 'shell.overlay', id: 'services-toast', order: 900 }, ToastOverlay),
         );
       },
     };

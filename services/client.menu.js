@@ -9,7 +9,7 @@ window.__ModuleLoader__.load({
     const h = React.createElement;
 
     function createMenu(d) {
-      const { t, useLocaleRevision, CSS, store, setOpen, useServices, useStoreRevision, useScripts, filterGroups, KIND, menuItems, stopService, restartService, useArmedAction, useCollapsedGroups, openPanel } = d;
+      const { t, useLocaleRevision, CSS, store, setOpen, useServices, useStoreRevision, useScripts, filterGroups, KIND, menuItems, stopService, restartService, useArmedAction, useCollapsedGroups, useServiceNotices, openPanel } = d;
 
         /**
          * Header entry: toggles the dropdown. It also publishes the Session and
@@ -19,6 +19,10 @@ window.__ModuleLoader__.load({
         function HeaderEntry(props) {
           useLocaleRevision();
           const services = useServices(props?.sessionId);
+          // The header entry is mounted even when the panel and dropdown are
+          // closed, which makes it the one surface that can always report a
+          // finished run.
+          useServiceNotices(services);
           store.sessionId = props?.sessionId;
           store.actions = props?.inputActions;
           const ref = React.useRef(null);
@@ -155,9 +159,12 @@ window.__ModuleLoader__.load({
           if (store.open === false || anchor === null) return null;
 
           const visible = filterGroups(state.groups, query);
+          // Every service, not just the running ones: a finished run keeps its
+          // exit code on the row, so the dropdown answers "how did it end?"
+          // without opening the panel.
           const runningByCommand = new Map();
-          for (const running of services) {
-            if (running.state === 'running') runningByCommand.set(String(running.source ?? running.command), running.id);
+          for (const service of services) {
+            runningByCommand.set(String(service.source ?? service.command), service);
           }
           const items =
             state.phase === 'ready'

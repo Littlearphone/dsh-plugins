@@ -48,7 +48,10 @@ window.__ModuleLoader__.load({
             });
             store.busy = false;
             store.notice = '';
-            store.focusServiceId = String(created?.service?.id ?? '');
+            const startedId = String(created?.service?.id ?? '');
+            store.focusServiceId = startedId;
+            // This run is now this page's child: when it exits, tell the user.
+            if (startedId !== '') store.watched.add(startedId);
             // Starting never navigates: the dropdown is meant to be usable
             // without opening the panel, and the panel is already open when its
             // own start button is the caller.
@@ -109,10 +112,18 @@ window.__ModuleLoader__.load({
           if (service.state === 'stopping') {
             return h('span', { className: 'dsh-svc-chip' }, t('run.stopping'));
           }
+          // "已结束 0" says nothing: name the outcome and keep the code beside it,
+          // so a 0 reads as success and a 2 as failure without a lookup. A run with
+          // no code (killed) has no verdict to name.
+          const code = service.exitCode;
+          if (code === undefined || code === null) {
+            return h('span', { className: 'dsh-svc-chip is-done' }, t('run.exited'));
+          }
+          const verdict = code === 0 ? t('run.exitOk') : t('run.exitFail');
           return h(
             'span',
-            { className: 'dsh-svc-chip is-done' },
-            t('run.exited') + ' ' + String(service.exitCode ?? '?'),
+            { className: 'dsh-svc-chip is-done' + (code === 0 ? '' : ' is-failed') },
+            t('run.exited') + ' · ' + verdict + ' (' + String(code) + ')',
           );
         }
 
@@ -205,8 +216,9 @@ window.__ModuleLoader__.load({
             nodes.push(groupHeading(group, true, collapsed, toggle));
             if (collapsed.has(group.id)) return;
             sortScripts(group.scripts).forEach((script, index) => {
-              const runningId = runningByCommand.get(script.command);
-              const running = runningId !== undefined;
+              const service = runningByCommand.get(script.command);
+              const running = service !== undefined && service.state === 'running';
+              const runningId = running ? service.id : undefined;
               nodes.push(
                 h(
                   'div',
@@ -222,6 +234,7 @@ window.__ModuleLoader__.load({
                     h('span', { className: 'dsh-svc-item-name' }, script.name),
                     h('span', { className: 'dsh-svc-item-command' }, script.command),
                   ),
+                  serviceChip(service),
                   h(
                     'span',
                     { className: 'dsh-svc-actions', key: 'actions' },
