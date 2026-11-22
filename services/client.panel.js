@@ -11,6 +11,33 @@ window.__ModuleLoader__.load({
     function createPanel(d) {
       const { BUILD, t, useLocaleRevision, CSS, store, emit, useServices, useStoreRevision, useScripts, UI_ROUTE, RuntimeBadge, sortScripts, ConfigEditor, OutputView, BRAND_ICONS, launch, togglePin, postJson, stopService, restartService, groupHeading, serviceChip, stateLabel, armedActionButton, useArmedAction, useRestarting, useCollapsedGroups } = d;
 
+        /**
+         * A drawer that throws must not take the list down with it: a blank panel
+         * reads as "this workspace has no scripts", and the list is what the user
+         * was looking at. The failure is shown in the drawer's place instead.
+         */
+        class EditorBoundary extends React.Component {
+          constructor(props) {
+            super(props);
+            this.state = { error: '' };
+          }
+
+          static getDerivedStateFromError(error) {
+            return { error: String(error?.message ?? error) };
+          }
+
+          render() {
+            if (this.state.error !== '') {
+              return h(
+                'p',
+                { className: 'dsh-svc-notice is-error' },
+                t('edit.crashed') + ': ' + this.state.error,
+              );
+            }
+            return this.props.children;
+          }
+        }
+
         /** Right-sidebar tab: the list, with its directory and a refresh control. */
         /**
          * The panel lists scripts and, under each one, the service that script

@@ -22,7 +22,7 @@ window.__ModuleLoader__.load({
     const NS = 'services';
     const ROUTE = '/services/list/';
     /** Shown on the refresh control so a stale page is recognisable at a glance. */
-    const BUILD = 'services 0.1.14';
+    const BUILD = 'services 0.1.15';
 
     const ZH = {
       'tab.title': '服务管理',
@@ -168,6 +168,7 @@ window.__ModuleLoader__.load({
       'edit.reset': 'Reset to package.json',
       'edit.close': 'Close',
       'edit.badEnv': 'Environment must be KEY=VALUE',
+      'edit.crashed': 'the editor failed to render',
       'warn.maven': 'No Maven found (no mvnw, mvn or mvnd): Maven rows and Java main classes will fail with "not recognized".',
       'warn.jdk': 'No usable JDK found (none in ~/.jdks, .idea, JAVA_HOME or PATH): every JVM start needs one.',
       'run.stop': 'Stop',
