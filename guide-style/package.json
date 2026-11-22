@@ -1,9 +1,9 @@
 {
   "name": "@local/guide-style",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
-  "description": "Restyles the right sidebar's guide page as a centred grid of square tiles. Presentation only.",
+  "description": "Restyles the right sidebar's guide page as a centred grid of square tiles, and checks the profile's plugins for newer versions on a schedule.",
   "exports": {
     ".": "./index.js",
     "./client": "./client.js",
@@ -12,6 +12,7 @@
   },
   "files": [
     "index.js",
+    "updates.js",
     "client.js",
     "cordis.patch.yml",
     "locale/*.json",
