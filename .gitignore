@@ -1,5 +1,6 @@
-# 依赖
+# 依赖（统一用 pnpm；npm 的锁文件与 node_modules 一律不进仓库）
 node_modules/
+package-lock.json
 
 # 构建产物
 dist/

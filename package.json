@@ -5,5 +5,8 @@
   "description": "Local DSH Web GUI plugins: sidebar notes, task board, services.",
   "scripts": {
     "check": "node scripts/check.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.65.1"
   }
 }
