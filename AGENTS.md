@@ -17,6 +17,23 @@
 - **chunk 的 `?rev=` 跟着入口走**。只改 chunk 不改入口，浏览器继续用旧 chunk——改 chunk
   时必须同时动一下入口，否则测的是旧代码。
 
+## 写文件：别让 PowerShell 5.1 加 BOM 或改换行
+
+这台机器的 `powershell.exe` 是 **5.1**：
+
+- `Set-Content -Encoding UTF8` 写的是**带 BOM 的 UTF-8**。`package.json` 一带 BOM，`JSON.parse`
+  当场失败，插件整个加载不起来（2026-11 真踩过一次，靠 `git commit --amend` 才擦掉）；
+- `Get-Content … | Set-Content …` 顺手把换行改成 CRLF（仓库约定 LF，见 `.gitattributes`）。
+
+所以：
+
+- 改源码用 `edit` / `write` 工具，或 node（`fs.writeFileSync(file, text, 'utf8')`）；
+- 非要在 PS 里写，用
+  `[IO.File]::WriteAllText($path, $text, (New-Object System.Text.UTF8Encoding($false)))`，
+  或 `[IO.File]::WriteAllBytes($path, [Text.Encoding]::UTF8.GetBytes($text))`；
+- **不要** `Get-Content` 读、`Set-Content` 写回同一个文件；
+- `node scripts/check.mjs` 现在会扫全仓库的 BOM，命中即失败——提交前必须全绿。
+
 ## 改动插件客户端的验收
 
 1. `node scripts/check.mjs` 全绿（它会检查每个 `client*.js`，含 chunk）；
