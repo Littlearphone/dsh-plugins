@@ -4,6 +4,7 @@
  * Finds the start scripts of one working directory: its own package.json, plus
  * every package of a workspace (pnpm / npm / yarn) and any Go module below it.
  */
+import { existsSync } from 'node:fs';
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 /** Route the browser half calls, relative to the page origin. */
@@ -224,6 +225,48 @@ export async function mainPackages(base) {
  */
 const MAVEN_LIFECYCLE = ['clean', 'compile', 'test', 'package', 'install'];
 
+/** The wrapper a project pins its Maven version with, when it ships one. */
+const MAVEN_WRAPPER = process.platform === 'win32' ? 'mvnw.cmd' : 'mvnw';
+
+/** PATH entries of the Host — the same PATH its child processes receive. */
+function pathEntries() {
+  const raw = process.env.PATH ?? process.env.Path ?? '';
+  return raw.split(process.platform === 'win32' ? ';' : ':').filter((entry) => entry !== '');
+}
+
+/** Whether a bare program name resolves through PATH (PATHEXT decides on Windows). */
+export function programOnPath(name) {
+  const suffixes =
+    process.platform === 'win32'
+      ? (process.env.PATHEXT ?? '.EXE;.CMD;.BAT;.COM').split(';').filter((suffix) => suffix !== '')
+      : [''];
+  return pathEntries().some((entry) =>
+    suffixes.some((suffix) => existsSync(join(entry, name + suffix))),
+  );
+}
+
+/**
+ * The command that runs Maven here: the project's own wrapper first (it pins the
+ * version the project expects), then the `mvn` on PATH, then `mvnd`, the Maven
+ * Daemon, which takes the same arguments. A machine that develops in IDEA often
+ * has no `mvn` at all — the IDE carries its own copy — and a row that can only
+ * print "not recognized" is worse than one that runs the daemon.
+ */
+export function mavenRunner(root, relative) {
+  const prefix = process.platform === 'win32' ? '.\\' : './';
+  const own = join(relative, MAVEN_WRAPPER);
+  if (existsSync(join(root, own))) {
+    // `.\` keeps cmd.exe and PowerShell from looking the name up on PATH.
+    return prefix + own;
+  }
+  // A multi-module workspace keeps one wrapper at the root; `-f sub/pom.xml`
+  // still has to go through it, or the submodule builds with a different Maven.
+  if (relative !== '' && existsSync(join(root, MAVEN_WRAPPER))) return prefix + MAVEN_WRAPPER;
+  if (programOnPath('mvn')) return 'mvn';
+  if (programOnPath('mvnd')) return 'mvnd';
+  return 'mvn';
+}
+
 /**
  * Plugin goals worth a row, keyed by the plugin artifact that provides them.
  * Spring Boot is the common case, the rest are the runners people actually use.
@@ -291,11 +334,12 @@ export async function mavenGroups(root, known = []) {
     const label = relative === '' ? artifact : `${relative} · ${artifact}`;
     const pom = join(relative, 'pom.xml');
     const file = relative === '' ? '' : ` -f ${shellPath(pom)}`;
+    const runner = mavenRunner(root, relative);
     const add = (goal, hint) => {
       scripts.push({
         name: goal,
         label,
-        command: `mvn -q${file} ${goal}`,
+        command: `${runner} -q${file} ${goal}`,
         category: 'maven',
         hint,
       });
