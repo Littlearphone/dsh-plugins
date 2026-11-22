@@ -265,8 +265,10 @@ Maven / Gradle 跑在 Host 继承来的 `JAVA_HOME` 上（这台机器是机器�
    → `lint/check/format` → `size/report/audit` → 其他；
 3. 最后按名称。
 
-工具判定用的是"命令行里最先出现的已知程序名"，和图标是同一套规则（`detectRuntime`），
-所以列表顺序、图标、tooltip 三者永远一致。
+工具判定先看这条脚本自己声明的类型（`category`）——Java 的 `main` 行命令行虽然以 Maven 开头，
+它仍然是 Java 程序，图标、排序、tooltip 都按 Java 算；没有声明时才退回"命令行里最先出现的已知
+程序名"（`detectRuntime`）。两处都走同一个 `runtimeOf(script)`，所以列表顺序、图标、tooltip
+三者永远一致。
 
 - **下拉顶部有搜索框**：打开即聚焦，按脚本名**和命令内容**做大小写不敏感的过滤，组名不参与匹配；
   没有命中时显示「没有匹配的脚本」。每次打开都会清空上一次的输入。
@@ -286,7 +288,7 @@ Maven / Gradle 跑在 Host 继承来的 `JAVA_HOME` 上（这台机器是机器�
 | npm 标志 | npm / pnpm / yarn | 三种包管理器共用 npm 的图标与 npm 红 `#CB3837`，只有右侧文字与 tooltip 区分 |
 | Maven 标志（IDEA 那个 M） | mvn | `mvn`、`mvnd`，tint 用 IDEA 的蓝 `#3574F0` |
 | Gradle 标志 | gradle | `gradle`、`gradlew` |
-| OpenJDK 标志 | java | `java` |
+| OpenJDK 标志 | java | `java`、`javac`，以及 `category` 是 `java` / `javac` 的行（命令行走 Maven 也一样） |
 | Go 标志 | go | `go run`、`go build`、`go test` |
 | Python 标志 | python | `python`、`python3`、`uv`、`poetry`、`pipenv`、`pytest`、`django-admin` |
 | Docker 标志 | docker | `docker`、`docker-compose` |

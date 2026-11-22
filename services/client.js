@@ -22,7 +22,7 @@ window.__ModuleLoader__.load({
     const NS = 'services';
     const ROUTE = '/services/list/';
     /** Shown on the refresh control so a stale page is recognisable at a glance. */
-    const BUILD = 'services 0.1.13';
+    const BUILD = 'services 0.1.14';
 
     const ZH = {
       'tab.title': '服务管理',
@@ -83,6 +83,7 @@ window.__ModuleLoader__.load({
       'edit.reset': '还原为原生',
       'edit.close': '收起',
       'edit.badEnv': '环境变量要写成 KEY=VALUE',
+      'edit.crashed': '编辑抽屉渲染失败',
       'warn.maven': '没找到 Maven（mvnw / mvn / mvnd 都没有）：Maven 行和 Java 启动类会报"不是内部或外部命令"。',
       'warn.jdk': '没找到可用的 JDK（~/.jdks、.idea、JAVA_HOME、PATH 都没有）：JVM 的启动都需要它。',
       'run.stop': '停止',
@@ -280,17 +281,20 @@ window.__ModuleLoader__.load({
               const styles = cssModule.createCss({ t });
               const storeApi = storeModule.createStore({ t, ROUTE, PACKAGE, KIND, sortScripts: data.sortScripts });
               const actions = actionsModule.createActions({ t, ...storeApi, ...data });
+              const download = downloadModule.createDownload({
+                t,
+                DL_ROUTE: storeApi.DL_ROUTE,
+                useLocaleRevision,
+              });
               const editor = editorModule.createEditor({
                 t,
                 CONFIG_ROUTE: storeApi.CONFIG_ROUTE,
                 OUTPUT_ROUTE: storeApi.OUTPUT_ROUTE,
                 store: storeApi.store,
                 emit: storeApi.emit,
-              });
-              const download = downloadModule.createDownload({
-                t,
-                DL_ROUTE: storeApi.DL_ROUTE,
-                useLocaleRevision,
+                // The editor draws the "+" itself, so it needs the component;
+                // a chunk cannot reach another chunk's exports by name.
+                DownloadControl: download.DownloadControl,
               });
               const shared = {
                 t,

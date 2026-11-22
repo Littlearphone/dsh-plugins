@@ -233,7 +233,7 @@ window.__ModuleLoader__.load({
                     className: 'dsh-svc-item' + (running ? ' is-running' : ''),
                     title: script.command,
                   },
-                  RuntimeBadge(script.command, 'badge'),
+                  RuntimeBadge(script, 'badge'),
                   h(
                     'span',
                     { className: 'dsh-svc-item-text', key: 'text' },

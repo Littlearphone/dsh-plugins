@@ -100,13 +100,32 @@ window.__ModuleLoader__.load({
     }
 
     /**
+     * The tool a row belongs to. A row may name it itself (`category`): a Java
+     * `main` is started through `exec:java`, so its command line begins with the
+     * Maven runner, but the thing being run is a Java program — badging it as
+     * Maven makes the list lie. The command line stays the fallback for npm
+     * scripts and for anything that carries no category.
+     */
+    const CATEGORY_RUNTIME = { javac: 'java' };
+
+    function runtimeOf(script) {
+      const category = typeof script === 'string' ? undefined : script?.category;
+      const declared = typeof category === 'string' ? (CATEGORY_RUNTIME[category] ?? category) : '';
+      if (declared !== '') {
+        const match = RUNTIMES.find((runtime) => runtime.id === declared);
+        if (match !== undefined) return match;
+      }
+      return detectRuntime(typeof script === 'string' ? script : script?.command);
+    }
+
+    /**
      * The badge that fronts one script row: the tool's own mark, tinted by the
      * tool. A mark is either one 24x24 path or a `{ viewBox, paths }` group, so a
      * glyph drawn on another grid (Maven's, from IDEA's icon set) fits without a
      * second code path.
      */
-    function RuntimeBadge(command, key) {
-      const runtime = detectRuntime(command);
+    function RuntimeBadge(script, key) {
+      const runtime = runtimeOf(script);
       const mark = runtime === undefined ? undefined : BRAND_ICONS[runtime.icon];
       const glyph =
         typeof mark === 'string'
@@ -139,7 +158,7 @@ window.__ModuleLoader__.load({
     const TOOL_ORDER = ['npm', 'node', 'go', 'maven', 'gradle', 'java', 'python', 'docker', 'dotnet'];
 
     function toolRank(script) {
-      const runtime = detectRuntime(script?.command);
+      const runtime = runtimeOf(script);
       if (runtime === undefined) return TOOL_ORDER.length;
       const index = TOOL_ORDER.indexOf(runtime.icon);
       return index === -1 ? TOOL_ORDER.length : index;
@@ -189,7 +208,7 @@ window.__ModuleLoader__.load({
 
 
 
-      return { RUNTIMES, BRAND_ICONS, GENERIC_ICON, detectRuntime, RuntimeBadge, sortScripts, filterGroups, toolRank, scriptRank };
+      return { RUNTIMES, BRAND_ICONS, GENERIC_ICON, detectRuntime, runtimeOf, RuntimeBadge, sortScripts, filterGroups, toolRank, scriptRank };
     }
 
     return { createData };

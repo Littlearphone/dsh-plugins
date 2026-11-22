@@ -192,7 +192,7 @@ window.__ModuleLoader__.load({
                   className: 'dsh-svc-row' + (running ? ' is-running' : ''),
                   title: script.command,
                 },
-                RuntimeBadge(script.command, 'badge'),
+                RuntimeBadge(script, 'badge'),
                 h(
                   'span',
                   { className: 'dsh-svc-row-text', key: 'text' },
@@ -329,39 +329,42 @@ window.__ModuleLoader__.load({
                 : null,
               ),
               editKey === rowKey
-                ? h(ConfigEditor, {
-                    key: 'editor',
-                    sessionId,
-                    script,
-                    dir: group.dir ?? '',
-                    jdkInfo: state.jdk,
-                    labels: {
-                      title: t('edit.title'),
-                      name: t('edit.name'),
-                      args: t('edit.args'),
-                      argsHint: t('edit.argsHint'),
-                      env: t('edit.env'),
-                      cwd: t('edit.cwd'),
-                      cwdHint: t('edit.cwdHint'),
-                      runner: t('edit.runner'),
-                      runnerAuto: t('edit.runnerAuto'),
-                      jdk: t('edit.jdk'),
-                      jdkAuto: t('edit.jdkAuto'),
-                      jdkCustom: t('edit.jdkCustom'),
-                      jdkPathHint: t('edit.jdkPathHint'),
-                      locked: t('edit.locked'),
-                      save: t('edit.save'),
-                      reset: t('edit.reset'),
-                      close: t('edit.close'),
-                      badEnv: t('edit.badEnv'),
-                    },
-                    onSaved: () => {
-                      setEditKey('');
-                      load();
-                    },
-                    onInstalled: () => load(),
-                    onCancel: () => setEditKey(''),
-                  })
+                ? h(
+                    EditorBoundary,
+                    { key: 'editor' },
+                    h(ConfigEditor, {
+                      sessionId,
+                      script,
+                      dir: group.dir ?? '',
+                      jdkInfo: state.jdk,
+                      labels: {
+                        title: t('edit.title'),
+                        name: t('edit.name'),
+                        args: t('edit.args'),
+                        argsHint: t('edit.argsHint'),
+                        env: t('edit.env'),
+                        cwd: t('edit.cwd'),
+                        cwdHint: t('edit.cwdHint'),
+                        runner: t('edit.runner'),
+                        runnerAuto: t('edit.runnerAuto'),
+                        jdk: t('edit.jdk'),
+                        jdkAuto: t('edit.jdkAuto'),
+                        jdkCustom: t('edit.jdkCustom'),
+                        jdkPathHint: t('edit.jdkPathHint'),
+                        locked: t('edit.locked'),
+                        save: t('edit.save'),
+                        reset: t('edit.reset'),
+                        close: t('edit.close'),
+                        badEnv: t('edit.badEnv'),
+                      },
+                      onSaved: () => {
+                        setEditKey('');
+                        load();
+                      },
+                      onInstalled: () => load(),
+                      onCancel: () => setEditKey(''),
+                    }),
+                  )
                 : null,
             );
           };
