@@ -159,7 +159,18 @@ window.__ModuleLoader__.load({
             'aria-expanded': installKind === kind ? 'true' : 'false',
             onClick: () => setInstallKind(installKind === kind ? '' : kind),
           },
-          '+',
+          // A glyph would sit on its baseline inside a 32px box; the icon is
+          // centred by the flex container instead.
+          h(
+            'svg',
+            { viewBox: '0 0 16 16', 'aria-hidden': true, fill: 'none' },
+            h('path', {
+              d: 'M8 3.5v9M3.5 8h9',
+              stroke: 'currentColor',
+              strokeWidth: 1.6,
+              strokeLinecap: 'round',
+            }),
+          ),
         );
 
       const installPanel = (kind) =>
@@ -308,7 +319,16 @@ window.__ModuleLoader__.load({
                 if (typeof onCancel === 'function') onCancel();
               },
             },
-            '×',
+            h(
+              'svg',
+              { viewBox: '0 0 16 16', 'aria-hidden': true, fill: 'none' },
+              h('path', {
+                d: 'M4.5 4.5l7 7M11.5 4.5l-7 7',
+                stroke: 'currentColor',
+                strokeWidth: 1.5,
+                strokeLinecap: 'round',
+              }),
+            ),
           ),
         ),
         // The card may be taller than the sidebar. Only the body scrolls, so the

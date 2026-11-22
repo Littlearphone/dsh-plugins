@@ -120,7 +120,16 @@ window.__ModuleLoader__.load({
                 if (typeof onClose === 'function') onClose();
               },
             },
-            '×',
+            h(
+              'svg',
+              { viewBox: '0 0 16 16', 'aria-hidden': true, fill: 'none' },
+              h('path', {
+                d: 'M4.5 4.5l7 7M11.5 4.5l-7 7',
+                stroke: 'currentColor',
+                strokeWidth: 1.5,
+                strokeLinecap: 'round',
+              }),
+            ),
           ),
         );
 
