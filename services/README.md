@@ -384,6 +384,22 @@ toast 一直保留**，回到窗口后重新给满 8 秒。最多同时堆 4 张
   这两项随变体存进 `configs`，启动时由 Host 分别用在命令首词和 `JAVA_HOME` 上；
 - **行内选择器**：有变体的行多一个下拉，切换即时写回 `selected`；
 - **迁移**：v2 的单条覆盖读出来会自动补上 id，等价于「只有一条变体」，行为不变。
+## 启动配置卡片
+
+抽屉是一张**卡片**，不是一列挤在一起的小控件。2026-11 按
+[Linear 的设计系统](https://github.com/VoltAgent/awesome-design-md)（`references/linear.md`）重做：
+表面阶梯 + 发丝线、4px 节奏、8px 圆角控件、没有阴影，强调色只出现在主按钮和焦点环上。
+
+- **头部**：11px 大写 eyebrow「启动配置」+ mono 的脚本名 + 关闭；
+- **锁定的命令行**：单独一块内嵌面板（`bg-base` + 发丝线），锁那一行说明它来自 `package.json`；
+- **分区**：运行环境 / 启动参数 / 环境变量；分区之间只有一条发丝线，标题 11px 大写；
+- **标签在控件上方**：原来 56px 的标签列会把「Maven 运行器」挤成两行、10px 输入框也小得难点，
+  现在每个控件整行 32px、字号 13px；
+- **安装面板**：`+` 不再弹一个 40px 的浮层（catalog 还没回来时四个控件挤成一条，看着像错乱），
+  而是在字段下面展开一整块面板：先是固定高度的「正在读取可下载版本…」+ spinner，再是
+  发行版 / 版本两个整行下拉和主按钮，下载时换成 4px 进度条 + `已下载 / 总量`；
+- **主操作**：`保存` 是强调色实心按钮，`还原为原生` 是描边按钮——不再用只有图标、没有文字的按钮。
+
 ## 代码结构
 
 Host 半侧按职责拆开（普通 ESM，`import` 直接引）：
@@ -401,20 +417,20 @@ Host 半侧按职责拆开（普通 ESM，`import` 直接引）：
 依赖是单向的：`config → discover → processes → routes → index`；`discover → download → jdk`，
 `routes → download`。
 
-客户端半侧拆成入口 + 9 个包内 chunk，最大 493 行：
+客户端半侧拆成入口 + 9 个包内 chunk，最大 534 行：
 
 | 文件 | 行数 | 职责 |
 |---|---|---|
-| `client.js` | 406 | 入口：locale、注册、chunk 装载与拼装 |
+| `client.js` | 438 | 入口：locale、注册、chunk 装载与拼装 |
 | `client.data.js` | 197 | 运行时识别、图标、排序与过滤 |
-| `client.css.js` | 203 | 两张样式表 |
+| `client.css.js` | 230 | 两张样式表 |
 | `client.store.js` | 286 | store、emit、取数 hook、完成的运行、toast 队列 |
-| `client.editor.js` | 445 | 按脚本类型变的启动配置编辑器、输出视图 |
+| `client.editor.js` | 499 | 按脚本类型变的启动配置卡片、输出视图 |
 | `client.actions.js` | 395 | 固定、启动、分组标题、菜单项、两步确认按钮 |
-| `client.panel.js` | 493 | 侧栏面板与标题 |
+| `client.panel.js` | 534 | 侧栏面板与标题 |
 | `client.menu.js` | 262 | 头部入口与下拉覆盖层 |
 | `client.toast.js` | 87 | 执行结束的右下角 toast |
-| `client.download.js` | 186 | 下载 JDK / Maven 的弹层与轮询 |
+| `client.download.js` | 237 | 下载 JDK / Maven 的安装面板与轮询 |
 
 拆分的两个硬约束（都踩过）：
 

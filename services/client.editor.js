@@ -9,7 +9,7 @@ window.__ModuleLoader__.load({
     const h = React.createElement;
 
     function createEditor(d) {
-      const { t, CONFIG_ROUTE, OUTPUT_ROUTE, store, emit, DownloadControl } = d;
+      const { t, CONFIG_ROUTE, OUTPUT_ROUTE, store, emit, DownloadPanel } = d;
 
     function ConfigEditor({ sessionId, script, dir, labels, jdkInfo, onSaved, onCancel, onInstalled }) {
       const scriptName = script.original ?? script.name;
@@ -31,6 +31,9 @@ window.__ModuleLoader__.load({
       const [jdk, setJdk] = React.useState(script.jdk ?? '');
       const [busy, setBusy] = React.useState(false);
       const [error, setError] = React.useState('');
+      // Which install panel is open ("jdk" / "maven"); only one at a time, and it
+      // renders below its own field so nothing has to fit into a 320px row.
+      const [installKind, setInstallKind] = React.useState('');
       // A saved runner may no longer be installed; keep it selectable so saving
       // the form again does not silently change the choice.
       const runners = Array.isArray(script.runners) ? script.runners : [];
@@ -38,6 +41,9 @@ window.__ModuleLoader__.load({
         runner === '' || runners.includes(runner) ? runners : [runner, ...runners];
       const jdkOptions = Array.isArray(jdkInfo?.options) ? jdkInfo.options : [];
       const detectedJdk = typeof jdkInfo?.project === 'string' ? jdkInfo.project : '';
+      // Only the directory name fits in a select: the full path is the title.
+      const detectedName =
+        detectedJdk === '' ? '' : detectedJdk.split(/[\\/]/).filter(Boolean).pop() ?? '';
       // The JDK field is a picker *and* a text field: a saved path that no scan
       // found (a JDK outside ~/.jdks) must start in the free-text part, or the
       // select would silently fall back to "auto" for a real choice.
@@ -113,7 +119,8 @@ window.__ModuleLoader__.load({
         }
       };
 
-      const field = (key, value, onChange, placeholder) =>
+      /** One labelled control; the label sits above it, never in a 56px column. */
+      const textField = (key, value, onChange, placeholder) =>
         h(
           'label',
           { className: 'dsh-svc-field', key },
@@ -127,103 +134,116 @@ window.__ModuleLoader__.load({
           }),
         );
 
-      return h(
-        'div',
-        { className: 'dsh-svc-drawer dsh-svc-editor' },
+      const selectField = (key, value, onChange, options, extra) =>
         h(
           'div',
-          { className: 'dsh-svc-drawer-head' },
-          h('span', { className: 'dsh-svc-drawer-title' }, labels.title + ' · ' + scriptName),
+          { className: 'dsh-svc-field', key },
+          h('span', { className: 'dsh-svc-field-label' }, labels[key]),
           h(
-            'button',
-            {
-              type: 'button',
-              className: 'dsh-svc-run-button',
-              onClick: () => {
-                if (typeof onCancel === 'function') onCancel();
-              },
-            },
-            labels.close,
+            'div',
+            { className: 'dsh-svc-control' },
+            h('select', { className: 'dsh-svc-input', value, onChange }, options),
+            extra ?? null,
           ),
-        ),
+        );
+
+      /** The "+" that opens an install panel below its own field. */
+      const addButton = (kind) =>
         h(
-          'div',
-          { className: 'dsh-svc-readonly', title: labels.locked },
-          h('span', { className: 'dsh-svc-lock', 'aria-hidden': true }, '🔒'),
-          h('code', { className: 'dsh-svc-readonly-text' }, script.command),
-          h('span', { className: 'dsh-svc-readonly-note' }, labels.locked),
-        ),
-        isMaven
-          ? h(
-              'div',
-              { className: 'dsh-svc-field', key: 'runner' },
-              h('span', { className: 'dsh-svc-field-label' }, labels.runner),
-              h(
-                'select',
-                {
-                  className: 'dsh-svc-input',
-                  value: runner,
-                  onChange: (event) => setRunner(event.target.value),
-                },
+          'button',
+          {
+            type: 'button',
+            className: 'dsh-svc-mini' + (installKind === kind ? ' is-active' : ''),
+            title: kind === 'jdk' ? t('dl.addJdk') : t('dl.addMaven'),
+            'aria-label': kind === 'jdk' ? t('dl.addJdk') : t('dl.addMaven'),
+            'aria-expanded': installKind === kind ? 'true' : 'false',
+            onClick: () => setInstallKind(installKind === kind ? '' : kind),
+          },
+          '+',
+        );
+
+      const installPanel = (kind) =>
+        installKind === kind
+          ? h(DownloadPanel, {
+              key: 'install-' + kind,
+              sessionId,
+              kind,
+              onClose: () => setInstallKind(''),
+              onInstalled: installed,
+            })
+          : null;
+
+      const runSection = [];
+      if (isJvm) {
+        runSection.push(
+          h('p', { className: 'dsh-svc-section-title', key: 'title' }, labels.sectionRun),
+        );
+        if (isMaven) {
+          runSection.push(
+            selectField(
+              'runner',
+              runner,
+              (event) => setRunner(event.target.value),
+              [
                 h(
                   'option',
-                  { value: '' },
+                  { key: 'auto', value: '' },
                   labels.runnerAuto + (runners.length === 0 ? '' : ' · ' + runners[0]),
                 ),
                 runnerChoices.map((choice) =>
                   h(
                     'option',
                     { key: choice, value: choice },
-                    choice.startsWith('maven-') ? 'Maven ' + choice.slice('maven-'.length) : choice,
+                    choice.startsWith('maven-')
+                      ? 'Maven ' + choice.slice('maven-'.length)
+                      : choice,
                   ),
                 ),
-              ),
-              h(DownloadControl, { key: 'dl', sessionId, kind: 'maven', onInstalled: installed }),
-            )
-          : null,
-        isJvm
-          ? h(
-              'div',
-              { className: 'dsh-svc-field', key: 'jdk' },
-              h('span', { className: 'dsh-svc-field-label' }, labels.jdk),
+              ],
+              addButton('maven'),
+            ),
+          );
+          const mavenPanel = installPanel('maven');
+          if (mavenPanel !== null) runSection.push(mavenPanel);
+        }
+        runSection.push(
+          selectField(
+            'jdk',
+            customJdk ? customJdkOption : jdk,
+            (event) => {
+              const value = event.target.value;
+              if (value === customJdkOption) {
+                setCustomJdk(true);
+                if (!customJdk) setJdk('');
+                return;
+              }
+              setCustomJdk(false);
+              setJdk(value);
+            },
+            [
               h(
-                'select',
-                {
-                  className: 'dsh-svc-input',
-                  value: customJdk ? customJdkOption : jdk,
-                  onChange: (event) => {
-                    const value = event.target.value;
-                    if (value === customJdkOption) {
-                      setCustomJdk(true);
-                      if (!customJdk) setJdk('');
-                      return;
-                    }
-                    setCustomJdk(false);
-                    setJdk(value);
-                  },
-                },
+                'option',
+                { key: 'auto', value: '', title: detectedJdk },
+                labels.jdkAuto + (detectedName === '' ? '' : ' · ' + detectedName),
+              ),
+              jdkOptions.map((option) =>
                 h(
                   'option',
-                  { value: '' },
-                  labels.jdkAuto + (detectedJdk === '' ? '' : ' · ' + detectedJdk),
+                  { key: option.home, value: option.home, title: option.home },
+                  option.name,
                 ),
-                jdkOptions.map((option) =>
-                  h(
-                    'option',
-                    { key: option.home, value: option.home, title: option.home },
-                    option.name,
-                  ),
-                ),
-                h('option', { value: customJdkOption }, labels.jdkCustom),
               ),
-              h(DownloadControl, { key: 'dl', sessionId, kind: 'jdk', onInstalled: installed }),
-            )
-          : null,
-        isJvm && customJdk
-          ? h(
+              h('option', { key: 'custom', value: customJdkOption }, labels.jdkCustom),
+            ],
+            addButton('jdk'),
+          ),
+        );
+        if (customJdk) {
+          runSection.push(
+            h(
               'label',
               { className: 'dsh-svc-field', key: 'jdk-path' },
-              h('span', { className: 'dsh-svc-field-label' }, ''),
+              h('span', { className: 'dsh-svc-field-label' }, labels.jdkPath),
               h('input', {
                 className: 'dsh-svc-input',
                 value: jdk,
@@ -231,14 +251,25 @@ window.__ModuleLoader__.load({
                 placeholder: labels.jdkPathHint,
                 onChange: (event) => setJdk(event.target.value),
               }),
-            )
-          : null,
-        field('name', label, setLabel, script.name),
-        field('args', args, setArgs, labels.argsHint),
+            ),
+          );
+        }
+        const jdkPanel = installPanel('jdk');
+        if (jdkPanel !== null) runSection.push(jdkPanel);
+      }
+
+      const startSection = [
+        h('p', { className: 'dsh-svc-section-title', key: 'title' }, labels.sectionStart),
+        textField('name', label, setLabel, script.name),
+        textField('args', args, setArgs, labels.argsHint),
+        textField('cwd', cwd, setCwd, labels.cwdHint),
+      ];
+
+      const envSection = [
+        h('p', { className: 'dsh-svc-section-title', key: 'title' }, labels.sectionEnv),
         h(
           'label',
-          { className: 'dsh-svc-field' },
-          h('span', { className: 'dsh-svc-field-label' }, labels.env),
+          { className: 'dsh-svc-field', key: 'env' },
           h('textarea', {
             className: 'dsh-svc-input dsh-svc-textarea',
             value: env,
@@ -248,58 +279,81 @@ window.__ModuleLoader__.load({
             onChange: (event) => setEnv(event.target.value),
           }),
         ),
-        field('cwd', cwd, setCwd, labels.cwdHint),
-        error === '' ? null : h('p', { className: 'dsh-svc-notice is-error' }, error),
+      ];
+
+      return h(
+        'section',
+        { className: 'dsh-svc-card dsh-svc-editor', 'aria-label': labels.title },
         h(
-          'div',
-          { className: 'dsh-svc-editor-actions' },
+          'header',
+          { className: 'dsh-svc-card-head', key: 'head' },
+          h(
+            'div',
+            { className: 'dsh-svc-card-titles' },
+            h('span', { className: 'dsh-svc-card-eyebrow', key: 'eyebrow' }, labels.title),
+            h(
+              'span',
+              { className: 'dsh-svc-card-name', key: 'name', title: script.command },
+              scriptName,
+            ),
+          ),
           h(
             'button',
             {
               type: 'button',
-              className: 'dsh-svc-icon is-primary',
-              title: labels.save,
-              'aria-label': labels.save,
+              className: 'dsh-svc-card-close',
+              title: labels.close,
+              'aria-label': labels.close,
+              onClick: () => {
+                if (typeof onCancel === 'function') onCancel();
+              },
+            },
+            '×',
+          ),
+        ),
+        h(
+          'div',
+          { className: 'dsh-svc-cmd', key: 'cmd', title: labels.locked },
+          h(
+            'span',
+            { className: 'dsh-svc-cmd-head' },
+            h('span', { 'aria-hidden': true }, '🔒'),
+            labels.locked,
+          ),
+          h('code', { className: 'dsh-svc-cmd-text' }, script.command),
+        ),
+        isJvm ? h('div', { className: 'dsh-svc-section', key: 'run' }, ...runSection) : null,
+        h('div', { className: 'dsh-svc-section', key: 'start' }, ...startSection),
+        h('div', { className: 'dsh-svc-section', key: 'env' }, ...envSection),
+        error === '' ? null : h('p', { className: 'dsh-svc-notice is-error', key: 'error' }, error),
+        h(
+          'div',
+          { className: 'dsh-svc-card-actions', key: 'actions' },
+          h(
+            'button',
+            {
+              type: 'button',
+              className: 'dsh-svc-btn is-primary',
               disabled: busy,
               onClick: () => void save(false),
             },
-            h(
-              'svg',
-              { viewBox: '0 0 16 16', 'aria-hidden': true, fill: 'none' },
-              h('path', {
-                d: 'M3.5 8.5 6.5 11.5 12.5 4.5',
-                stroke: 'currentColor',
-                strokeWidth: 1.6,
-                strokeLinecap: 'round',
-                strokeLinejoin: 'round',
-              }),
-            ),
+            busy ? labels.saving : labels.save,
           ),
           script.overridden === true
             ? h(
                 'button',
                 {
                   type: 'button',
-                  className: 'dsh-svc-icon',
-                  title: labels.reset,
-                  'aria-label': labels.reset,
+                  className: 'dsh-svc-btn is-ghost',
                   disabled: busy,
                   onClick: () => void save(true),
                 },
-                h(
-                  'svg',
-                  { viewBox: '0 0 16 16', 'aria-hidden': true, fill: 'none' },
-                  h('path', {
-                    d: 'M4 6.5A5 5 0 1 1 5.5 11',
-                    stroke: 'currentColor',
-                    strokeWidth: 1.4,
-                    strokeLinecap: 'round',
-                  }),
-                ),
+                labels.reset,
               )
             : null,
         ),
       );
+
     }
 
     /**

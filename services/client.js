@@ -22,7 +22,7 @@ window.__ModuleLoader__.load({
     const NS = 'services';
     const ROUTE = '/services/list/';
     /** Shown on the refresh control so a stale page is recognisable at a glance. */
-    const BUILD = 'services 0.1.15';
+    const BUILD = 'services 0.1.16';
 
     const ZH = {
       'tab.title': '服务管理',
@@ -61,20 +61,31 @@ window.__ModuleLoader__.load({
       'edit.name': '显示名',
       'edit.args': '参数',
       'edit.argsHint': '--port 8899 --watch（原样透传给脚本，引号会保留）',
+      'edit.sectionRun': '运行环境',
+      'edit.sectionStart': '启动参数',
+      'edit.sectionEnv': '环境变量',
+      'edit.saving': '保存中…',
       'edit.runner': '运行器',
       'edit.runnerAuto': '自动',
       'edit.jdk': 'JDK',
       'edit.jdkAuto': '留空 = 自动',
       'edit.jdkCustom': '自定义…',
+      'edit.jdkPath': 'JDK 路径',
       'edit.jdkPathHint': 'C:\\path\\to\\jdk（JAVA_HOME）',
       'dl.addJdk': '下载 JDK',
       'dl.addMaven': '下载 Maven',
-      'dl.install': '下载',
+      'dl.install': '下载并安装',
       'dl.installing': '安装中…',
       'dl.downloading': '下载中',
       'dl.extracting': '解压中…',
       'dl.done': '已安装',
       'dl.failed': '失败',
+      'dl.reading': '正在读取可下载版本…',
+      'dl.installJdk': '安装 JDK',
+      'dl.installMaven': '安装 Maven',
+      'dl.vendor': '发行版',
+      'dl.version': '版本',
+      'dl.close': '收起',
       'edit.env': '环境变量',
       'edit.cwd': '工作目录',
       'edit.cwdHint': '相对工作区根；留空 = 脚本所在包目录',
@@ -147,20 +158,31 @@ window.__ModuleLoader__.load({
       'edit.name': 'Label',
       'edit.args': 'Arguments',
       'edit.argsHint': '--port 8899 --watch (passed through verbatim, quotes kept)',
+      'edit.sectionRun': 'Runtime',
+      'edit.sectionStart': 'Launch',
+      'edit.sectionEnv': 'Environment',
+      'edit.saving': 'Saving…',
       'edit.runner': 'Runner',
       'edit.runnerAuto': 'auto',
       'edit.jdk': 'JDK',
       'edit.jdkAuto': 'empty = auto',
       'edit.jdkCustom': 'custom…',
+      'edit.jdkPath': 'JDK path',
       'edit.jdkPathHint': 'C:\\path\\to\\jdk (JAVA_HOME)',
       'dl.addJdk': 'Download a JDK',
       'dl.addMaven': 'Download Maven',
-      'dl.install': 'Download',
+      'dl.install': 'Download and install',
       'dl.installing': 'Installing…',
       'dl.downloading': 'downloading',
       'dl.extracting': 'extracting…',
       'dl.done': 'installed',
       'dl.failed': 'failed',
+      'dl.reading': 'Reading the download catalog…',
+      'dl.installJdk': 'Install a JDK',
+      'dl.installMaven': 'Install Maven',
+      'dl.vendor': 'Distribution',
+      'dl.version': 'Version',
+      'dl.close': 'Close',
       'edit.env': 'Environment',
       'edit.cwd': 'Working directory',
       'edit.cwdHint': 'Relative to the workspace root; empty = the package directory',
@@ -295,9 +317,9 @@ window.__ModuleLoader__.load({
                 OUTPUT_ROUTE: storeApi.OUTPUT_ROUTE,
                 store: storeApi.store,
                 emit: storeApi.emit,
-                // The editor draws the "+" itself, so it needs the component;
-                // a chunk cannot reach another chunk's exports by name.
-                DownloadControl: download.DownloadControl,
+                // The editor draws the "+" itself, so it needs the panel; a
+                // chunk cannot reach another chunk's exports by name.
+                DownloadPanel: download.DownloadPanel,
               });
               const openPanel = () => {
                 if (controller !== undefined) controller.openTab(KIND);
