@@ -353,6 +353,12 @@ export async function spawnService(ctx, sessionId, request, root) {
       const bin = join(javaHome, 'bin');
       env[pathKey] = env[pathKey] === undefined ? bin : `${bin}${separator}${env[pathKey]}`;
     }
+    // mvnd's jline asks the OS for a terminal on every launch and, finding
+    // none, logs "Unable to create a system terminal" twice on stderr — right
+    // above the build log it belongs to. `TERM=dumb` is jline's own signal for
+    // "headless on purpose": it makes the same dumb-terminal choice quietly.
+    // Only JVM launches set it; npm scripts keep whatever TERM they inherited.
+    if (env.TERM === undefined) env.TERM = 'dumb';
   }
   const key = serviceKey(root, id);
   // Everything needed to launch this script again. A restart cannot go back to

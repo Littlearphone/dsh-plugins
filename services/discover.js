@@ -395,7 +395,12 @@ export async function mavenGroups(root, known = []) {
       scripts.push({
         name: goal,
         label,
-        command: `${command} -q${file} ${goal}`,
+        // No `-q`: quiet mode swallows every `[INFO]` line, so a successful
+        // build left the panel showing nothing but mvnd's terminal warning —
+        // indistinguishable from a failure, with an exit code of 0. The panel
+        // is the only place this log is visible at all, so keep Maven's own
+        // INFO level.
+        command: `${command}${file} ${goal}`,
         category: 'maven',
         runner,
         runners,
