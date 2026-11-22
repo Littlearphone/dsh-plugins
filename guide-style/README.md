@@ -11,40 +11,38 @@
 
 ## 装
 
-### 本机（开发态，link）
+**一键（本机 / 另一台机器都行，不带自动更新）：**
 
 ```powershell
+# 本机（link，改代码即时生效）
 dsh --profile web plugin install D:\DataCenter\Documents\IdeaProjects\dsh-plugins\guide-style
+
+# 从 GitHub（必须带 path）
+dsh --profile web plugin install "github:Littlearphone/dsh-plugins#path:/guide-style"
 ```
 
-`link:` 指向工作目录，改代码即时生效，但**不可被更新器更新**——DSH 加载的就是那个目录，
-没有"包"可替换。所以它只适合自己的开发机。
+**要自动更新，就得固定 commit**（这种 spec 不能走 CLI，原因见下）：
 
-### 另一台机器（从 GitHub，固定 commit）
-
-自动更新只认**固定 40 位 commit 的 git spec**，所以另一台机器必须这样装：
-
-```powershell
-# 1. 在仓库里取当前要发布的 commit
-git rev-parse HEAD        # 或 git ls-remote origin main
-
-# 2. 在另一台机器的 DSH 里用插件页的 Add plugin 粘贴：
-#    github:Littlearphone/dsh-plugins#<完整40位commit>&path:/guide-style
+```
+github:Littlearphone/dsh-plugins#<完整40位commit>&path:/guide-style
 ```
 
-**不要用 `dsh --profile ... plugin install` 装这个 spec。** Windows 上 DSH 的 CLI 会用
-`shell: true` 起 pnpm，`&` 被 cmd 当成命令分隔符，spec 被截断成 `#<commit>`，于是静默装成
-**仓库根包** `dsh-plugins 0.0.0`（退出码还是 0）。插件页 / `plugin_manager` 的
-`install_bundle` 不走 shell，同一个 spec 能正确装成 `@local/guide-style`，并把
-`github:...#<commit>&path:/guide-style` 原样存进 profile 的 `package.json`。
+粘到插件页的 **Add plugin**（或 `plugin_manager` 的 `install_bundle`）里；commit 用
+`git rev-parse HEAD` 取。
 
-装好之后，另一台机器的更新器每次检查都会 `git ls-remote` 这个仓库：
+> **`link:` 装法不会被更新器更新**——DSH 加载的就是那个目录，没有"包"可替换。所以自动更新
+> 只在固定 commit 的 git 装法上生效。
+>
+> **固定 commit 的 spec 不要用 `dsh plugin install`**：Windows 上 CLI 用 `shell: true` 起 pnpm，
+> `&` 被 cmd 当命令分隔符，spec 截断成 `#<commit>`，静默装成**仓库根包** `dsh-plugins 0.0.0`
+> （退出码还是 0）。插件页 / `plugin_manager` 不走 shell，同一个 spec 能正确装成
+> `@local/guide-style` 并原样存进 profile 的 `package.json`。
 
-- 远端 commit 和已装的不同 → 读该 commit 下 `/guide-style/package.json` 的 version；
-- **version 严格更大**才调 `updateBundle` 重新 pin 到新 commit。
+装好之后，更新器每次检查都会 `git ls-remote` 这个仓库：远端 commit 和已装的不同 → 读该
+commit 下 `/guide-style/package.json` 的 version，**严格更大**才 `updateBundle` 重新 pin。
 
 **所以发布纪律只有一条：要别的机器更新，就把 `guide-style/package.json` 的 version 升上去。**
-只改代码不升版本，更新器会停在 `newer commit, same version — updateBundle needs a version bump`。
+只改代码不升版本，会停在 `newer commit, same version — updateBundle needs a version bump`。
 
 卸载它，指南页会立即回到产品默认样式——其他插件不受影响。
 
