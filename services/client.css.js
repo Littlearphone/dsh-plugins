@@ -107,9 +107,10 @@ window.__ModuleLoader__.load({
 .dsh-svc-textarea{resize:vertical;font-family:var(--dsh-font-family-code,monospace);}
 .dsh-svc-editor-actions{display:flex;justify-content:flex-end;gap:4px;padding-top:2px;}
 .dsh-svc-icon.is-primary{border-color:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-state-business-primary);}
-  /* Start is the one affirmative action on a row: green, like a run control. */
-  .dsh-svc-icon.is-start{border-color:color-mix(in srgb,var(--dsw-alias-state-success-primary,#2ea043) 50%,transparent);color:var(--dsw-alias-state-success-primary,#2ea043);}
-  .dsh-svc-icon.is-start:hover{border-color:var(--dsw-alias-state-success-primary,#2ea043);background:color-mix(in srgb,var(--dsw-alias-state-success-primary,#2ea043) 12%,transparent);color:var(--dsw-alias-state-success-primary,#2ea043);}
+  /* Start is the one affirmative action on a row: green glyph, neutral frame — a
+     coloured border would make it a different control from every other icon. */
+  .dsh-svc-icon.is-start{color:var(--dsw-alias-state-success-primary,#2ea043);}
+  .dsh-svc-icon.is-start:hover{background:color-mix(in srgb,var(--dsw-alias-state-success-primary,#2ea043) 12%,transparent);color:var(--dsw-alias-state-success-primary,#2ea043);}
   .dsh-svc-icon.is-start:disabled{opacity:.5;}
 .dsh-svc-icon.is-pinned{border-color:color-mix(in srgb,var(--dsw-alias-state-business-primary) 55%,transparent);background:color-mix(in srgb,var(--dsw-alias-state-business-primary) 14%,transparent);color:var(--dsw-alias-state-business-primary);}
 .dsh-svc-icon{flex:none;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;width:20px;height:20px;padding:0;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm);background:var(--dsw-specific-menu);color:var(--dsw-alias-label-secondary);cursor:pointer;}
