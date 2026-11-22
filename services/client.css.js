@@ -144,6 +144,9 @@ window.__ModuleLoader__.load({
 .dsh-svc-item-stop:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-state-error-primary);}
 .dsh-svc-item-text{display:flex;flex:1 1 auto;flex-direction:column;gap:1px;min-width:0;}
 .dsh-svc-item-name{font-size:12px;line-height:1.3;}
+  .dsh-svc-item-line{display:flex;align-items:center;gap:6px;min-width:0;}
+  .dsh-svc-item-line .dsh-svc-item-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .dsh-svc-item-line .dsh-svc-chip{flex:none;}
 .dsh-svc-item-command{font-size:10px;line-height:1.3;color:var(--dsw-alias-label-secondary);font-family:var(--dsh-font-family-code,monospace);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .dsh-svc-menu-foot{flex:none;padding-top:2px;border-top:1px solid var(--dsw-alias-border-l1);}
 .dsh-svc-foot-button{box-sizing:border-box;width:100%;padding:5px 7px;border:0;border-radius:var(--dsw-radius-md);background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;font-size:11px;text-align:left;cursor:pointer;}

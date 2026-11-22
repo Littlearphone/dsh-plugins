@@ -8,7 +8,8 @@
  * only renders what it returns and hands a chosen command to the composer.
  * Lifecycle calls (`start`, `stop`, `restart`) go to the Host, which owns the
  * process and the launch descriptor a restart needs. Stop and restart are both
- * two-step: one click arms, the second confirms.
+ * two-step: one click arms, the second confirms. Finished runs surface through
+ * the small toast overlay, not only inside the panel.
  */
 window.__ModuleLoader__.load({
   id: '@local/services',
@@ -21,7 +22,7 @@ window.__ModuleLoader__.load({
     const NS = 'services';
     const ROUTE = '/services/list/';
     /** Shown on the refresh control so a stale page is recognisable at a glance. */
-    const BUILD = 'services 0.1.4';
+    const BUILD = 'services 0.1.5';
 
     const ZH = {
       'tab.title': '服务管理',

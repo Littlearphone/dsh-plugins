@@ -231,10 +231,16 @@ window.__ModuleLoader__.load({
                   h(
                     'span',
                     { className: 'dsh-svc-item-text', key: 'text' },
-                    h('span', { className: 'dsh-svc-item-name' }, script.name),
+                    // The chip rides the title line: as a row-level flex item it
+                    // would eat width the command needs for its path.
+                    h(
+                      'span',
+                      { className: 'dsh-svc-item-line' },
+                      h('span', { className: 'dsh-svc-item-name' }, script.name),
+                      serviceChip(service),
+                    ),
                     h('span', { className: 'dsh-svc-item-command' }, script.command),
                   ),
-                  serviceChip(service),
                   h(
                     'span',
                     { className: 'dsh-svc-actions', key: 'actions' },
