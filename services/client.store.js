@@ -22,7 +22,30 @@ window.__ModuleLoader__.load({
       diag: '',
       revision: 0,
       listeners: new Set(),
+      // Runs this page started, so a finished run can announce itself without
+      // also announcing services that were already finished when the page loaded.
+      watched: new Set(),
+      toasts: [],
     };
+
+    /** A toast lives long enough to read, but does not stack up forever. */
+    const TOAST_TTL_MS = 8000;
+    const MAX_TOASTS = 4;
+    let toastSeq = 0;
+
+    function dismissToast(id) {
+      const next = store.toasts.filter((toast) => toast.id !== id);
+      if (next.length === store.toasts.length) return;
+      store.toasts = next;
+      emit();
+    }
+
+    function pushToast(toast) {
+      const id = 'toast-' + (toastSeq += 1);
+      store.toasts = [...store.toasts, { ...toast, id }].slice(-MAX_TOASTS);
+      emit();
+      setTimeout(() => dismissToast(id), TOAST_TTL_MS);
+    }
 
     function emit() {
       store.revision += 1;
@@ -93,6 +116,8 @@ window.__ModuleLoader__.load({
 
     /** Stop one started service; failures are silent because the next poll shows state. */
     async function stopService(sessionId, id) {
+      // A stop the user asked for is not an execution result worth a toast.
+      store.watched.delete(id);
       try {
         await postJson(STOP_ROUTE + encodeURIComponent(String(sessionId)), { id });
       } catch {
@@ -107,6 +132,11 @@ window.__ModuleLoader__.load({
      */
     async function restartService(sessionId, id) {
       const created = await postJson(RESTART_ROUTE + encodeURIComponent(String(sessionId)), { id });
+      // The old id is gone for good once the Host replaced it; watch the new run
+      // instead, so its eventual exit still gets a toast.
+      store.watched.delete(id);
+      const nextId = String(created?.service?.id ?? '');
+      if (nextId !== '') store.watched.add(nextId);
       return created?.service;
     }
 
@@ -150,13 +180,35 @@ window.__ModuleLoader__.load({
     }
 
     /**
+     * Turn one watched run's terminal state into a toast, once. The visible
+     * surfaces already poll `services`; this only looks at ids this page
+     * started, so runs that were already finished on page load stay quiet.
+     */
+    function useServiceNotices(services) {
+      React.useEffect(() => {
+        for (const service of services) {
+          if (!store.watched.has(service.id)) continue;
+          if (service.state !== 'exited' && service.state !== 'failed') continue;
+          store.watched.delete(service.id);
+          pushToast({
+            serviceId: service.id,
+            name: service.name,
+            command: service.command,
+            state: service.state,
+            exitCode: service.exitCode,
+          });
+        }
+      }, [services]);
+    }
+
+    /**
      * The start-configuration editor. The script body is shown read-only and
      * carries a lock: it belongs to package.json, and this plugin only ever adds
      * parameters, environment and a working directory around it.
      */
 
 
-      return { store, emit, setOpen, postJson, stopService, restartService, useStoreRevision, useScripts, useServices, STATE_ROUTE, START_ROUTE, STOP_ROUTE, RESTART_ROUTE, CONFIG_ROUTE, PIN_ROUTE, UI_ROUTE, OUTPUT_ROUTE };
+      return { store, emit, setOpen, postJson, stopService, restartService, useStoreRevision, useScripts, useServices, useServiceNotices, dismissToast, STATE_ROUTE, START_ROUTE, STOP_ROUTE, RESTART_ROUTE, CONFIG_ROUTE, PIN_ROUTE, UI_ROUTE, OUTPUT_ROUTE };
     }
 
     return { createStore };
