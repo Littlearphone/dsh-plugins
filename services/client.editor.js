@@ -311,21 +311,27 @@ window.__ModuleLoader__.load({
             '×',
           ),
         ),
+        // The card may be taller than the sidebar. Only the body scrolls, so the
+        // title stays readable and Save/Reset never scroll out of reach.
         h(
           'div',
-          { className: 'dsh-svc-cmd', key: 'cmd', title: labels.locked },
+          { className: 'dsh-svc-card-body', key: 'body' },
           h(
-            'span',
-            { className: 'dsh-svc-cmd-head' },
-            h('span', { 'aria-hidden': true }, '🔒'),
-            labels.locked,
+            'div',
+            { className: 'dsh-svc-cmd', key: 'cmd', title: labels.locked },
+            h(
+              'span',
+              { className: 'dsh-svc-cmd-head' },
+              h('span', { 'aria-hidden': true }, '🔒'),
+              labels.locked,
+            ),
+            h('code', { className: 'dsh-svc-cmd-text' }, script.command),
           ),
-          h('code', { className: 'dsh-svc-cmd-text' }, script.command),
+          isJvm ? h('div', { className: 'dsh-svc-section', key: 'run' }, ...runSection) : null,
+          h('div', { className: 'dsh-svc-section', key: 'start' }, ...startSection),
+          h('div', { className: 'dsh-svc-section', key: 'env' }, ...envSection),
+          error === '' ? null : h('p', { className: 'dsh-svc-notice is-error', key: 'error' }, error),
         ),
-        isJvm ? h('div', { className: 'dsh-svc-section', key: 'run' }, ...runSection) : null,
-        h('div', { className: 'dsh-svc-section', key: 'start' }, ...startSection),
-        h('div', { className: 'dsh-svc-section', key: 'env' }, ...envSection),
-        error === '' ? null : h('p', { className: 'dsh-svc-notice is-error', key: 'error' }, error),
         h(
           'div',
           { className: 'dsh-svc-card-actions', key: 'actions' },

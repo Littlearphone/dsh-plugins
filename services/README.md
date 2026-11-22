@@ -164,6 +164,11 @@ JVM 项目没有脚本清单，能"运行"的是**构建工具的目标**。所�
   IDE 自带的那份 Maven、PATH 上根本没有 `mvn`——这一层兜底不是锦上添花，否则每条 Maven 行跑起来
   只有一句"不是内部或外部命令"。三样都没有时仍然写 `mvn`，让缺环境这件事直接暴露在输出里。
   想换一个：行的「编辑启动配置」里选（见「启动变体」），选定值跟着变体存。
+- **不加 `-q`**：静默模式会把 `[INFO]` 全吞掉——一次成功的 `clean` 在面板里只剩 mvnd 的
+  「Unable to create a system terminal」两行，看着像失败，退出码却是 0。面板是唯一能看到
+  构建日志的地方，所以生命周期和插件 goal 都按 Maven 默认的 INFO 级别输出。JVM 启动时还会
+  把 `TERM=dumb` 写进环境：jline 因此安静地降级成 dumb 终端，那两行警告不再出现，日志从
+  `[INFO] BUILD SUCCESS` 开始。
 - Gradle 同理：`build.gradle`/`.kts` → `build`、`test`，含 `org.springframework.boot` 时给
   `bootRun`（不再给 `run`）；有 `gradlew` 就用 `./gradlew`。
 
@@ -394,6 +399,9 @@ toast 一直保留**，回到窗口后重新给满 8 秒。最多同时堆 4 张
 [Linear 的设计系统](https://github.com/VoltAgent/awesome-design-md)（`references/linear.md`）重做：
 表面阶梯 + 发丝线、4px 节奏、8px 圆角控件、没有阴影，强调色只出现在主按钮和焦点环上。
 
+- **卡片自己滚动**：卡片最高 `max(240px, 100dvh - 200px)`，收缩时也留 180px；**只有中间的
+  表体滚动**（`overscroll-behavior:contain`，滚到头不会带着整个面板跑），标题和「保存 / 还原」
+  固定在两头——表单再长也不会把按钮顶出可视域，上面的行也不会被挤走；
 - **和行是同一块表面**：展开时行和卡片共用一条外框（行底边、卡片顶边都去掉，中间只留一条发丝线），
   输出日志也一样——以前卡片/日志各带一圈边框，看起来像两块不相干的内容；
 - **自绘下拉箭头**：原生 `select` 的箭头贴着边框，改成 `appearance:none` + 12px 的 chevron 背景图，

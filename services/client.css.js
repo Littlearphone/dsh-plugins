@@ -108,8 +108,10 @@ window.__ModuleLoader__.load({
    Linear's surface ladder + hairlines: no shadows, a 4px rhythm, 8px controls,
    and the label above the control — the fixed 56px label column was what made
    this form feel cramped. */
-.dsh-svc-card{display:flex;flex-direction:column;border:1px solid var(--dsw-alias-border-l2,#23252a);border-radius:12px;background:var(--dsw-alias-bg-layer-2,#0f1011);overflow:hidden;color:var(--dsw-alias-label-primary,#f7f8f8);}
-.dsh-svc-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:14px 12px 10px;}
+.dsh-svc-card{display:flex;flex-direction:column;min-height:180px;max-height:max(240px,calc(100vh - 200px));max-height:max(240px,calc(100dvh - 200px));border:1px solid var(--dsw-alias-border-l2,#23252a);border-radius:12px;background:var(--dsw-alias-bg-layer-2,#0f1011);overflow:hidden;color:var(--dsw-alias-label-primary,#f7f8f8);}
+.dsh-svc-card-head{flex:none;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:14px 12px 10px;}
+/* Only this scrolls. A form taller than the sidebar must not push Save off screen. */
+.dsh-svc-card-body{display:flex;flex:1 1 auto;flex-direction:column;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;}
 .dsh-svc-card-titles{display:flex;flex-direction:column;gap:3px;min-width:0;}
 .dsh-svc-card-eyebrow{font-size:11px;line-height:1.3;letter-spacing:.06em;text-transform:uppercase;color:var(--dsw-alias-label-secondary,#8a8f98);}
 .dsh-svc-card-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:15px;line-height:1.2;font-weight:500;letter-spacing:-.01em;color:var(--dsw-alias-label-primary,#f7f8f8);font-family:var(--dsh-font-family-code,ui-monospace,SFMono-Regular,Menlo,monospace);}
@@ -135,7 +137,7 @@ select.dsh-svc-input:disabled{opacity:.55;}
 .dsh-svc-mini{flex:none;display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;border:1px solid var(--dsw-alias-border-l2,#23252a);border-radius:8px;background:transparent;color:var(--dsw-alias-label-secondary,#8a8f98);font:inherit;font-size:16px;line-height:1;cursor:pointer;}
 .dsh-svc-mini:hover{border-color:var(--dsw-alias-border-l3,#34343a);color:var(--dsw-alias-label-primary,#f7f8f8);}
 .dsh-svc-mini.is-active{border-color:var(--dsw-alias-state-business-primary,#5e6ad2);color:var(--dsw-alias-state-business-primary,#5e6ad2);background:color-mix(in srgb,var(--dsw-alias-state-business-primary,#5e6ad2) 14%,transparent);}
-.dsh-svc-card-actions{display:flex;align-items:center;gap:8px;padding:12px 12px 14px;border-top:1px solid var(--dsw-alias-border-l1,#23252a);}
+.dsh-svc-card-actions{flex:none;display:flex;align-items:center;gap:8px;padding:12px 12px 14px;border-top:1px solid var(--dsw-alias-border-l1,#23252a);}
 .dsh-svc-btn{display:inline-flex;align-items:center;justify-content:center;height:32px;padding:0 14px;border:1px solid transparent;border-radius:8px;font:inherit;font-size:13px;font-weight:500;line-height:1;cursor:pointer;}
 .dsh-svc-btn.is-primary{background:var(--dsw-alias-state-business-primary,#5e6ad2);color:#fff;}
 .dsh-svc-btn.is-primary:hover:not(:disabled){filter:brightness(1.12);}

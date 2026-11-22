@@ -22,7 +22,7 @@ window.__ModuleLoader__.load({
     const NS = 'services';
     const ROUTE = '/services/list/';
     /** Shown on the refresh control so a stale page is recognisable at a glance. */
-    const BUILD = 'services 0.1.19';
+    const BUILD = 'services 0.1.20';
 
     const ZH = {
       'tab.title': '服务管理',
