@@ -11,13 +11,40 @@
 
 ## 装
 
-```powershell
-# 本地（link，改代码即时生效）
-dsh --profile web plugin install D:\DataCenter\Documents\IdeaProjects\dsh-plugins\guide-style
+### 本机（开发态，link）
 
-# 从 GitHub（必须带 path）
-dsh --profile web plugin install "github:Littlearphone/dsh-plugins#path:/guide-style"
+```powershell
+dsh --profile web plugin install D:\DataCenter\Documents\IdeaProjects\dsh-plugins\guide-style
 ```
+
+`link:` 指向工作目录，改代码即时生效，但**不可被更新器更新**——DSH 加载的就是那个目录，
+没有"包"可替换。所以它只适合自己的开发机。
+
+### 另一台机器（从 GitHub，固定 commit）
+
+自动更新只认**固定 40 位 commit 的 git spec**，所以另一台机器必须这样装：
+
+```powershell
+# 1. 在仓库里取当前要发布的 commit
+git rev-parse HEAD        # 或 git ls-remote origin main
+
+# 2. 在另一台机器的 DSH 里用插件页的 Add plugin 粘贴：
+#    github:Littlearphone/dsh-plugins#<完整40位commit>&path:/guide-style
+```
+
+**不要用 `dsh --profile ... plugin install` 装这个 spec。** Windows 上 DSH 的 CLI 会用
+`shell: true` 起 pnpm，`&` 被 cmd 当成命令分隔符，spec 被截断成 `#<commit>`，于是静默装成
+**仓库根包** `dsh-plugins 0.0.0`（退出码还是 0）。插件页 / `plugin_manager` 的
+`install_bundle` 不走 shell，同一个 spec 能正确装成 `@local/guide-style`，并把
+`github:...#<commit>&path:/guide-style` 原样存进 profile 的 `package.json`。
+
+装好之后，另一台机器的更新器每次检查都会 `git ls-remote` 这个仓库：
+
+- 远端 commit 和已装的不同 → 读该 commit 下 `/guide-style/package.json` 的 version；
+- **version 严格更大**才调 `updateBundle` 重新 pin 到新 commit。
+
+**所以发布纪律只有一条：要别的机器更新，就把 `guide-style/package.json` 的 version 升上去。**
+只改代码不升版本，更新器会停在 `newer commit, same version — updateBundle needs a version bump`。
 
 卸载它，指南页会立即回到产品默认样式——其他插件不受影响。
 
