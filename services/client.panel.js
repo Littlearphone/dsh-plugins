@@ -262,11 +262,19 @@ window.__ModuleLoader__.load({
                             : script.variantLabel,
                         )
                       : null,
+                    // The pinned area has no group heading above it, so the
+                    // package name rides on the name line instead of a third
+                    // row: a pinned row must keep the same height as the row
+                    // it was pinned from.
+                    showPath === true
+                      ? h(
+                          'span',
+                          { className: 'dsh-svc-origin', key: 'origin', title: group.name },
+                          group.name,
+                        )
+                      : null,
                   ),
                   h('span', { className: 'dsh-svc-command', key: 'command' }, script.command),
-                  showPath === true
-                    ? h('span', { className: 'dsh-svc-lastline', key: 'path' }, group.name)
-                    : null,
                   service === undefined || service.lastLine === ''
                     ? null
                     : h('span', { className: 'dsh-svc-lastline', key: 'last' }, service.lastLine),

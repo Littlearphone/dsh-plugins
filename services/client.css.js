@@ -87,6 +87,10 @@ window.__ModuleLoader__.load({
 .dsh-svc-row{box-sizing:border-box;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;column-gap:10px;row-gap:0;padding:10px 12px;border:0;border-radius:0;background:transparent;text-align:left;}
 .dsh-svc-row-text{display:flex;flex:1 1 auto;flex-direction:column;gap:3px;min-width:0;}
 .dsh-svc-name-line{display:flex;align-items:center;gap:6px;min-width:0;}
+/* Where a pinned row lives, without spending a third line on it: the pinned
+   area has no group heading, and a taller row than the one it was pinned
+   from reads as a different kind of entry. */
+.dsh-svc-origin{min-width:0;max-width:48%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--dsh-font-family-code,monospace);font-size:10px;line-height:1.4;color:var(--dsw-alias-label-tertiary);}
 .dsh-svc-actions{display:flex;flex:none;align-items:center;gap:4px;margin-left:auto;}
 .dsh-svc-lastline{box-sizing:border-box;min-width:0;padding-left:6px;border-left:2px solid var(--dsw-alias-border-l2);font-family:var(--dsh-font-family-code,monospace);font-size:10px;line-height:1.4;color:var(--dsw-alias-label-tertiary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .dsh-svc-lastline::before{content:'↳ ';}
