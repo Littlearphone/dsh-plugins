@@ -10,6 +10,7 @@ import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { readDoc, rememberUse, scriptKey } from './config.js';
+import { withRunner, wrapperOfCommand } from './discover.js';
 import { projectJavaHome } from './jdk.js';
 /**
  * Started services, keyed by `<workingDirectory>\u0000<id>` — services belong to the\n * workspace, so every Session opened on that folder sees the same processes. The Host owns the process,
@@ -280,7 +281,13 @@ export async function spawnService(ctx, sessionId, request, root) {
   let command;
   let direct = null;
   if (request.kind === 'go' || request.kind === 'maven' || request.kind === 'gradle') {
-    const base = String(request.command ?? '');
+    let base = String(request.command ?? '');
+    // A Maven row may carry a chosen runner in its configuration; apply it here
+    // too, so a start request that still holds the discovered command runs what
+    // the user picked rather than what discovery picked.
+    if (request.kind === 'maven' && typeof override?.runner === 'string' && override.runner !== '') {
+      base = withRunner(base, override.runner, wrapperOfCommand(root, base));
+    }
     command = extraArgs === '' ? base : `${base} ${extraArgs}`;
   } else {
     const name = String(request.name ?? '');
@@ -314,14 +321,17 @@ export async function spawnService(ctx, sessionId, request, root) {
       ? localBins
       : { ...(localBins ?? process.env), ...override.env };
   // A JVM build wants the project's JDK, not the machine-wide one this Host
-  // inherited. The project names it in `.idea`, or the pom states the version;
-  // an explicit `JAVA_HOME` in the launch configuration still wins.
-  if (
-    env !== undefined &&
-    (request.kind === 'maven' || request.kind === 'gradle') &&
-    override?.env?.JAVA_HOME === undefined
-  ) {
-    const javaHome = await projectJavaHome(root);
+  // inherited. Precedence: the JDK picked in the launch configuration, then an
+  // explicit `JAVA_HOME` there, then what the project resolves to (`.idea`,
+  // pom, `~/.jdks`).
+  if (env !== undefined && (request.kind === 'maven' || request.kind === 'gradle')) {
+    const configured = typeof override?.jdk === 'string' ? override.jdk.trim() : '';
+    const javaHome =
+      configured !== ''
+        ? configured
+        : override?.env?.JAVA_HOME === undefined
+          ? await projectJavaHome(root)
+          : undefined;
     if (javaHome !== undefined) env.JAVA_HOME = javaHome;
   }
   const key = serviceKey(root, id);

@@ -133,12 +133,25 @@ export function pickJdk(homes, wanted) {
 }
 
 /** The JDK home for a project, or undefined when nothing matches. */
-export async function projectJavaHome(root) {
-  const homes = await installedJdks();
+export async function projectJavaHome(root, known) {
+  const homes = known ?? (await installedJdks());
   if (homes.length === 0) return undefined;
   const fromIdea = pickJdk(homes, await ideaSdk(root));
   if (fromIdea !== undefined) return fromIdea.home;
   const version = await pomJavaVersion(root);
   if (version === undefined) return undefined;
   return pickJdk(homes, { version })?.home;
+}
+
+/**
+ * What the configuration editor offers: the JDK the project resolves to right
+ * now, and every JDK the machine has under `~/.jdks`. One readdir serves both.
+ */
+export async function jdkChoices(root) {
+  const homes = await installedJdks();
+  const project = await projectJavaHome(root, homes);
+  return {
+    project: project ?? '',
+    options: homes.map(({ name, home }) => ({ name, home })),
+  };
 }

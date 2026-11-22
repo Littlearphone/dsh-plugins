@@ -22,7 +22,7 @@ window.__ModuleLoader__.load({
     const NS = 'services';
     const ROUTE = '/services/list/';
     /** Shown on the refresh control so a stale page is recognisable at a glance. */
-    const BUILD = 'services 0.1.8';
+    const BUILD = 'services 0.1.9';
 
     const ZH = {
       'tab.title': '服务管理',
@@ -61,6 +61,10 @@ window.__ModuleLoader__.load({
       'edit.name': '显示名',
       'edit.args': '参数',
       'edit.argsHint': '--port 8899 --watch（原样透传给脚本，引号会保留）',
+      'edit.runner': '运行器',
+      'edit.runnerAuto': '自动',
+      'edit.jdk': 'JDK',
+      'edit.jdkAuto': '留空 = 自动',
       'edit.env': '环境变量',
       'edit.cwd': '工作目录',
       'edit.cwdHint': '相对工作区根；留空 = 脚本所在包目录',
@@ -129,6 +133,10 @@ window.__ModuleLoader__.load({
       'edit.name': 'Label',
       'edit.args': 'Arguments',
       'edit.argsHint': '--port 8899 --watch (passed through verbatim, quotes kept)',
+      'edit.runner': 'Runner',
+      'edit.runnerAuto': 'auto',
+      'edit.jdk': 'JDK',
+      'edit.jdkAuto': 'empty = auto',
       'edit.env': 'Environment',
       'edit.cwd': 'Working directory',
       'edit.cwdHint': 'Relative to the workspace root; empty = the package directory',

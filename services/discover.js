@@ -6,7 +6,7 @@
  */
 import { existsSync } from 'node:fs';
 import { readdir, readFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 /** Route the browser half calls, relative to the page origin. */
 export const ROUTE_PATH = '/services';
 /** Guards against a pathological glob fanning out over a huge directory. */
@@ -246,25 +246,62 @@ export function programOnPath(name) {
 }
 
 /**
- * The command that runs Maven here: the project's own wrapper first (it pins the
- * version the project expects), then the `mvn` on PATH, then `mvnd`, the Maven
- * Daemon, which takes the same arguments. A machine that develops in IDEA often
- * has no `mvn` at all — the IDE carries its own copy — and a row that can only
- * print "not recognized" is worse than one that runs the daemon.
+ * The project's wrapper path, if it ships one: its own pom directory first, then
+ * the workspace root. A multi-module layout keeps one wrapper at the root, and
+ * `-f sub/pom.xml` still has to go through it or the submodule builds with a
+ * different Maven.
  */
-export function mavenRunner(root, relative) {
+export function mavenWrapper(root, relative) {
+  // `.\` keeps cmd.exe and PowerShell from looking the name up on PATH.
   const prefix = process.platform === 'win32' ? '.\\' : './';
   const own = join(relative, MAVEN_WRAPPER);
-  if (existsSync(join(root, own))) {
-    // `.\` keeps cmd.exe and PowerShell from looking the name up on PATH.
-    return prefix + own;
-  }
-  // A multi-module workspace keeps one wrapper at the root; `-f sub/pom.xml`
-  // still has to go through it, or the submodule builds with a different Maven.
+  if (existsSync(join(root, own))) return prefix + own;
   if (relative !== '' && existsSync(join(root, MAVEN_WRAPPER))) return prefix + MAVEN_WRAPPER;
-  if (programOnPath('mvn')) return 'mvn';
-  if (programOnPath('mvnd')) return 'mvnd';
+  return undefined;
+}
+
+/** The command one runner id stands for; `mvnw` needs the wrapper it resolved to. */
+export function runnerCommand(id, wrapper) {
+  if (id === 'mvnd') return 'mvnd';
+  if (id === 'mvnw' && wrapper !== undefined) return wrapper;
   return 'mvn';
+}
+
+/**
+ * The Maven runners this project can use, best first: its own wrapper (it pins
+ * the version the project expects), then the `mvn` on PATH, then `mvnd`, the
+ * Maven Daemon, whose CLI is the same. A machine that develops in IDEA often has
+ * no `mvn` at all — the IDE carries its own copy — and a row that can only print
+ * "not recognized" is worse than one that runs the daemon.
+ */
+export function mavenRunners(wrapper, onPath) {
+  const ids = [];
+  if (wrapper !== undefined) ids.push('mvnw');
+  if (onPath.mvn) ids.push('mvn');
+  if (onPath.mvnd) ids.push('mvnd');
+  return ids.length > 0 ? ids : ['mvn'];
+}
+
+/** Swap the leading runner of a Maven command; the rest of the line is untouched. */
+export function withRunner(command, id, wrapper) {
+  const text = String(command ?? '');
+  if (id === undefined || id === '') return text;
+  const rest = text.indexOf(' ');
+  const start = runnerCommand(id, wrapper);
+  return rest === -1 ? start : start + text.slice(rest);
+}
+
+/**
+ * The wrapper a row's command belongs to, read from the `-f <pom>` the command
+ * already carries. The Maven group holds every pom of the workspace, so the
+ * directory cannot be taken from the group; the pom path is the only thing a
+ * row still knows about its own project.
+ */
+export function wrapperOfCommand(root, command) {
+  const match = /(?:^|\s)-f\s+("[^"]+"|\S+)/.exec(String(command ?? ''));
+  const pom = match === null ? '' : match[1].replace(/^"|"$/g, '');
+  const relative = pom === '' ? '' : dirname(pom);
+  return mavenWrapper(root, relative === '.' ? '' : relative);
 }
 
 /**
@@ -323,6 +360,8 @@ function shellPath(value) {
 export async function mavenGroups(root, known = []) {
   const dirs = [...new Set(['', ...known, ...(await dirsWithFile(root, 'pom.xml', 2))])];
   const scripts = [];
+  // PATH does not change while one discovery runs; probing it per pom would.
+  const onPath = { mvn: programOnPath('mvn'), mvnd: programOnPath('mvnd') };
   for (const relative of dirs) {
     let text;
     try {
@@ -334,13 +373,20 @@ export async function mavenGroups(root, known = []) {
     const label = relative === '' ? artifact : `${relative} · ${artifact}`;
     const pom = join(relative, 'pom.xml');
     const file = relative === '' ? '' : ` -f ${shellPath(pom)}`;
-    const runner = mavenRunner(root, relative);
+    const wrapper = mavenWrapper(root, relative);
+    // Every row of one pom offers the same choices; `runner` is the one the
+    // command is written with, and the configuration editor can override it.
+    const runners = mavenRunners(wrapper, onPath);
+    const runner = runners[0];
+    const command = runnerCommand(runner, wrapper);
     const add = (goal, hint) => {
       scripts.push({
         name: goal,
         label,
-        command: `${runner} -q${file} ${goal}`,
+        command: `${command} -q${file} ${goal}`,
         category: 'maven',
+        runner,
+        runners,
         hint,
       });
     };

@@ -11,7 +11,13 @@ window.__ModuleLoader__.load({
     function createEditor(d) {
       const { t, CONFIG_ROUTE, OUTPUT_ROUTE, store, emit } = d;
 
-    function ConfigEditor({ sessionId, script, dir, labels, onSaved, onCancel }) {
+    function ConfigEditor({ sessionId, script, dir, labels, jdkInfo, onSaved, onCancel }) {
+      const scriptName = script.original ?? script.name;
+      const kind = String(script.category ?? '');
+      // Maven rows choose their runner and JDK; Gradle shares the JDK field but
+      // has no runner choice, and npm scripts get none of it.
+      const isMaven = kind === 'maven';
+      const isJvm = isMaven || kind === 'gradle';
       const [label, setLabel] = React.useState(script.variantLabel ?? '');
       const [args, setArgs] = React.useState(script.args ?? '');
       const [env, setEnv] = React.useState(
@@ -20,8 +26,17 @@ window.__ModuleLoader__.load({
           .join('\n'),
       );
       const [cwd, setCwd] = React.useState(script.cwd ?? '');
+      const [runner, setRunner] = React.useState(script.runner ?? '');
+      const [jdk, setJdk] = React.useState(script.jdk ?? '');
       const [busy, setBusy] = React.useState(false);
       const [error, setError] = React.useState('');
+      // A saved runner may no longer be installed; keep it selectable so saving
+      // the form again does not silently change the choice.
+      const runners = Array.isArray(script.runners) ? script.runners : [];
+      const runnerChoices =
+        runner === '' || runners.includes(runner) ? runners : [runner, ...runners];
+      const jdkOptions = Array.isArray(jdkInfo?.options) ? jdkInfo.options : [];
+      const detectedJdk = typeof jdkInfo?.project === 'string' ? jdkInfo.project : '';
 
       const save = async (reset) => {
         setBusy(true);
@@ -58,6 +73,8 @@ window.__ModuleLoader__.load({
                 args: args.trim(),
                 env: envEntries,
                 cwd: cwd.trim(),
+                runner: isMaven ? runner : '',
+                jdk: isJvm ? jdk.trim() : '',
               }),
             });
             if (!response.ok) {
@@ -113,7 +130,53 @@ window.__ModuleLoader__.load({
           h('code', { className: 'dsh-svc-readonly-text' }, script.command),
           h('span', { className: 'dsh-svc-readonly-note' }, labels.locked),
         ),
-        field('label', label, setLabel, script.name),
+        isMaven
+          ? h(
+              'label',
+              { className: 'dsh-svc-field', key: 'runner' },
+              h('span', { className: 'dsh-svc-field-label' }, labels.runner),
+              h(
+                'select',
+                {
+                  className: 'dsh-svc-input',
+                  value: runner,
+                  onChange: (event) => setRunner(event.target.value),
+                },
+                h(
+                  'option',
+                  { value: '' },
+                  labels.runnerAuto + (runners.length === 0 ? '' : ' · ' + runners[0]),
+                ),
+                runnerChoices.map((choice) => h('option', { key: choice, value: choice }, choice)),
+              ),
+            )
+          : null,
+        isJvm
+          ? h(
+              'label',
+              { className: 'dsh-svc-field', key: 'jdk' },
+              h('span', { className: 'dsh-svc-field-label' }, labels.jdk),
+              h('input', {
+                className: 'dsh-svc-input',
+                value: jdk,
+                spellCheck: false,
+                list: 'dsh-svc-jdk-options',
+                placeholder:
+                  detectedJdk === '' ? labels.jdkAuto : labels.jdkAuto + ' · ' + detectedJdk,
+                onChange: (event) => setJdk(event.target.value),
+              }),
+            )
+          : null,
+        isJvm && jdkOptions.length > 0
+          ? h(
+              'datalist',
+              { id: 'dsh-svc-jdk-options', key: 'jdk-options' },
+              jdkOptions.map((option) =>
+                h('option', { key: option.home, value: option.home }, option.name),
+              ),
+            )
+          : null,
+        field('name', label, setLabel, script.name),
         field('args', args, setArgs, labels.argsHint),
         h(
           'label',

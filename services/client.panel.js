@@ -334,6 +334,7 @@ window.__ModuleLoader__.load({
                     sessionId,
                     script,
                     dir: group.dir ?? '',
+                    jdkInfo: state.jdk,
                     labels: {
                       title: t('edit.title'),
                       name: t('edit.name'),
@@ -342,6 +343,10 @@ window.__ModuleLoader__.load({
                       env: t('edit.env'),
                       cwd: t('edit.cwd'),
                       cwdHint: t('edit.cwdHint'),
+                      runner: t('edit.runner'),
+                      runnerAuto: t('edit.runnerAuto'),
+                      jdk: t('edit.jdk'),
+                      jdkAuto: t('edit.jdkAuto'),
                       locked: t('edit.locked'),
                       save: t('edit.save'),
                       reset: t('edit.reset'),

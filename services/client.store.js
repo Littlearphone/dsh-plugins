@@ -127,11 +127,11 @@ window.__ModuleLoader__.load({
 
     /** Fetch the workspace manifest summary for one Session. */
     function useScripts(sessionId) {
-      const [state, setState] = React.useState({ phase: 'idle', dir: '', groups: [] });
+      const [state, setState] = React.useState({ phase: 'idle', dir: '', groups: [], jdk: undefined });
 
       const load = React.useCallback(() => {
         if (sessionId === undefined || sessionId === null) {
-          setState({ phase: 'empty', dir: '', groups: [] });
+          setState({ phase: 'empty', dir: '', groups: [], jdk: undefined });
           return;
         }
         setState((current) => ({ ...current, phase: 'loading' }));
@@ -149,9 +149,18 @@ window.__ModuleLoader__.load({
                   }))
                   .filter((group) => group.scripts.length > 0)
               : [];
-            setState({ phase: groups.length === 0 ? 'empty' : 'ready', dir: data?.dir ?? '', groups });
+            // The JDK picker's data is per workspace, not per script: the Host
+            // resolves it once and every editor of this list shares it.
+            const jdk =
+              data?.jdk !== null && typeof data?.jdk === 'object' ? data.jdk : undefined;
+            setState({
+              phase: groups.length === 0 ? 'empty' : 'ready',
+              dir: data?.dir ?? '',
+              groups,
+              jdk,
+            });
           })
-          .catch(() => setState({ phase: 'error', dir: '', groups: [] }));
+          .catch(() => setState({ phase: 'error', dir: '', groups: [], jdk: undefined }));
       }, [sessionId]);
 
       React.useEffect(() => {

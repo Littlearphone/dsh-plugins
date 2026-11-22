@@ -23,8 +23,11 @@ import {
   goGroups,
   packageDirs,
   readManifest,
+  withRunner,
   workspaceGlobs,
+  wrapperOfCommand,
 } from './discover.js';
+import { jdkChoices } from './jdk.js';
 import {
   listServices,
   restartService,
@@ -148,7 +151,15 @@ export function createHandler(ctx) {
       const started = await spawnService(
         ctx,
         sessionId,
-        { name: body.name, command: body.command, source: body.source, dir: body.dir, kind: body.kind, cwd },
+        {
+          name: body.name,
+          command: body.command,
+          source: body.source,
+          dir: body.dir,
+          kind: body.kind,
+          configId: body.configId,
+          cwd,
+        },
         dir,
       );
       if (started.error !== undefined) {
@@ -315,7 +326,9 @@ export function createHandler(ctx) {
           config.label === undefined &&
           config.args === undefined &&
           config.env === undefined &&
-          config.cwd === undefined;
+          config.cwd === undefined &&
+          config.runner === undefined &&
+          config.jdk === undefined;
         if (!empty) next.push(config);
         next.sort((left, right) =>
           (left.dir + '\u0000' + left.script + '\u0000' + (left.label ?? '')).localeCompare(
@@ -369,12 +382,22 @@ export function createHandler(ctx) {
       for (const gradle of await gradleGroups(dir, dirs)) groups.push(gradle);
 
       const doc = await readDoc(dir);
+      const jdk = groups.some((group) => group.kind === 'maven' || group.kind === 'gradle')
+        ? await jdkChoices(dir)
+        : undefined;
       for (const group of groups) {
         group.scripts = group.scripts.map((script) => {
           const merged = withConfig(script, group.dir, doc);
+          // A chosen Maven runner replaces the one discovery picked, in the text
+          // the row shows as well as in what the Host will actually run.
+          const command =
+            group.kind === 'maven'
+              ? withRunner(merged.command, merged.runner, wrapperOfCommand(dir, merged.command))
+              : merged.command;
           const key = scriptKey(group.dir, script.name);
           return {
             ...merged,
+            command,
             // Every script carries its package.json name, overridden or not: the
             // editor and the pin toggle both post this value back as identity.
             original: script.name,
@@ -399,6 +422,7 @@ export function createHandler(ctx) {
         collapsed: doc.collapsed,
         workspacePatterns: globs,
         skippedPatterns: skipped,
+        jdk,
       });
     } catch (error) {
       reply(response, 500, { error: 'unreadable', detail: String(error?.message ?? error) });

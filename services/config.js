@@ -9,6 +9,9 @@ import { join } from 'node:path';
 export const CONFIG_DIR = '.dsh';
 export const CONFIG_FILE = 'services.json';
 
+/** Runner ids a Maven launch may choose; the Host maps them to a command. */
+export const RUNNERS = ['mvnw', 'mvn', 'mvnd'];
+
 /** One script's identity inside the workspace: `dir` plus the script name. */
 export function scriptKey(dir, script) {
   return String(dir ?? '') + '\u0000' + String(script ?? '');
@@ -125,6 +128,12 @@ export function normaliseConfig(body) {
   if (Object.keys(env).length > 0) config.env = env;
   const cwd = String(body.cwd ?? '').trim();
   if (cwd !== '') config.cwd = cwd;
+  // JVM launch parameters: which Maven runner to use, and which JDK (a path to
+  // the JAVA_HOME the row should run with). Both are optional; absent = auto.
+  const runner = String(body.runner ?? '').trim();
+  if (RUNNERS.includes(runner)) config.runner = runner;
+  const jdk = String(body.jdk ?? '').trim();
+  if (jdk !== '') config.jdk = jdk;
   return config;
 }
 
@@ -150,6 +159,10 @@ export function withConfig(script, dir, doc) {
     args: chosen.args ?? '',
     env: chosen.env ?? {},
     cwd: chosen.cwd ?? '',
+    // Maven rows carry their own runner/JDK; an override replaces the runner the
+    // discovery picked, and an empty JDK means "the project's".
+    runner: chosen.runner ?? script.runner,
+    jdk: chosen.jdk ?? '',
     overridden: true,
     configId: chosen.id,
     variants: variants.map((entry) => ({
