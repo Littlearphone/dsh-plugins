@@ -108,6 +108,14 @@ window.__ModuleLoader__.load({
 .dsh-svc-input:focus{border-color:var(--dsw-alias-border-l3);outline:none;}
 .dsh-svc-textarea{resize:vertical;font-family:var(--dsh-font-family-code,monospace);}
 .dsh-svc-editor-actions{display:flex;justify-content:flex-end;gap:4px;padding-top:2px;}
+.dsh-svc-dl{position:relative;display:inline-flex;flex:none;align-items:center;}
+.dsh-svc-dl-form{position:absolute;right:0;top:calc(100% + 4px);z-index:6;display:flex;align-items:center;gap:4px;padding:6px;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm);background:var(--dsw-specific-menu);box-shadow:0 6px 16px rgba(0,0,0,.35);white-space:nowrap;}
+.dsh-svc-input.is-tiny{flex:none;width:auto;height:20px;font-size:10px;padding:0 2px;}
+.dsh-svc-dl-start{flex:none;height:20px;padding:0 6px;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm);background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary);font:inherit;font-size:10px;cursor:pointer;}
+.dsh-svc-dl-start:hover{border-color:var(--dsw-alias-border-l3);}
+.dsh-svc-dl-start:disabled{opacity:.5;cursor:default;}
+.dsh-svc-dl-status{font-size:10px;color:var(--dsw-alias-label-secondary);}
+.dsh-svc-dl-status.is-error{color:var(--dsw-alias-state-error-primary);}
 .dsh-svc-icon.is-primary{border-color:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-state-business-primary);}
   /* Start is the one affirmative action on a row: green glyph, neutral frame — a
      coloured border would make it a different control from every other icon. */

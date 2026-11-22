@@ -30,6 +30,7 @@ import {
   wrapperOfCommand,
 } from './discover.js';
 import { jdkAvailable, jdkChoices } from './jdk.js';
+import { downloadCatalog, listJobs, startDownload } from './download.js';
 import {
   listServices,
   restartService,
@@ -89,7 +90,7 @@ export function createHandler(ctx) {
     const slash = rest.indexOf('/');
     const action = slash === -1 ? rest : rest.slice(0, slash);
     const rawId = slash === -1 ? '' : rest.slice(slash + 1);
-    const ACTIONS = ['list', 'start', 'stop', 'restart', 'state', 'output', 'config', 'pin', 'ui'];
+    const ACTIONS = ['list', 'start', 'stop', 'restart', 'state', 'output', 'config', 'pin', 'ui', 'dl'];
     if (!ACTIONS.includes(action)) {
       reply(response, 404, { error: 'not-found' });
       return;
@@ -140,6 +141,36 @@ export function createHandler(ctx) {
       return;
     }
 
+
+    // --- tool downloads ---------------------------------------------------
+    if (action === 'dl') {
+      const method = String(request.method ?? 'GET').toUpperCase();
+      if (method === 'GET') {
+        // The catalog is machine-wide; the session is only how the browser
+        // reaches this route. Installed Mavens come from disk, so a download
+        // shows up here without restarting anything.
+        reply(response, 200, { ...(await downloadCatalog()), jobs: listJobs() });
+        return;
+      }
+      if (method === 'POST') {
+        let body = {};
+        try {
+          body = JSON.parse(await readBody(request));
+        } catch {
+          reply(response, 400, { error: 'bad-body' });
+          return;
+        }
+        const job = startDownload({
+          kind: String(body.kind ?? ''),
+          vendor: body.vendor,
+          version: body.version,
+        });
+        reply(response, job.state === 'error' ? 400 : 200, { job });
+        return;
+      }
+      reply(response, 405, { error: 'method-not-allowed' });
+      return;
+    }
 
     if (action === 'start') {
       let body = {};

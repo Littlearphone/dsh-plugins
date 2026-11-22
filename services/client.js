@@ -22,7 +22,7 @@ window.__ModuleLoader__.load({
     const NS = 'services';
     const ROUTE = '/services/list/';
     /** Shown on the refresh control so a stale page is recognisable at a glance. */
-    const BUILD = 'services 0.1.12';
+    const BUILD = 'services 0.1.13';
 
     const ZH = {
       'tab.title': '服务管理',
@@ -67,6 +67,14 @@ window.__ModuleLoader__.load({
       'edit.jdkAuto': '留空 = 自动',
       'edit.jdkCustom': '自定义…',
       'edit.jdkPathHint': 'C:\\path\\to\\jdk（JAVA_HOME）',
+      'dl.addJdk': '下载 JDK',
+      'dl.addMaven': '下载 Maven',
+      'dl.install': '下载',
+      'dl.installing': '安装中…',
+      'dl.downloading': '下载中',
+      'dl.extracting': '解压中…',
+      'dl.done': '已安装',
+      'dl.failed': '失败',
       'edit.env': '环境变量',
       'edit.cwd': '工作目录',
       'edit.cwdHint': '相对工作区根；留空 = 脚本所在包目录',
@@ -143,6 +151,14 @@ window.__ModuleLoader__.load({
       'edit.jdkAuto': 'empty = auto',
       'edit.jdkCustom': 'custom…',
       'edit.jdkPathHint': 'C:\\path\\to\\jdk (JAVA_HOME)',
+      'dl.addJdk': 'Download a JDK',
+      'dl.addMaven': 'Download Maven',
+      'dl.install': 'Download',
+      'dl.installing': 'Installing…',
+      'dl.downloading': 'downloading',
+      'dl.extracting': 'extracting…',
+      'dl.done': 'installed',
+      'dl.failed': 'failed',
       'edit.env': 'Environment',
       'edit.cwd': 'Working directory',
       'edit.cwdHint': 'Relative to the workspace root; empty = the package directory',
@@ -258,7 +274,8 @@ window.__ModuleLoader__.load({
               require.async('./client.panel.js'),
               require.async('./client.menu.js'),
               require.async('./client.toast.js'),
-            ]).then(([dataModule, cssModule, storeModule, editorModule, actionsModule, panelModule, menuModule, toastModule]) => {
+              require.async('./client.download.js'),
+            ]).then(([dataModule, cssModule, storeModule, editorModule, actionsModule, panelModule, menuModule, toastModule, downloadModule]) => {
               const data = dataModule.createData({ t });
               const styles = cssModule.createCss({ t });
               const storeApi = storeModule.createStore({ t, ROUTE, PACKAGE, KIND, sortScripts: data.sortScripts });
@@ -269,6 +286,11 @@ window.__ModuleLoader__.load({
                 OUTPUT_ROUTE: storeApi.OUTPUT_ROUTE,
                 store: storeApi.store,
                 emit: storeApi.emit,
+              });
+              const download = downloadModule.createDownload({
+                t,
+                DL_ROUTE: storeApi.DL_ROUTE,
+                useLocaleRevision,
               });
               const shared = {
                 t,
@@ -282,6 +304,7 @@ window.__ModuleLoader__.load({
                 ...data,
                 ...editor,
                 ...actions,
+                ...download,
               };
               const toast = toastModule.createToast({
                 t,

@@ -7,6 +7,7 @@
 import { existsSync } from 'node:fs';
 import { readdir, readFile } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
+import { installedMavens, localMavenCommand } from './download.js';
 /** Route the browser half calls, relative to the page origin. */
 export const ROUTE_PATH = '/services';
 /** Guards against a pathological glob fanning out over a huge directory. */
@@ -264,21 +265,28 @@ export function mavenWrapper(root, relative) {
 export function runnerCommand(id, wrapper) {
   if (id === 'mvnd') return 'mvnd';
   if (id === 'mvnw' && wrapper !== undefined) return wrapper;
+  // A Maven the panel downloaded is addressed by its absolute launcher: it is
+  // not on PATH, and never should be.
+  if (typeof id === 'string' && id.startsWith('maven-')) {
+    return localMavenCommand(id.slice('maven-'.length));
+  }
   return 'mvn';
 }
 
 /**
  * The Maven runners this project can use, best first: its own wrapper (it pins
  * the version the project expects), then the `mvn` on PATH, then `mvnd`, the
- * Maven Daemon, whose CLI is the same. A machine that develops in IDEA often has
- * no `mvn` at all — the IDE carries its own copy — and a row that can only print
- * "not recognized" is worse than one that runs the daemon.
+ * Maven Daemon, whose CLI is the same, then any Maven the panel downloaded.
+ * A machine that develops in IDEA often has no `mvn` at all — the IDE carries
+ * its own copy — and a row that can only print "not recognized" is worse than
+ * one that runs the daemon.
  */
-export function mavenRunners(wrapper, onPath) {
+export function mavenRunners(wrapper, onPath, local = []) {
   const ids = [];
   if (wrapper !== undefined) ids.push('mvnw');
   if (onPath.mvn) ids.push('mvn');
   if (onPath.mvnd) ids.push('mvnd');
+  for (const version of local) ids.push('maven-' + version);
   // An empty list is real information: the machine has no Maven at all. The
   // caller still writes `mvn` into the command (the shell's own "not recognized"
   // is the honest failure), but the panel warns before anyone clicks it.
@@ -365,6 +373,7 @@ export async function mavenGroups(root, known = []) {
   const scripts = [];
   // PATH does not change while one discovery runs; probing it per pom would.
   const onPath = { mvn: programOnPath('mvn'), mvnd: programOnPath('mvnd') };
+  const local = (await installedMavens()).map((entry) => entry.version);
   for (const relative of dirs) {
     let text;
     try {
@@ -379,7 +388,7 @@ export async function mavenGroups(root, known = []) {
     const wrapper = mavenWrapper(root, relative);
     // Every row of one pom offers the same choices; `runner` is the one the
     // command is written with, and the configuration editor can override it.
-    const runners = mavenRunners(wrapper, onPath);
+    const runners = mavenRunners(wrapper, onPath, local);
     const runner = runners[0] ?? '';
     const command = runnerCommand(runner, wrapper);
     const add = (goal, hint) => {
@@ -475,8 +484,8 @@ export async function javaGroups(root, known = []) {
   const scripts = [];
   const seen = new Set();
   const onPath = { mvn: programOnPath('mvn'), mvnd: programOnPath('mvnd') };
+  const local = (await installedMavens()).map((entry) => entry.version);
   let buildTool = false;
-
   /** `{ source, className }` for every `main` under one source root. */
   const mainClassesIn = async (base) => {
     const found = [];
@@ -509,7 +518,7 @@ export async function javaGroups(root, known = []) {
     const label = relative === '' ? artifact : `${relative} · ${artifact}`;
     const file = relative === '' ? '' : ` -f ${shellPath(join(relative, 'pom.xml'))}`;
     const wrapper = mavenWrapper(root, relative);
-    const runners = mavenRunners(wrapper, onPath);
+    const runners = mavenRunners(wrapper, onPath, local);
     const runner = runners[0] ?? '';
     const command = runnerCommand(runner, wrapper);
     const entries = await mainClassesIn(join(root, relative, JAVA_SOURCE_DIR));

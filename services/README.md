@@ -234,6 +234,26 @@ Maven / Gradle 跑在 Host 继承来的 `JAVA_HOME` 上（这台机器是机器�
 行本身**不会消失**：它们是这个工程的目标，装好工具刷新一下就能跑。没有构建工具的纯 Java 工程不在此列，
 它用 JDK 直接编译运行（见「Java 启动类」）。
 
+## 下载工具（JDK / Maven）
+
+提示旁边就能把工具装上，不用离开面板：
+
+- **JDK**：「JDK」字段右边的 `+` 打开弹层，选发行版（Eclipse Temurin；Windows x64 上另有
+  Amazon Corretto、Microsoft OpenJDK）和特性版本（8 / 11 / 17 / 21 / 25），下载的是该发行版的
+  **latest GA**；
+- **Maven**：「运行器」右边的 `+` 只选版本；版本列表从 Apache CDN 的目录页实时读（连不上时退回
+  3.10.1 / 3.9.16）；
+- **作业在 Host 里跑**：`POST /services/dl` 立刻返回，界面每秒轮询一次（下载中显示 `已下载 / 总量`，
+  然后「解压中…」），完成后自动把字段指向新装的那个，并刷新列表；
+- **装到哪里**：JDK → `~/.jdks/<vendor>-<完整版本>`（和 IDEA 放一起，所以 `.idea` 里写的
+  `temurin-25` 这类名字能按前缀匹配上）；Maven → `<DSH_HOME>/services/maven/apache-maven-<版本>`，
+  在运行器里显示成 `Maven <版本>`，命令里用的是它的**绝对路径**，不往 PATH 里塞东西；
+- 完整版本号从解压包里的 `release` 读（`JAVA_VERSION="21.0.13.1"`），不是拿特性版本猜的；
+- **只认内置目录**：浏览器只能传 `kind` / `vendor` / `version`，下载 URL 全由 Host 拼，所以这个接口
+  变不成任意下载器；已安装的版本直接返回 `already-installed`，不白下 200 MB；
+- 解压用系统自带工具（Windows 的 `tar` 能读 zip；其它平台 `.tar.gz` 用 `tar`、`.zip` 用 `unzip`）；
+  装失败时半成品会清掉，Host 被强杀留下的 staging 目录在下次下载时按一小时清理。
+
 ## 排序与搜索
 
 排序是**两级**的，先按"谁执行"，再按"干什么"：
@@ -369,24 +389,27 @@ Host 半侧按职责拆开（普通 ESM，`import` 直接引）：
 | `config.js` | `.dsh/services.json` 的读写、归一化、变体选择 |
 | `discover.js` | 扫描：package.json、workspace 包、Go module、Maven/Gradle |
 | `jdk.js` | 项目要的 JDK：`.idea` → pom → `~/.jdks` |
+| `download.js` | 下载 JDK / Maven 到 `~/.jdks` 和 DSH 的 tools 目录 |
 | `processes.js` | 启动、输出缓冲、标记式注册表与上次运行的回收 |
-| `routes.js` | HTTP 处理（list / start / stop / state / output / config / pin / ui） |
+| `routes.js` | HTTP 处理（list / start / stop / state / output / config / pin / ui / dl） |
 
-依赖是单向的：`config → discover → processes → routes → index`；`jdk` 被 `processes` 和 `routes` 用。
+依赖是单向的：`config → discover → processes → routes → index`；`discover → download → jdk`，
+`routes → download`。
 
-客户端半侧拆成入口 + 8 个包内 chunk，最大 492 行：
+客户端半侧拆成入口 + 9 个包内 chunk，最大 493 行：
 
 | 文件 | 行数 | 职责 |
 |---|---|---|
-| `client.js` | 383 | 入口：locale、注册、chunk 装载与拼装 |
+| `client.js` | 406 | 入口：locale、注册、chunk 装载与拼装 |
 | `client.data.js` | 197 | 运行时识别、图标、排序与过滤 |
-| `client.css.js` | 195 | 两张样式表 |
-| `client.store.js` | 285 | store、emit、取数 hook、完成的运行、toast 队列 |
-| `client.editor.js` | 424 | 按脚本类型变的启动配置编辑器、输出视图 |
+| `client.css.js` | 203 | 两张样式表 |
+| `client.store.js` | 286 | store、emit、取数 hook、完成的运行、toast 队列 |
+| `client.editor.js` | 445 | 按脚本类型变的启动配置编辑器、输出视图 |
 | `client.actions.js` | 395 | 固定、启动、分组标题、菜单项、两步确认按钮 |
-| `client.panel.js` | 492 | 侧栏面板与标题 |
+| `client.panel.js` | 493 | 侧栏面板与标题 |
 | `client.menu.js` | 262 | 头部入口与下拉覆盖层 |
 | `client.toast.js` | 87 | 执行结束的右下角 toast |
+| `client.download.js` | 186 | 下载 JDK / Maven 的弹层与轮询 |
 
 拆分的两个硬约束（都踩过）：
 

@@ -359,6 +359,7 @@ window.__ModuleLoader__.load({
                       setEditKey('');
                       load();
                     },
+                    onInstalled: () => load(),
                     onCancel: () => setEditKey(''),
                   })
                 : null,

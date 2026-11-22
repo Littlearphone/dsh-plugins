@@ -9,9 +9,9 @@ window.__ModuleLoader__.load({
     const h = React.createElement;
 
     function createEditor(d) {
-      const { t, CONFIG_ROUTE, OUTPUT_ROUTE, store, emit } = d;
+      const { t, CONFIG_ROUTE, OUTPUT_ROUTE, store, emit, DownloadControl } = d;
 
-    function ConfigEditor({ sessionId, script, dir, labels, jdkInfo, onSaved, onCancel }) {
+    function ConfigEditor({ sessionId, script, dir, labels, jdkInfo, onSaved, onCancel, onInstalled }) {
       const scriptName = script.original ?? script.name;
       const kind = String(script.category ?? '');
       // Maven rows choose their runner and JDK; Java rows run through the same
@@ -47,6 +47,19 @@ window.__ModuleLoader__.load({
           script.jdk !== '' &&
           !jdkOptions.some((option) => option.home === script.jdk),
       );
+
+      // A finished download makes the tool usable right away: point the field at
+      // it and ask the panel for a fresh list, so the option exists in the
+      // select too (the Host rescans ~/.jdks and the Maven directory).
+      const installed = (job) => {
+        if (job.kind === 'jdk' && job.home) {
+          setCustomJdk(false);
+          setJdk(job.home);
+        } else if (job.kind === 'maven' && job.runner) {
+          setRunner(job.runner);
+        }
+        if (typeof onInstalled === 'function') onInstalled();
+      };
 
       const save = async (reset) => {
         setBusy(true);
@@ -142,7 +155,7 @@ window.__ModuleLoader__.load({
         ),
         isMaven
           ? h(
-              'label',
+              'div',
               { className: 'dsh-svc-field', key: 'runner' },
               h('span', { className: 'dsh-svc-field-label' }, labels.runner),
               h(
@@ -157,13 +170,20 @@ window.__ModuleLoader__.load({
                   { value: '' },
                   labels.runnerAuto + (runners.length === 0 ? '' : ' · ' + runners[0]),
                 ),
-                runnerChoices.map((choice) => h('option', { key: choice, value: choice }, choice)),
+                runnerChoices.map((choice) =>
+                  h(
+                    'option',
+                    { key: choice, value: choice },
+                    choice.startsWith('maven-') ? 'Maven ' + choice.slice('maven-'.length) : choice,
+                  ),
+                ),
               ),
+              h(DownloadControl, { key: 'dl', sessionId, kind: 'maven', onInstalled: installed }),
             )
           : null,
         isJvm
           ? h(
-              'label',
+              'div',
               { className: 'dsh-svc-field', key: 'jdk' },
               h('span', { className: 'dsh-svc-field-label' }, labels.jdk),
               h(
@@ -196,6 +216,7 @@ window.__ModuleLoader__.load({
                 ),
                 h('option', { value: customJdkOption }, labels.jdkCustom),
               ),
+              h(DownloadControl, { key: 'dl', sessionId, kind: 'jdk', onInstalled: installed }),
             )
           : null,
         isJvm && customJdk

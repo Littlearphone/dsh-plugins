@@ -182,6 +182,7 @@ window.__ModuleLoader__.load({
     const PIN_ROUTE = '/services/pin/';
     const UI_ROUTE = '/services/ui/';
     const OUTPUT_ROUTE = '/services/output/';
+    const DL_ROUTE = '/services/dl/';
 
     /** Stop one started service; failures are silent because the next poll shows state. */
     async function stopService(sessionId, id) {
@@ -277,7 +278,7 @@ window.__ModuleLoader__.load({
      */
 
 
-      return { store, emit, setOpen, postJson, stopService, restartService, useStoreRevision, useScripts, useServices, useServiceNotices, dismissToast, STATE_ROUTE, START_ROUTE, STOP_ROUTE, RESTART_ROUTE, CONFIG_ROUTE, PIN_ROUTE, UI_ROUTE, OUTPUT_ROUTE };
+      return { store, emit, setOpen, postJson, stopService, restartService, useStoreRevision, useScripts, useServices, useServiceNotices, dismissToast, STATE_ROUTE, START_ROUTE, STOP_ROUTE, RESTART_ROUTE, CONFIG_ROUTE, PIN_ROUTE, UI_ROUTE, OUTPUT_ROUTE, DL_ROUTE };
     }
 
     return { createStore };

@@ -1,6 +1,6 @@
 {
     "name":  "@local/services",
-    "version":  "0.1.12",
+    "version":  "0.1.13",
     "private":  true,
     "type":  "module",
     "description":  "Workspace start scripts for the Web GUI: a right-sidebar panel plus a Session-header dropdown.",
@@ -15,6 +15,7 @@
                   "config.js",
                   "discover.js",
                   "jdk.js",
+                  "download.js",
                   "processes.js",
                   "routes.js",
                   "client.js",
@@ -26,6 +27,7 @@
                   "client.panel.js",
                   "client.menu.js",
                   "client.toast.js",
+                  "client.download.js",
                   "cordis.patch.yml",
                   "locale/*.json",
                   "icon.svg"
