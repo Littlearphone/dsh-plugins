@@ -32,7 +32,9 @@ GUI 的插件安装入口填的也是同一个值。
 | 服务管理 | `D:\DataCenter\Documents\IdeaProjects\dsh-plugins\services` |
 
 依赖会以 `link:` 记录，profile 的 `node_modules` 里是一个指向该目录的 junction，源码改动直接
-作用到运行中的插件；客户端代码通常由 HMR 直接重载，不需要重启（Host 半改了要重装一次）。
+作用到运行中的插件。生效方式按改动层次区分：客户端代码由 HMR 重载，不用重启；**Host 代码、
+以及 `package.json` 里新增的 `exports` / `locale`、图标等资源路径，要重启 dsh 进程**（重装和
+插件页「刷新」都无效，Node 在进程内缓存了 `package.json`）。详见 [`AGENTS.md`](AGENTS.md)。
 
 ### 分发给别人：从 GitHub 安装
 
