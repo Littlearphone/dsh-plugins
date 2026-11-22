@@ -313,6 +313,8 @@ Java 那条用 [Devicon](https://devicon.dev/) 的 `java-original`（MIT，128×
 
 `BRAND_ICONS` 因此接受两种写法：24×24 的单色路径字符串，或自带 viewBox 的 `{ viewBox, paths }`；
 mark 里的每条路径还能带自己的 `fill` / `stroke`（Devicon 那条就是靠这个保住蓝/红两色）。
+自带颜色的 mark 会换成**中性底牌**（`is-brand`），否则品牌色的底会和图形抢颜色；单色 mark
+仍用工具色 15% 的淡底。
 要换回 Apache / OpenJDK 官方标，把对应那条换掉即可。商标归各自所有者。
 
 **加一个工具 = `RUNTIMES` 加一行 +（如需要）`BRAND_ICONS` 加一条 mark**：

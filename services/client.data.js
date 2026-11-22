@@ -138,8 +138,8 @@ window.__ModuleLoader__.load({
     /**
      * The badge that fronts one script row: the tool's own mark, tinted by the
      * tool. A mark is either one 24x24 path or a `{ viewBox, paths }` group, so a
-     * glyph drawn on another grid (Maven's M, Java's cup, both from IDEA's icon
-     * set) fits without a second code path. A path may carry its own fill and
+     * glyph drawn on another grid (Maven's M from IDEA, Java's steam from
+     * Devicon) fits without a second code path. A path may carry its own fill and
      * stroke; without one it takes the badge's tint.
      */
     function RuntimeBadge(script, key) {
@@ -149,11 +149,21 @@ window.__ModuleLoader__.load({
         typeof mark === 'string'
           ? { viewBox: '0 0 24 24', paths: [{ d: mark }] }
           : mark ?? { viewBox: '0 0 24 24', paths: [{ d: GENERIC_ICON }] };
+      // A mark that brings its own colours (Devicon's blue/red steam) must not sit
+      // on a plate of the tool's tint: the hue competes with the artwork. Those get
+      // a neutral plate and keep the tint for the title alone.
+      const selfColoured = glyph.paths.some(
+        (shape) =>
+          typeof shape.fill === 'string' && shape.fill !== 'none' && shape.fill !== 'currentColor',
+      );
       return h(
         'span',
         {
           key,
-          className: 'dsh-svc-badge' + (runtime === undefined ? ' is-generic' : ''),
+          className:
+            'dsh-svc-badge' +
+            (runtime === undefined ? ' is-generic' : '') +
+            (selfColoured ? ' is-brand' : ''),
           style: { '--dsh-svc-tint': runtime?.tint ?? 'var(--dsw-alias-label-secondary)' },
           title: runtime?.label ?? 'run',
         },
