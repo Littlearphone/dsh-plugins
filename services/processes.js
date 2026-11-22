@@ -10,6 +10,7 @@ import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { readDoc, rememberUse, scriptKey } from './config.js';
+import { projectJavaHome } from './jdk.js';
 /**
  * Started services, keyed by `<workingDirectory>\u0000<id>` — services belong to the\n * workspace, so every Session opened on that folder sees the same processes. The Host owns the process,
  * so it outlives a panel reload; the browser half only reads state and output.
@@ -312,6 +313,17 @@ export async function spawnService(ctx, sessionId, request, root) {
     override?.env === undefined
       ? localBins
       : { ...(localBins ?? process.env), ...override.env };
+  // A JVM build wants the project's JDK, not the machine-wide one this Host
+  // inherited. The project names it in `.idea`, or the pom states the version;
+  // an explicit `JAVA_HOME` in the launch configuration still wins.
+  if (
+    env !== undefined &&
+    (request.kind === 'maven' || request.kind === 'gradle') &&
+    override?.env?.JAVA_HOME === undefined
+  ) {
+    const javaHome = await projectJavaHome(root);
+    if (javaHome !== undefined) env.JAVA_HOME = javaHome;
+  }
   const key = serviceKey(root, id);
   // Everything needed to launch this script again. A restart cannot go back to
   // the browser for it: the request that started the run is gone by then, and
