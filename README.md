@@ -8,7 +8,7 @@
 
 | 目录 | 包名 | 说明 |
 |---|---|---|
-| [`guide-style`](guide-style/README.md) | `@local/guide-style` | 右侧栏指南页（开始页面）的外观：居中方块网格、玻璃高光与悬停效果；纯样式，无 Host |
+| [`guide-style`](guide-style/README.md) | `@local/guide-style` | 右侧栏指南页（开始页面）的外观：居中方块网格、玻璃高光与悬停效果；外加一个定时检查并自动安装插件更新的 Host 调度器 |
 | [`task-board`](task-board/README.md) | `@local/task-board` | 按状态分轨道的任务列表（交互原型），入口在会话头部右侧工具区 |
 | [`services`](services/README.md) | `@local/services` | 工作区启动脚本与 Go 程序：右侧栏「服务管理」面板 + 会话头部下拉，Host 侧自管进程、可看输出、可停止 |
 
@@ -68,6 +68,10 @@ https://github.com/Littlearphone/dsh-plugins.git#main&path:/services
 
 规则：`#` 后面用 `&` 把「版本」和「子目录」连起来，`path:` 的值从仓库根开始、以 `/` 开头。
 
+上面几种填法（不带 ref 的 `#path:`、`#main&path:`、固定 commit 的写法）都会被 `guide-style` 的
+调度器接管：不带 commit 的装法会在第一次升级时被自动换成固定 commit 的写法，之后走 DSH 原生更新。
+前提只有一个——发版时升了 `version`，见 [发版](#发版让已装机器自动更新)。
+
 ### 这三种填法会被拒
 
 | 填法 | 原因 |
@@ -88,13 +92,36 @@ https://github.com/Littlearphone/dsh-plugins.git#main&path:/services
 
 ## 更新与卸载
 
-- **更新**：先 `remove_bundle`，再 `install_bundle`。对同名包直接重复安装会返回
+- **自动更新**：装了 `guide-style` 的机器，由它每 30 分钟检查一次已装插件并自动安装较新的版本
+  （registry 与 Git 装法都覆盖，未固定 commit 的 Git 装法会在第一次升级时被换成固定 commit）。
+  规则与限制见 [发版](#发版让已装机器自动更新)。
+- **手动更新**：`remove_bundle` 再 `install_bundle`。对同名包直接重复安装会返回
   `already-installed`；而且 profile 的 `pnpm-lock.yaml` 会把 git 依赖钉在某个 commit 上，
   不重装不会跟进新提交。
 - **脚本改动**（`index.js` / `client.js`）属于「替换已安装包」，git 安装方式下需要重启 dsh
   才会加载新的 JS 模块；本地 `link:` 安装下通常由 HMR 直接生效。
 - **卸载**：`remove_bundle @local/services`（任务列表则是 `@local/task-board`）。插件自己的数据（如 `$DSH_HOME/services/`）
   不会被删除。
+
+## 发版：让已装机器自动更新
+
+自动更新只有一个判据：**远端版本号严格大于已装版本**——DSH 的 `updateBundle` 内部就是
+`semver.gt(version, from)`，不满足就整单拒绝。所以每次发布，硬性动作只有一个：
+
+> 改完代码，把对应插件的 `package.json` 里的 `version` 升上去，再 push。
+
+| 插件 | 版本写在哪 |
+|---|---|
+| 指南页样式 / 更新器 | `guide-style/package.json` |
+| 任务列表 | `task-board/package.json` |
+| 服务管理 | `services/package.json` |
+
+- 三个插件版本**各自独立**，只 bump 你改的那个，不要为了同步把没改的也升上去；
+- **只推 commit 不升版本，机器不会更新**：它的状态会停在
+  `newer commit, same version — updateBundle needs a version bump`（`GET /guide-style/updates` 里能看到）；
+- 没固定 commit 的安装（`#path:/xxx`）也一样——第一次升级同样要求版本变大，因为走的是同一条判断；
+- 建议顺手打 tag（`git tag v0.2.1 && git push --tags`），回滚和按版本安装都用得上；
+- `0.0.0` 这类占位版本不要在发版时用：版本必须能被 `semver` 解析并严格递增。
 
 ## 编写约定
 
