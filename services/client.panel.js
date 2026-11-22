@@ -97,7 +97,7 @@ window.__ModuleLoader__.load({
                   {
                     key: 'start',
                     type: 'button',
-                    className: 'dsh-svc-icon',
+                    className: 'dsh-svc-icon is-start',
                     title: phase === 'starting' ? t('run.starting') : t('run.start'),
                     'aria-label': t('run.start'),
                     disabled: phase === 'starting',
