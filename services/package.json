@@ -1,6 +1,6 @@
 {
     "name":  "@local/services",
-    "version":  "0.1.16",
+    "version":  "0.1.17",
     "private":  true,
     "type":  "module",
     "description":  "Workspace start scripts for the Web GUI: a right-sidebar panel plus a Session-header dropdown.",

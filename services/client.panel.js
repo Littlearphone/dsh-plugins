@@ -186,32 +186,35 @@ window.__ModuleLoader__.load({
                 }),
               );
             }
-            if (service !== undefined) {
-              actions.push(
-                h(
-                  'button',
-                  {
-                    key: 'output',
-                    type: 'button',
-                    className: 'dsh-svc-icon',
-                    title: open ? t('run.hide') : t('run.output'),
-                    'aria-label': open ? t('run.hide') : t('run.output'),
-                    onClick: () => setOpenKey(open ? '' : rowKey),
-                  },
-                  h(
-                    'svg',
-                    { viewBox: '0 0 16 16', 'aria-hidden': true, fill: 'none' },
-                    h('path', {
-                      d: open ? 'M4 10l4-4 4 4' : 'M4 6l4 4 4-4',
-                      stroke: 'currentColor',
-                      strokeWidth: 1.4,
-                      strokeLinecap: 'round',
-                      strokeLinejoin: 'round',
-                    }),
-                  ),
-                ),
-              );
-            }
+            // The log toggle is the only control that comes and goes with the
+            // run. The row's action column is right-anchored (`auto` in the
+            // grid), so a control appended after the others shifts every button
+            // before it — put this one first and the other three stay put.
+            const outputButton =
+              service === undefined
+                ? null
+                : h(
+                    'button',
+                    {
+                      key: 'output',
+                      type: 'button',
+                      className: 'dsh-svc-icon',
+                      title: open ? t('run.hide') : t('run.output'),
+                      'aria-label': open ? t('run.hide') : t('run.output'),
+                      onClick: () => setOpenKey(open ? '' : rowKey),
+                    },
+                    h(
+                      'svg',
+                      { viewBox: '0 0 16 16', 'aria-hidden': true, fill: 'none' },
+                      h('path', {
+                        d: open ? 'M4 10l4-4 4 4' : 'M4 6l4 4 4-4',
+                        stroke: 'currentColor',
+                        strokeWidth: 1.4,
+                        strokeLinecap: 'round',
+                        strokeLinejoin: 'round',
+                      }),
+                    ),
+                  );
             return h(
               'div',
               { key: 'entry-' + index, className: 'dsh-svc-entry-block' },
@@ -283,6 +286,7 @@ window.__ModuleLoader__.load({
                         ),
                       )
                     : null,
+                  outputButton,
                   h(
                     'button',
                     {
