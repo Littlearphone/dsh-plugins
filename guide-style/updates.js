@@ -4,8 +4,7 @@
  * DSH ships the *operation* (PluginManager.listVersions / updateBundle) but no
  * scheduler: nothing checks a registry or a Git remote unless a person opens
  * the Plugins page. This module is that scheduler. Once per interval it walks
- * the profile's own bundles and, for the two kinds DSH itself can replace,
- * installs what is newer:
+ * the profile's own bundles and installs what is newer:
  *
  *  - `registry` — `listVersions` names the published versions above the
  *    installed one; the newest stable, bundle-declaring, DSH-compatible one is
@@ -15,13 +14,17 @@
  *    and `updateBundle` gets the saved spec re-pinned to the new commit. That
  *    only works when the commit also raised the manifest version, because
  *    `updateBundle` refuses anything not strictly newer (semver).
+ *  - `git` without a pinned commit — the plain `github:owner/repo#path:/sub`
+ *    form a one-line install records. DSH refuses to replace that at all, so
+ *    the first newer release is installed here as a removal plus an install of
+ *    the same address pinned to the commit just read; after that one
+ *    conversion the copy is an ordinary pinned Git copy.
  *
  * Everything else — a `link:` copy, an Official bundle, a bundle that carries
- * plugin management, a Git spec saved as a branch — is reported as skipped:
- * DSH cannot replace it, and pretending otherwise would only produce failed
- * installs. `link:` copies are the notable case: their files are whatever is
- * in that directory, so "updating" them is a working-copy operation, not a
- * package operation.
+ * plugin management — is reported as skipped: DSH cannot replace it, and
+ * pretending otherwise would only produce failed installs. `link:` copies are
+ * the notable case: their files are whatever is in that directory, so
+ * "updating" them is a working-copy operation, not a package operation.
  *
  * The engine talks to the manager only through injected functions, so it can
  * be exercised without a running Host.
@@ -139,15 +142,37 @@ export function parseGitSource(source) {
       ? `ssh://${authority}/${rest}`
       : `${scheme[1].toLowerCase()}://${authority}/${rest}`;
   }
-  if (commit === null) return undefined;
   return {
     url,
     host,
     owner,
     repo,
-    commit: commit[1],
+    // A spec saved from a branch or from a plain `#path:` carries no commit;
+    // that copy cannot be updated by `updateBundle`, but it can be re-pinned
+    // once by this plugin (see `pinSpec`).
+    ...commit === null ? {} : { commit: commit[1] },
     path: path === null ? '' : decodeURIComponent(path[1]),
   };
+}
+
+/**
+ * The same address with a commit pinned, keeping the directory fragment.
+ *
+ * This is how an installation that arrived without a pin — the plain
+ * `github:owner/repo#path:/sub` form — becomes one `updateBundle` can replace.
+ * @param source - the saved spec, pinned or not.
+ * @param commit - the commit to pin.
+ * @returns the spec, or undefined when the source has no address to keep.
+ */
+export function pinSpec(source, commit) {
+  if (typeof source !== 'string' || source === '') return undefined;
+  const hash = source.indexOf('#');
+  const address = hash === -1 ? source : source.slice(0, hash);
+  if (address === '') return undefined;
+  const fragment = hash === -1 ? '' : source.slice(hash + 1);
+  // Keep a directory fragment, drop any other ref the spec may carry.
+  const path = /(?:^|&)path:([^&]+)/.exec(fragment);
+  return `${address}#${commit}${path === null ? '' : `&path:${path[1]}`}`;
 }
 
 /**
@@ -197,10 +222,11 @@ export function skipReason(bundle, ownName) {
   if (bundle.readOnlyReason !== undefined) return 'management';
   if (bundle.source === undefined) return 'no-source';
   if (bundle.update !== 'registry' && bundle.update !== 'git') {
-    // The common case is a `link:` copy: DSH loads the directory itself, so
-    // there is no package to replace — a newer version would have to arrive in
-    // that working copy, which is not this plugin's business.
-    return 'not-updatable';
+    // A Git copy saved without a pinned commit is still a candidate: this
+    // plugin re-pins it once, after which `updateBundle` can replace it. A
+    // `link:` copy is not — DSH loads that directory itself, so there is no
+    // package to replace and no address to re-pin.
+    return parseGitSource(bundle.source) === undefined ? 'not-updatable' : undefined;
   }
   return undefined;
 }
@@ -227,6 +253,8 @@ export function createUpdater(options) {
     listBundles,
     listVersions,
     updateBundle,
+    removeBundle,
+    installBundle,
     lsRemote,
     readManifest,
     ownName = PACKAGE,
@@ -332,7 +360,8 @@ export function createUpdater(options) {
     if (parsed === undefined) return row(bundle, { status: 'unavailable', detail: 'unreadable git spec' });
     const commit = await headCommit(parsed.url);
     if (commit === undefined) return row(bundle, { status: 'unavailable', detail: 'remote unreachable' });
-    if (commit === parsed.commit) return row(bundle, { status: 'up-to-date' });
+    const pinned = parsed.commit !== undefined;
+    if (pinned && commit === parsed.commit) return row(bundle, { status: 'up-to-date' });
     const manifest = await readManifest(parsed, commit);
     if (manifest?.version === undefined) {
       return row(bundle, { status: 'unavailable', detail: 'could not read the remote manifest' });
@@ -344,9 +373,51 @@ export function createUpdater(options) {
         detail: 'newer commit, same version — updateBundle needs a version bump',
       });
     }
-    const spec = withCommit(bundle.source, commit);
-    if (spec === undefined) return row(bundle, { status: 'unavailable', detail: 'saved spec has no commit to re-pin' });
-    return install(bundle, manifest.version, { spec });
+    if (pinned) {
+      const spec = withCommit(bundle.source, commit);
+      if (spec === undefined) return row(bundle, { status: 'unavailable', detail: 'saved spec has no commit to re-pin' });
+      return install(bundle, manifest.version, { spec });
+    }
+    // Installed from an address without a commit — the plain
+    // `github:owner/repo#path:/sub` form. DSH cannot update such a copy, so
+    // this is the one replacement the plugin performs itself: remove it and
+    // install the same address pinned to the commit just read. From then on
+    // the copy is updatable and every later run takes the branch above.
+    return bootstrap(bundle, parsed, commit, manifest.version);
+  }
+
+  /**
+   * Replace an unpinned Git copy with the same address pinned to `commit`.
+   *
+   * There is no rollback to the installed version — an unpinned spec resolves
+   * to whatever the remote holds now, so re-running it would not restore the
+   * old code. That is why this only runs when the remote already declares a
+   * newer version, and why a failure is reported as failed rather than
+   * retried: the plugin is then simply absent from the profile, visible in
+   * the Plugins page.
+   */
+  async function bootstrap(bundle, parsed, commit, version) {
+    const spec = pinSpec(bundle.source, commit);
+    if (spec === undefined) return row(bundle, { status: 'unavailable', detail: 'saved spec has no address to pin' });
+    if (!apply) return row(bundle, { latest: version, status: 'available', detail: 'auto-apply is off' });
+    const removed = await removeBundle(bundle.name);
+    if (removed?.application === 'failed') {
+      return row(bundle, {
+        latest: version,
+        status: 'failed',
+        detail: removed.error?.diagnostic ?? removed.error?.code ?? 'could not remove the unpinned copy',
+      });
+    }
+    const result = await installBundle(spec, { enabled: bundle.enabled !== false, expected: { name: bundle.name, version } });
+    const outcome = result?.application;
+    if (outcome === 'applied' || outcome === 'restart-required') {
+      return row(bundle, { latest: version, installed: version, status: 'updated', detail: `${outcome} (pinned ${commit.slice(0, 7)})` });
+    }
+    return row(bundle, {
+      latest: version,
+      status: 'failed',
+      detail: result?.error?.diagnostic ?? result?.error?.code ?? outcome ?? 'install failed after removal',
+    });
   }
 
   /**

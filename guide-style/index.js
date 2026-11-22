@@ -128,6 +128,14 @@ export function apply(ctx, config) {
       if (manager === undefined) throw new Error('the plugin manager is unavailable');
       return await manager.updateBundle(name, version, extra);
     },
+    removeBundle: async (name) => {
+      if (manager === undefined) throw new Error('the plugin manager is unavailable');
+      return await manager.removeBundle(name);
+    },
+    installBundle: async (spec, options) => {
+      if (manager === undefined) throw new Error('the plugin manager is unavailable');
+      return await manager.installBundle(spec, options);
+    },
     lsRemote: (url) => lsRemote(url, settings.gitTimeoutMs),
     readManifest: (parsed, commit) => readManifest(parsed, commit, settings.fetchTimeoutMs),
   });
