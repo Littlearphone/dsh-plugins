@@ -9,7 +9,7 @@ window.__ModuleLoader__.load({
     const h = React.createElement;
 
     function createPanel(d) {
-      const { BUILD, t, useLocaleRevision, CSS, store, emit, useServices, useStoreRevision, useScripts, UI_ROUTE, RuntimeBadge, sortScripts, ConfigEditor, OutputView, BRAND_ICONS, launch, togglePin, postJson, stopService, restartService, groupHeading, serviceChip, armedActionButton, useArmedAction, useRestarting, useCollapsedGroups } = d;
+      const { BUILD, t, useLocaleRevision, CSS, store, emit, useServices, useStoreRevision, useScripts, UI_ROUTE, RuntimeBadge, sortScripts, ConfigEditor, OutputView, BRAND_ICONS, launch, togglePin, postJson, stopService, restartService, groupHeading, serviceChip, stateLabel, armedActionButton, useArmedAction, useRestarting, useCollapsedGroups } = d;
 
         /** Right-sidebar tab: the list, with its directory and a refresh control. */
         /**
@@ -316,9 +316,7 @@ window.__ModuleLoader__.load({
                     labels: {
                       title: t('run.output'),
                       state:
-                        service.state === 'running'
-                          ? t('run.running')
-                          : t('run.exited') + ' ' + String(service.exitCode ?? '?'),
+                        stateLabel(service),
                       waiting: t('output.waiting'),
                       reading: t('output.reading'),
                       hide: t('run.hide'),

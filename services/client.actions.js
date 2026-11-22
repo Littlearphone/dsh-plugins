@@ -103,6 +103,20 @@ window.__ModuleLoader__.load({
         }
 
         
+        /**
+         * One sentence for a service's state, shared by the chip and the output
+         * header so both surfaces say the same thing.
+         */
+        function stateLabel(service) {
+          if (service === undefined) return '';
+          if (service.state === 'running') return t('run.running');
+          if (service.state === 'stopping') return t('run.stopping');
+          const code = service.exitCode;
+          if (code === undefined || code === null) return t('run.exited');
+          const verdict = code === 0 ? t('run.exitOk') : t('run.exitFail');
+          return t('run.exited') + ' · ' + verdict + ' (' + String(code) + ')';
+        }
+
         /** The state chip a row shows next to its name; one shape on every surface. */
         function serviceChip(service) {
           if (service === undefined) return null;
@@ -112,19 +126,11 @@ window.__ModuleLoader__.load({
           if (service.state === 'stopping') {
             return h('span', { className: 'dsh-svc-chip' }, t('run.stopping'));
           }
-          // "已结束 0" says nothing: name the outcome and keep the code beside it,
-          // so a 0 reads as success and a 2 as failure without a lookup. A run with
-          // no code (killed) has no verdict to name.
+          // Colour carries the outcome: green when it finished cleanly, red when
+          // it failed, grey when it was killed and never reported a code.
           const code = service.exitCode;
-          if (code === undefined || code === null) {
-            return h('span', { className: 'dsh-svc-chip is-done' }, t('run.exited'));
-          }
-          const verdict = code === 0 ? t('run.exitOk') : t('run.exitFail');
-          return h(
-            'span',
-            { className: 'dsh-svc-chip is-done' + (code === 0 ? '' : ' is-failed') },
-            t('run.exited') + ' · ' + verdict + ' (' + String(code) + ')',
-          );
+          const tone = code === undefined || code === null ? ' is-killed' : code === 0 ? ' is-done' : ' is-done is-failed';
+          return h('span', { className: 'dsh-svc-chip' + tone }, stateLabel(service));
         }
 
         /** Circular-arrow glyph: restart. */
@@ -381,7 +387,7 @@ window.__ModuleLoader__.load({
         }
 
 
-      return { togglePin, launch, groupHeading, menuItems, serviceChip, armedActionButton, useArmedAction, useRestarting, useCollapsedGroups };
+      return { togglePin, launch, groupHeading, menuItems, serviceChip, stateLabel, armedActionButton, useArmedAction, useRestarting, useCollapsedGroups };
     }
 
     return { createActions };
