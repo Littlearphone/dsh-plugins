@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Guide page style">
+  <defs>
+    <clipPath id="tile">
+      <rect x="35" y="35" width="21" height="21" rx="6" />
+    </clipPath>
+  </defs>
+  <g fill="none" stroke="#6D5BD0" stroke-width="3">
+    <rect x="8" y="8" width="21" height="21" rx="6" />
+    <rect x="35" y="8" width="21" height="21" rx="6" />
+    <rect x="8" y="35" width="21" height="21" rx="6" />
+  </g>
+  <rect x="35" y="35" width="21" height="21" rx="6" fill="#6D5BD0" />
+  <g clip-path="url(#tile)">
+    <path d="M30 59 L45 44 L51 50 L36 65 Z" fill="#FFFFFF" opacity="0.32" />
+  </g>
+</svg>

@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Guide page style",
+    "description": "Restyles the right sidebar's guide page as a centred grid of square tiles, with glass highlights and hover lift, and checks the profile's plugins for newer versions on a schedule."
+  }
+}

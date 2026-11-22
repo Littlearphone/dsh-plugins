@@ -14,8 +14,6 @@ import { extname, join, relative } from 'node:path';
 
 const ROOT = new URL('..', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
 const PLUGINS = ['guide-style', 'task-board', 'services'];
-/** Bundles without a locale directory to validate. */
-const NO_LOCALE = new Set(['guide-style']);
 /** Extensions where a BOM breaks a parser or the chunk loader. */
 const BOM_TYPES = new Set(['.js', '.mjs', '.json', '.yml', '.yaml', '.md', '.svg', '.css']);
 /** Dependency and runtime trees, never sources. */
@@ -69,7 +67,6 @@ for (const plugin of PLUGINS) {
       console.error(`fail ${plugin}/${file}`);
     }
   }
-  if (NO_LOCALE.has(plugin)) continue;
   try {
     await readdir(join(ROOT, plugin, 'locale'));
     JSON.parse(await readFile(join(ROOT, plugin, 'locale', 'zh.json'), 'utf8'));
