@@ -209,7 +209,11 @@ select.dsh-svc-input:disabled{opacity:.55;}
 .dsh-svc-badge.is-brand{background:color-mix(in srgb,var(--dsw-alias-label-secondary,#8a8a8a) 8%,transparent);}
 .dsh-svc-badge svg{width:14px;height:14px;display:block;}
 .dsh-svc-entry{box-sizing:border-box;display:flex;align-items:center;justify-content:center;width:24px;height:24px;flex:none;margin:0;padding:0;border:1px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm);background:transparent;color:var(--dsw-alias-state-success-primary);font:inherit;line-height:0;vertical-align:middle;cursor:pointer;}
-.dsh-svc-entry.is-running{color:var(--dsw-alias-state-warn-primary);border-color:color-mix(in srgb,var(--dsw-alias-state-warn-primary) 45%,transparent);}
+/* The entry is a control, not a readout: while a service runs its glyph is the
+   square stop mark, so it keeps the stop colour. The yellow "running" tone
+   belongs to the chip, the dot and the row accent — colouring the button too
+   made the header look like a warning lamp. */
+.dsh-svc-entry.is-running{color:var(--dsw-alias-state-error-primary);border-color:color-mix(in srgb,var(--dsw-alias-state-error-primary) 45%,transparent);}
 .dsh-svc-entry:hover{background:var(--dsw-alias-interactive-bg-hover);}
 .dsh-svc-entry:active{background:var(--dsw-alias-interactive-bg-active);}
 .dsh-svc-entry svg{width:15px;height:15px;display:block;}
