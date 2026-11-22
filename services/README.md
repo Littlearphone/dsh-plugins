@@ -159,6 +159,11 @@ JVM 项目没有脚本清单，能"运行"的是**构建工具的目标**。所�
   - **Spring**：除了 `spring-boot-maven-plugin`，继承 `spring-boot-starter-parent` 也算，
     所以标准的 Spring Boot 工程一定会有一行 `spring-boot:run`。
 - 命令带 `-f <pom>`：一个工作区里十几个 pom 时，工作目录决定不了跑哪个项目，pom 文件决定。
+- 命令开头的 **Maven 可执行文件是解析出来的**：项目自带 `mvnw`/`mvnw.cmd` 就先用它（版本由项目钉住），
+  其次是 PATH 上的 `mvn`，最后是 `mvnd`（Maven Daemon，参数与 `mvn` 兼容）。IDEA 用户常常只有
+  IDE 自带的那份 Maven、PATH 上根本没有 `mvn`——这一层兜底不是锦上添花，否则每条 Maven 行跑起来
+  只有一句"不是内部或外部命令"。三样都没有时仍然写 `mvn`，让缺环境这件事直接暴露在输出里。
+  想换一个：行的「编辑启动配置」里选（见「启动变体」），选定值跟着变体存。
 - Gradle 同理：`build.gradle`/`.kts` → `build`、`test`，含 `org.springframework.boot` 时给
   `bootRun`（不再给 `run`）；有 `gradlew` 就用 `./gradlew`。
 
@@ -166,6 +171,22 @@ JVM 项目没有脚本清单，能"运行"的是**构建工具的目标**。所�
 "这些脚本属于哪个工具"，不是每个项目一个组。
 
 还没做：纯 `javac`/`java` 的散装工程（没有构建工具就没有可靠的主类发现），以及 `Makefile`。
+
+## JVM 用哪个 JDK
+
+Maven / Gradle 跑在 Host 继承来的 `JAVA_HOME` 上（这台机器是机器级的 `openjdk-21.0.1`），而项目要的
+常常是另一个版本——IDEA 知道这件事，shell 不知道。所以启动前按 IDEA 的思路解析一次：
+
+1. `.idea/misc.xml` 的 `project-jdk-name`（比如 `temurin-25`）→ 到 `~/.jdks` 找目录：先精确匹配，
+   再按前缀匹配（`temurin-25` → `temurin-25.0.1`）。IDEA 的 SDK 名和目录名本来就不必相同；
+2. 名字指向的 JDK 已经卸了，就看同一个 `ProjectRootManager` 上的 `languageLevel="JDK_25"`；
+3. 没有 `.idea`，或者前两步都对不上，就读 pom 的 `java.version` /
+   `maven.compiler.release|source|target`，在 `~/.jdks` 里取同主版本、版本号最高的那个；
+4. 都没有就保持 Host 的环境不动——不猜比猜错好。
+
+只对 `kind` 是 `maven` / `gradle` 的启动生效；`~/.jdks` 里没有 `bin/java`（Windows 是 `bin\java.exe`）
+的目录不算候选，`~/.jdks` 不存在时整段跳过。优先级是：启动配置里的 **JDK 字段** > 启动配置里写的
+**`JAVA_HOME` 环境变量** > 上面这套自动解析；都没有就保持 Host 的环境不动。
 
 ## 排序与搜索
 
@@ -197,7 +218,7 @@ JVM 项目没有脚本清单，能"运行"的是**构建工具的目标**。所�
 |---|---|---|
 | Node.js 六边形 | node | `node`、`tsx`、`ts-node`、`nodemon`、`vite`、`next`、`webpack`、`rollup`、`esbuild`、`jest`、`vitest`、`mocha` |
 | npm 标志 | npm / pnpm / yarn | 三种包管理器共用 npm 的图标与 npm 红 `#CB3837`，只有右侧文字与 tooltip 区分 |
-| Maven 标志 | mvn | `mvn`、`mvnd` |
+| Maven 标志（IDEA 那个 M） | mvn | `mvn`、`mvnd`，tint 用 IDEA 的蓝 `#3574F0` |
 | Gradle 标志 | gradle | `gradle`、`gradlew` |
 | OpenJDK 标志 | java | `java` |
 | Go 标志 | go | `go run`、`go build`、`go test` |
@@ -206,11 +227,17 @@ JVM 项目没有脚本清单，能"运行"的是**构建工具的目标**。所�
 | .NET 字标 | .net | `dotnet` |
 | ▶ | 其他 | 兜底 |
 
-图形是**官方品牌图形**，取自 [Simple Icons](https://simpleicons.org/)（CC0 路径数据，24×24 网格），
-不是我手画的近似形状；填充用 `currentColor`，所以颜色只由 tint 决定，不依赖外部图片资源。
-商标归各自所有者。
+图形是**官方品牌图形**，多数取自 [Simple Icons](https://simpleicons.org/)（CC0 路径数据，24×24 网格），
+不是我手画的近似形状；单色图形填充 `currentColor`，所以颜色只由 tint 决定，不依赖外部图片资源。
 
-**加一个工具 = `RUNTIMES` 加一行 +（如需要）`BRAND_ICONS` 加一条路径**：
+Maven 那条是例外，而且是**故意**的：Apache 自己的标 2025 年 9 月随 ASF 换成了 oak leaf，但认识它的人
+太少，大家认的是 IDEA 里那个蓝色 `M`。所以这一条用 JetBrains expUI 图标集里的
+`images/expui/toolwindow/maven.svg`（Apache-2.0，16×16 网格，tint `#3574F0`）。
+`BRAND_ICONS` 因此接受两种写法：24×24 的单色路径字符串，或自带 viewBox 的 `{ viewBox, paths }`。
+要换回 Apache 官方新标，把 `maven` 那条换成 [MavenLogoLeaf](https://maven.apache.org/images/logos/MavenLogoLeaf.svg)
+的路径即可。商标归各自所有者。
+
+**加一个工具 = `RUNTIMES` 加一行 +（如需要）`BRAND_ICONS` 加一条 mark**：
 
 ```js
 // RUNTIMES 里
@@ -236,7 +263,26 @@ dsh --profile web plugin install "github:Littlearphone/dsh-plugins#path:/service
 ```
 
 或用 `plugin_manager` 的 `install_bundle`，目标传上面两种字符串之一。
-以上两种写法都实测装成过（`application: applied`，版本 0.1.2）。
+以上两种写法都实测装成过（`application: applied`，版本 0.1.3）。
+
+## 运行结束提示（toast）
+
+以前脚本跑完，只有把面板打开、盯着那一行才能发现状态变了。现在**当前页启动的**服务结束
+时，右下角弹一张 toast：成功是绿色 `执行结束 · 退出码 0`，失败是红色 `执行失败 · 退出码 2`，
+并带脚本名和命令；窗口可见且聚焦时 8 秒自动消失，**失焦、最小化或切到别的标签页时计时暂停、
+toast 一直保留**，回到窗口后重新给满 8 秒。最多同时堆 4 张，也可以点 `×` 关掉。
+
+几个刻意的边界：
+
+- **只提示本页启动的运行**：`store.watched` 记录 start/restart 返回的 id，页面加载前就已经
+  结束的历史记录不会补弹，否则每次刷新都是一串旧 toast；
+- **停止不提示**：用户点停止时先把这个 id 从 `watched` 里删掉，停止是用户动作，不是运行结果；
+- **重启只提示新 run**：重启成功后旧 id 被替换，新 id 接管 watch，旧进程的结束不会误弹；
+- **检测挂在始终挂载的 HeaderEntry 上**：面板和下拉都可能没开，但头部入口一直在轮询
+  `state`，所以“执行结束”不会因为面板关着而丢掉；
+- **toast 是插件自己的 overlay**，注册在 `shell.overlay`（order 900），不依赖 DSH 内部的
+  临时提示实现；样式只用了 `--dsw-*` 语义 token。
+
 ## 启动变体（IDEA 式）
 
 一条脚本可以挂**多条启动配置**，像 IDEA 的 run configuration 那样：`dev:all` 可以同时有
@@ -247,7 +293,9 @@ dsh --profile web plugin install "github:Littlearphone/dsh-plugins#path:/service
   "version": 3,
   "configs": [
     { "id": "c-xxx", "dir": "", "script": "dev:all", "label": "调试", "args": "--watch" },
-    { "id": "c-yyy", "dir": "", "script": "dev:all", "label": "剖面", "args": "--inspect" }
+    { "id": "c-yyy", "dir": "", "script": "dev:all", "label": "剖面", "args": "--inspect" },
+    { "id": "c-zzz", "dir": "", "script": "clean", "label": "IDEA 的 JDK", "runner": "mvnw",
+      "jdk": "C:\\Users\\me\\.jdks\\temurin-25.0.1" }
   ],
   "selected": { "|dev:all": "c-xxx" },   // 该脚本上次选中的变体
   "pinned": [{ "dir": "", "script": "dev:all" }],
@@ -259,6 +307,10 @@ dsh --profile web plugin install "github:Littlearphone/dsh-plugins#path:/service
 - **启动请求带 `configId`**，Host 按 id 取那一条，参数、环境、目录都从它来；
 - **`args` 是原始字符串、原样透传**：`npm run x -- <args>`，引号与分组不会被拆散；
 - **脚本正文永远只读**：`normaliseConfig` 不接受 `command` 字段，覆盖不了 `package.json`；
+- **配置界面按脚本类型变**：命令的类型（`category`）决定抽屉里有哪些字段——Maven 行多一个
+  「运行器」（自动 / `mvnw` / `mvn` / `mvnd`，只列这台机器真有的那几个）和一个「JDK」
+  （`JAVA_HOME` 路径，留空 = 按 `.idea` / pom / `~/.jdks` 解析）；Gradle 行只有 JDK；npm 行保持原样。
+  这两项随变体存进 `configs`，启动时由 Host 分别用在命令首词和 `JAVA_HOME` 上；
 - **行内选择器**：有变体的行多一个下拉，切换即时写回 `selected`；
 - **迁移**：v2 的单条覆盖读出来会自动补上 id，等价于「只有一条变体」，行为不变。
 ## 代码结构
@@ -269,24 +321,26 @@ Host 半侧按职责拆开（普通 ESM，`import` 直接引）：
 |---|---|
 | `index.js` | 注册 `/services` 前缀路由、卸载时杀干净 |
 | `config.js` | `.dsh/services.json` 的读写、归一化、变体选择 |
-| `discover.js` | 扫描：package.json、workspace 包、Go module |
+| `discover.js` | 扫描：package.json、workspace 包、Go module、Maven/Gradle |
+| `jdk.js` | 项目要的 JDK：`.idea` → pom → `~/.jdks` |
 | `processes.js` | 启动、输出缓冲、标记式注册表与上次运行的回收 |
 | `routes.js` | HTTP 处理（list / start / stop / state / output / config / pin / ui） |
 
-依赖是单向的：`config → discover → processes → routes → index`。
+依赖是单向的：`config → discover → processes → routes → index`；`jdk` 被 `processes` 和 `routes` 用。
 
-客户端半侧拆成入口 + 7 个包内 chunk，最大 480 行：
+客户端半侧拆成入口 + 8 个包内 chunk，最大 480 行：
 
 | 文件 | 行数 | 职责 |
 |---|---|---|
-| `client.js` | 338 | 入口：locale、注册、chunk 装载与拼装 |
-| `client.data.js` | 173 | 运行时识别、图标、排序与过滤 |
-| `client.css.js` | 170 | 两张样式表 |
-| `client.store.js` | 164 | store、emit、四个取数 hook、路由常量 |
-| `client.editor.js` | 325 | 启动配置编辑器 |
-| `client.actions.js` | 370 | 固定、启动、分组标题、菜单项、两步确认按钮 |
-| `client.panel.js` | 477 | 侧栏面板与标题 |
-| `client.menu.js` | 255 | 头部入口与下拉覆盖层 |
+| `client.js` | 375 | 入口：locale、注册、chunk 装载与拼装 |
+| `client.data.js` | 197 | 运行时识别、图标、排序与过滤 |
+| `client.css.js` | 194 | 两张样式表 |
+| `client.store.js` | 281 | store、emit、取数 hook、完成的运行、toast 队列 |
+| `client.editor.js` | 388 | 按脚本类型变的启动配置编辑器、输出视图 |
+| `client.actions.js` | 395 | 固定、启动、分组标题、菜单项、两步确认按钮 |
+| `client.panel.js` | 480 | 侧栏面板与标题 |
+| `client.menu.js` | 262 | 头部入口与下拉覆盖层 |
+| `client.toast.js` | 87 | 执行结束的右下角 toast |
 
 拆分的两个硬约束（都踩过）：
 
