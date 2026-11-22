@@ -19,22 +19,25 @@
 
 ## 生效方式：什么要重启、什么不用
 
-改完插件，先分清改的是哪一层，别默认“刷新一下就好”：
+改完插件，先分清改的是哪一层，别默认“刷新一下”或“重启一下”：
 
-- **客户端**（`client.js`、`client.*.js` 等 chunk、CSS）：浏览器按入口的 `?rev=` 重新拉取，
-  **不用重启**；改了 chunk 要同时动入口（见上一节）。
-- **Host 代码**（`index.js`、`updates.js` 这类只在 Host 跑的模块）：**要重启 dsh 进程**。
-  HMR 管的是补丁层，`plugin install` / 重装也不会换掉已经加载进内存的 Host 模块。
-- **`package.json` 的 `exports`，或新增 `locale/`、`icon.svg` 这类资源路径：必须重启**。
+- **客户端与 Host 的 JS**（`client.js` / `client.*.js` 等 chunk / `index.js` / `updates.js`）：
+  由 HMR 现场重挂载，**不用重启**。不放心就 `remove_bundle` + `install_bundle` 一次，
+  返回 `application: applied` 就是已经生效（返回 `restart-required` 才需要重启）。
+  实测：新加的 `GET /guide-style/updates` 路由在没重启的进程里直接返回 200。
+- **`package.json` 的 `exports`，或新增 `locale/`、`icon.svg` 这类资源路径：必须重启 dsh 进程**。
   原因：Host 用 Node 的 ESM 解析器读 `meta.title` / 图标，Node 会把读过的 `package.json`
   **缓存在进程内**；旧缓存里没有新导出，插件页/设置页就一直回退成包名
-  （Settings 显示 `guide-style`，Plugin Manager 显示 `@local/guide-style`）。
-  `pnpm install`、重装、插件页的「刷新」都清不掉这个缓存。
-- **只改 `locale/*.json` 的文案、或加一个导出已覆盖的语言文件**：每次现读，**不用重启**。
+  （Settings 显示 `guide-style`，Plugin Manager 显示 `@local/guide-style`），图标用默认图案。
+- **上面的缓存，刷新和重装都清不掉**：实测在插件管理器里 `remove_bundle` 再 `install_bundle`
+  （两次都 `applied`，版本已到 0.2.0），插件卡仍是裸包名 + 默认图标；`pnpm install`、
+  插件页的「刷新」同样无效。只有重启进程才重新读 `package.json`。
+- **只改 `locale/*.json` 的文案、或加一个已被现有导出覆盖的语言文件**：每次现读，**不用重启**。
 
-判断是否真的生效：改完 GUI 里还是裸包名，就是 Host 缓存没刷新（不是 locale 文件写错）。
-要脱离 GUI 单独确认元数据本身，可以在**新进程**里用 DSH 自己的 `readPluginMeta` 读一遍
-（`@deepseek-ai/dsh-app-boot/lib/index.js`，parentURL 传 profile 的 `package.json`）。
+判断：JS 行为没生效，看插件管理器的 `application` 结果；标题/图标没生效，就是进程缓存没刷新
+（不是 locale 文件写错），重启。要脱离 GUI 单独确认元数据本身，可以在**新进程**里用 DSH 自己的
+`readPluginMeta` 读一遍（`@deepseek-ai/dsh-app-boot/lib/index.js`，parentURL 传 profile 的
+`package.json`）。
 
 ## 写文件：别让 PowerShell 5.1 加 BOM 或改换行
 
