@@ -9,7 +9,7 @@ window.__ModuleLoader__.load({
     const h = React.createElement;
 
     function createPanel(d) {
-      const { BUILD, t, useLocaleRevision, CSS, store, emit, useServices, useStoreRevision, useScripts, UI_ROUTE, RuntimeBadge, sortScripts, ConfigEditor, OutputView, BRAND_ICONS, launch, togglePin, postJson, stopService, restartService, groupHeading, serviceChip, stateLabel, armedActionButton, useArmedAction, useRestarting, useCollapsedGroups } = d;
+      const { BUILD, t, useLocaleRevision, CSS, store, emit, useServices, useStoreRevision, useScripts, UI_ROUTE, RuntimeBadge, sortScripts, ConfigEditor, OutputView, BRAND_ICONS, launch, togglePin, postJson, stopService, restartService, groupHeading, serviceChip, stateLabel, armedActionButton, useArmedAction, useRestarting, useServiceFocus, useCollapsedGroups } = d;
 
         /**
          * A drawer that throws must not take the list down with it: a blank panel
@@ -52,6 +52,8 @@ window.__ModuleLoader__.load({
           const [collapsed, toggleGroup] = useCollapsedGroups(sessionId, state.collapsed);
           const services = useServices(sessionId);
           const [query, setQuery] = React.useState('');
+          // A toast's "open" action leaves one focus request for this panel.
+          const flashKey = useServiceFocus(state, collapsed, toggleGroup, setQuery, query);
           // rowKey -> 'starting' | 'stopping', cleared when the service reaches the
           // expected state, so the button shows the work it is doing.
           const [pending, setPending] = React.useState({});
@@ -216,7 +218,11 @@ window.__ModuleLoader__.load({
               h(
                 'div',
                 {
-                  className: 'dsh-svc-row' + (running ? ' is-running' : ''),
+                  className:
+                    'dsh-svc-row' +
+                    (running ? ' is-running' : '') +
+                    (flashKey === key ? ' is-focus' : ''),
+                  'data-svc-key': key,
                   title: script.command,
                 },
                 RuntimeBadge(script, 'badge'),

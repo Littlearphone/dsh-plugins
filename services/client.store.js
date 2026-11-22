@@ -19,6 +19,9 @@ window.__ModuleLoader__.load({
       notice: '',
       busy: false,
       focusServiceId: '',
+      // One-shot request from a toast: the panel expands, clears its filter,
+      // scrolls the matching row into view and flashes it.
+      focus: null,
       diag: '',
       revision: 0,
       listeners: new Set(),
@@ -95,6 +98,12 @@ window.__ModuleLoader__.load({
       store.toasts = next.slice(-MAX_TOASTS);
       emit();
       scheduleToastDismiss(id);
+    }
+
+    /** Queue a one-shot focus request for the panel; the panel consumes it. */
+    function focusService(target) {
+      store.focus = { ...target, at: Date.now() };
+      emit();
     }
 
     if (typeof window !== 'undefined') {
@@ -264,6 +273,13 @@ window.__ModuleLoader__.load({
             serviceId: service.id,
             name: service.name,
             command: service.command,
+            // Same identity the panel uses for the row: the script line plus
+            // its package directory.
+            key:
+              String(service.source ?? service.command ?? '') +
+              '\u0000' +
+              String(service.dir ?? ''),
+            dir: String(service.dir ?? ''),
             state: service.state,
             exitCode: service.exitCode,
           });
@@ -278,7 +294,7 @@ window.__ModuleLoader__.load({
      */
 
 
-      return { store, emit, setOpen, postJson, stopService, restartService, useStoreRevision, useScripts, useServices, useServiceNotices, dismissToast, STATE_ROUTE, START_ROUTE, STOP_ROUTE, RESTART_ROUTE, CONFIG_ROUTE, PIN_ROUTE, UI_ROUTE, OUTPUT_ROUTE, DL_ROUTE };
+      return { store, emit, setOpen, postJson, stopService, restartService, focusService, useStoreRevision, useScripts, useServices, useServiceNotices, dismissToast, STATE_ROUTE, START_ROUTE, STOP_ROUTE, RESTART_ROUTE, CONFIG_ROUTE, PIN_ROUTE, UI_ROUTE, OUTPUT_ROUTE, DL_ROUTE };
     }
 
     return { createStore };

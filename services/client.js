@@ -96,6 +96,7 @@ window.__ModuleLoader__.load({
       'toast.failed': '执行失败',
       'toast.exitCode': '退出码',
       'toast.close': '关闭',
+      'toast.openPanel': '查看服务',
       'toast.service': '服务',
       'output.truncated': '（已省略较早的输出）',
       'run.output': '输出',
@@ -181,6 +182,7 @@ window.__ModuleLoader__.load({
       'toast.failed': 'Failed',
       'toast.exitCode': 'exit code',
       'toast.close': 'Dismiss',
+      'toast.openPanel': 'Open services',
       'toast.service': 'Service',
       'output.truncated': '(earlier output omitted)',
       'run.output': 'Output',
@@ -297,12 +299,13 @@ window.__ModuleLoader__.load({
                 // a chunk cannot reach another chunk's exports by name.
                 DownloadControl: download.DownloadControl,
               });
+              const openPanel = () => {
+                if (controller !== undefined) controller.openTab(KIND);
+              };
               const shared = {
                 t,
                 BUILD,
-                openPanel: () => {
-                  if (controller !== undefined) controller.openTab(KIND);
-                },
+                openPanel,
                 useLocaleRevision,
                 CSS: styles.CSS,
                 ...storeApi,
@@ -318,6 +321,8 @@ window.__ModuleLoader__.load({
                 useStoreRevision: storeApi.useStoreRevision,
                 CSS: styles.CSS,
                 dismissToast: storeApi.dismissToast,
+                focusService: storeApi.focusService,
+                openPanel,
               });
               surfaces = {
                 panel: panelModule.createPanel(shared),

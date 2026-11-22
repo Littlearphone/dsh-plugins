@@ -88,6 +88,8 @@ window.__ModuleLoader__.load({
 .dsh-svc-lastline{box-sizing:border-box;min-width:0;padding-left:6px;border-left:2px solid var(--dsw-alias-border-l2);font-family:var(--dsh-font-family-code,monospace);font-size:10px;line-height:1.4;color:var(--dsw-alias-label-tertiary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .dsh-svc-lastline::before{content:'↳ ';}
 .dsh-svc-row:hover{background:var(--dsw-alias-bg-layer-3);}
+/* One-shot flash when a toast opens the panel on a row. */
+.dsh-svc-row.is-focus{border-color:var(--dsw-alias-state-business-primary);background:color-mix(in srgb,var(--dsw-alias-state-business-primary) 10%,var(--dsw-alias-bg-layer-2));box-shadow:0 0 0 2px color-mix(in srgb,var(--dsw-alias-state-business-primary) 55%,transparent);}
 .dsh-svc-search-row{flex:none;display:flex;width:100%;box-sizing:border-box;padding:0 12px 8px;}
 .dsh-svc-search-input{flex:1 1 auto;width:100%;height:26px;box-sizing:border-box;padding:0 8px;border:1px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm);background:var(--dsw-specific-menu);color:var(--dsw-alias-label-primary);font:inherit;font-size:11px;}
 .dsh-svc-search-input:focus{border-color:var(--dsw-alias-state-business-primary);outline:none;}
@@ -183,6 +185,8 @@ window.__ModuleLoader__.load({
 .dsh-svc-toast-name{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .dsh-svc-toast-detail{font-size:11px;color:var(--dsw-alias-label-secondary);}
 .dsh-svc-toast-command{font-family:var(--dsh-font-family-code,monospace);font-size:10px;color:var(--dsw-alias-label-tertiary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.dsh-svc-toast-action{align-self:flex-start;margin-top:3px;padding:1px 7px;border:.5px solid color-mix(in srgb,var(--dsw-alias-state-business-primary) 45%,transparent);border-radius:var(--dsw-radius-sm);background:color-mix(in srgb,var(--dsw-alias-state-business-primary) 10%,transparent);color:var(--dsw-alias-state-business-primary);font:inherit;font-size:11px;line-height:18px;cursor:pointer;}
+.dsh-svc-toast-action:hover{background:color-mix(in srgb,var(--dsw-alias-state-business-primary) 18%,transparent);}
 .dsh-svc-toast-close{flex:none;display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;padding:0;border:0;border-radius:var(--dsw-radius-sm);background:transparent;color:var(--dsw-alias-label-tertiary);font:inherit;font-size:14px;line-height:1;cursor:pointer;}
 .dsh-svc-toast-close:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary);}
 `;

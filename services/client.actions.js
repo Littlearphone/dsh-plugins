@@ -338,6 +338,37 @@ window.__ModuleLoader__.load({
         }
 
         /**
+         * Consume the one-shot focus request left by a toast: clear the filter,
+         * expand the target group if it was collapsed, scroll the row into view
+         * and flash it for a moment. The panel may mount after the request, so
+         * the request stays in the store until the script list is ready.
+         */
+        function useServiceFocus(state, collapsed, toggleGroup, setQuery, query) {
+          const [flashKey, setFlashKey] = React.useState('');
+          const focusAt = store.focus === null || store.focus === undefined ? 0 : store.focus.at;
+          React.useEffect(() => {
+            const target = store.focus;
+            if (target === null || target === undefined) return;
+            if (state.phase !== 'ready') return;
+            store.focus = null;
+            setQuery('');
+            if (typeof target.key === 'string' && target.key !== '') setFlashKey(target.key);
+            const group = state.groups.find((entry) => entry.dir === String(target.dir ?? ''));
+            if (group !== undefined && collapsed.has(group.id)) toggleGroup(group.id);
+          }, [focusAt, state.phase, state.groups, collapsed, toggleGroup, setQuery]);
+          React.useEffect(() => {
+            if (flashKey === '') return undefined;
+            const node = [...document.querySelectorAll('.dsh-svc-row')].find(
+              (row) => row.getAttribute('data-svc-key') === flashKey,
+            );
+            if (node !== undefined) node.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            const timer = setTimeout(() => setFlashKey(''), 2800);
+            return () => clearTimeout(timer);
+          }, [flashKey, collapsed, state.phase, query]);
+          return flashKey;
+        }
+
+        /**
          * One armed action at a time. The key is `<action>:<service id>`, so
          * arming a restart also drops a pending stop confirmation on another
          * row. The arm stays until the user confirms, cancels, or arms another
@@ -387,7 +418,7 @@ window.__ModuleLoader__.load({
         }
 
 
-      return { togglePin, launch, groupHeading, menuItems, serviceChip, stateLabel, armedActionButton, useArmedAction, useRestarting, useCollapsedGroups };
+      return { togglePin, launch, groupHeading, menuItems, serviceChip, stateLabel, armedActionButton, useArmedAction, useRestarting, useServiceFocus, useCollapsedGroups };
     }
 
     return { createActions };

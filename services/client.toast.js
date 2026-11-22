@@ -9,7 +9,7 @@ window.__ModuleLoader__.load({
     const h = React.createElement;
 
     function createToast(d) {
-      const { t, store, useLocaleRevision, useStoreRevision, CSS, dismissToast } = d;
+      const { t, store, useLocaleRevision, useStoreRevision, CSS, dismissToast, focusService, openPanel } = d;
 
       /**
        * Fixed bottom-right stack. The overlay layer is click-through, so the
@@ -32,6 +32,15 @@ window.__ModuleLoader__.load({
             if (toast.exitCode !== null && toast.exitCode !== undefined) {
               detail.push(t('toast.exitCode') + ' ' + String(toast.exitCode));
             }
+            const openFailed = () => {
+              focusService({ serviceId: toast.serviceId, key: toast.key, dir: toast.dir });
+              dismissToast(toast.id);
+              try {
+                openPanel();
+              } catch (error) {
+                console.error('[services] cannot open the panel', error);
+              }
+            };
             return h(
               'div',
               {
@@ -61,6 +70,18 @@ window.__ModuleLoader__.load({
                       { className: 'dsh-svc-toast-command', key: 'command' },
                       String(toast.command),
                     ),
+                failed
+                  ? h(
+                      'button',
+                      {
+                        key: 'open',
+                        type: 'button',
+                        className: 'dsh-svc-toast-action',
+                        onClick: openFailed,
+                      },
+                      t('toast.openPanel'),
+                    )
+                  : null,
               ),
               h(
                 'button',
