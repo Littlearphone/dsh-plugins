@@ -288,7 +288,7 @@ Maven / Gradle 跑在 Host 继承来的 `JAVA_HOME` 上（这台机器是机器�
 | npm 标志 | npm / pnpm / yarn | 三种包管理器共用 npm 的图标与 npm 红 `#CB3837`，只有右侧文字与 tooltip 区分 |
 | Maven 标志（IDEA 那个 M） | mvn | `mvn`、`mvnd`，tint 用 IDEA 的蓝 `#3574F0` |
 | Gradle 标志 | gradle | `gradle`、`gradlew` |
-| Java 咖啡杯（IDEA 那个） | java | `java`、`javac`，以及 `category` 是 `java` / `javac` 的行（命令行走 Maven 也一样），tint 用杯子的橙 `#E66D17` |
+| Java 蒸汽标（Devicon） | java | `java`、`javac`，以及 `category` 是 `java` / `javac` 的行（命令行走 Maven 也一样），tint 用 Java 蓝 `#0074BD` |
 | Go 标志 | go | `go run`、`go build`、`go test` |
 | Python 标志 | python | `python`、`python3`、`uv`、`poetry`、`pipenv`、`pytest`、`django-admin` |
 | Docker 标志 | docker | `docker`、`docker-compose` |
@@ -299,11 +299,15 @@ Maven / Gradle 跑在 Host 继承来的 `JAVA_HOME` 上（这台机器是机器�
 不是我手画的近似形状；单色图形填充 `currentColor`，所以颜色只由 tint 决定，不依赖外部图片资源。
 
 Maven 和 Java 两条是例外，而且是**故意**的：认 Maven 官方 oak leaf 的人太少，大家认的是 IDEA 里那个
-蓝色 `M`；Java 的 Simple Icons 标是 Duke 的剪影，14px 下就是一团，而 IDEA 的 Java 文件图标是一只咖啡杯，
-一眼就认得出。所以这两条用 JetBrains expUI 图标集里的
-`images/expui/toolwindow/maven.svg` 和 `images/expui/fileTypes/java.svg`（Apache-2.0，都是 16×16 网格）。
+蓝色 `M`，所以那一条用 JetBrains expUI 的 `images/expui/toolwindow/maven.svg`（Apache-2.0）。
+Java 那条用 [Devicon](https://devicon.dev/) 的 `java-original`（MIT，128×128 网格）：蓝红蒸汽标，
+14px 下仍然一眼是 Java；Simple Icons 的 Java 图标是 Duke 剪影、OpenJDK 方也没有杯子的辨识度。
+注意 Devicon 的许可只覆盖它那份路径数据，**图形本身仍是 Oracle 的 Java 商标**——这里只用来标注
+"这一行跑的是 Java"，不当作本插件自己的 logo，也不改图形。若要彻底避开商标，换成普通咖啡杯
+（Material `local_cafe`、Tabler `coffee` 之类）即可。
+
 `BRAND_ICONS` 因此接受两种写法：24×24 的单色路径字符串，或自带 viewBox 的 `{ viewBox, paths }`；
-mark 里的每条路径还能带自己的 `fill` / `stroke`，杯子的橙色描边和奶白杯身就是这样来的。
+mark 里的每条路径还能带自己的 `fill` / `stroke`（Devicon 那条就是靠这个保住蓝/红两色）。
 要换回 Apache / OpenJDK 官方标，把对应那条换掉即可。商标归各自所有者。
 
 **加一个工具 = `RUNTIMES` 加一行 +（如需要）`BRAND_ICONS` 加一条 mark**：
