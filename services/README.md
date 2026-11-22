@@ -288,7 +288,7 @@ Maven / Gradle 跑在 Host 继承来的 `JAVA_HOME` 上（这台机器是机器�
 | npm 标志 | npm / pnpm / yarn | 三种包管理器共用 npm 的图标与 npm 红 `#CB3837`，只有右侧文字与 tooltip 区分 |
 | Maven 标志（IDEA 那个 M） | mvn | `mvn`、`mvnd`，tint 用 IDEA 的蓝 `#3574F0` |
 | Gradle 标志 | gradle | `gradle`、`gradlew` |
-| OpenJDK 标志 | java | `java`、`javac`，以及 `category` 是 `java` / `javac` 的行（命令行走 Maven 也一样） |
+| Java 咖啡杯（IDEA 那个） | java | `java`、`javac`，以及 `category` 是 `java` / `javac` 的行（命令行走 Maven 也一样），tint 用杯子的橙 `#E66D17` |
 | Go 标志 | go | `go run`、`go build`、`go test` |
 | Python 标志 | python | `python`、`python3`、`uv`、`poetry`、`pipenv`、`pytest`、`django-admin` |
 | Docker 标志 | docker | `docker`、`docker-compose` |
@@ -298,12 +298,13 @@ Maven / Gradle 跑在 Host 继承来的 `JAVA_HOME` 上（这台机器是机器�
 图形是**官方品牌图形**，多数取自 [Simple Icons](https://simpleicons.org/)（CC0 路径数据，24×24 网格），
 不是我手画的近似形状；单色图形填充 `currentColor`，所以颜色只由 tint 决定，不依赖外部图片资源。
 
-Maven 那条是例外，而且是**故意**的：Apache 自己的标 2025 年 9 月随 ASF 换成了 oak leaf，但认识它的人
-太少，大家认的是 IDEA 里那个蓝色 `M`。所以这一条用 JetBrains expUI 图标集里的
-`images/expui/toolwindow/maven.svg`（Apache-2.0，16×16 网格，tint `#3574F0`）。
-`BRAND_ICONS` 因此接受两种写法：24×24 的单色路径字符串，或自带 viewBox 的 `{ viewBox, paths }`。
-要换回 Apache 官方新标，把 `maven` 那条换成 [MavenLogoLeaf](https://maven.apache.org/images/logos/MavenLogoLeaf.svg)
-的路径即可。商标归各自所有者。
+Maven 和 Java 两条是例外，而且是**故意**的：认 Maven 官方 oak leaf 的人太少，大家认的是 IDEA 里那个
+蓝色 `M`；Java 的 Simple Icons 标是 Duke 的剪影，14px 下就是一团，而 IDEA 的 Java 文件图标是一只咖啡杯，
+一眼就认得出。所以这两条用 JetBrains expUI 图标集里的
+`images/expui/toolwindow/maven.svg` 和 `images/expui/fileTypes/java.svg`（Apache-2.0，都是 16×16 网格）。
+`BRAND_ICONS` 因此接受两种写法：24×24 的单色路径字符串，或自带 viewBox 的 `{ viewBox, paths }`；
+mark 里的每条路径还能带自己的 `fill` / `stroke`，杯子的橙色描边和奶白杯身就是这样来的。
+要换回 Apache / OpenJDK 官方标，把对应那条换掉即可。商标归各自所有者。
 
 **加一个工具 = `RUNTIMES` 加一行 +（如需要）`BRAND_ICONS` 加一条 mark**：
 
