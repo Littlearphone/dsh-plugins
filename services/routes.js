@@ -18,6 +18,7 @@ import {
   MAX_PACKAGES,
   dirsWithFile,
   gradleGroups,
+  javaGroups,
   mavenGroups,
   ROUTE_PATH,
   goGroups,
@@ -379,19 +380,23 @@ export function createHandler(ctx) {
       }
       for (const go of await goGroups(dir)) groups.push(go);
       for (const maven of await mavenGroups(dir, dirs)) groups.push(maven);
+      for (const java of await javaGroups(dir, dirs)) groups.push(java);
       for (const gradle of await gradleGroups(dir, dirs)) groups.push(gradle);
 
       const doc = await readDoc(dir);
-      const jdk = groups.some((group) => group.kind === 'maven' || group.kind === 'gradle')
+      const jdk = groups.some(
+        (group) => group.kind === 'maven' || group.kind === 'gradle' || group.kind === 'java',
+      )
         ? await jdkChoices(dir)
         : undefined;
       for (const group of groups) {
         group.scripts = group.scripts.map((script) => {
           const merged = withConfig(script, group.dir, doc);
           // A chosen Maven runner replaces the one discovery picked, in the text
-          // the row shows as well as in what the Host will actually run.
+          // the row shows as well as in what the Host will actually run. Java
+          // rows run through the same runner, so they take the same override.
           const command =
-            group.kind === 'maven'
+            group.kind === 'maven' || group.kind === 'java'
               ? withRunner(merged.command, merged.runner, wrapperOfCommand(dir, merged.command))
               : merged.command;
           const key = scriptKey(group.dir, script.name);

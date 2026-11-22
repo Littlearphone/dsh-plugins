@@ -6,7 +6,7 @@
  */
 import { existsSync } from 'node:fs';
 import { readdir, readFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 /** Route the browser half calls, relative to the page origin. */
 export const ROUTE_PATH = '/services';
 /** Guards against a pathological glob fanning out over a huge directory. */
@@ -404,8 +404,107 @@ export async function mavenGroups(root, known = []) {
   return [{ id: 'maven', kind: 'maven', name: 'Maven', dir: '', scripts }];
 }
 
-/** Gradle projects in one group, mirroring the Maven group. */
-export async function gradleGroups(root, known = []) {
+/**
+ * Java entry points. A Maven build has no row for "the class with `main`", the
+ * way Go has `package main` — the classes are in the sources, not the pom. They
+ * are found by reading `src/main/java`, and run with `exec:java`, which asks
+ * Maven for the project classpath: the closest one-line equivalent of IDEA's
+ * green gutter arrow. Works for a plain main and for a Spring Boot application
+ * alike (a Boot project also gets its `spring-boot:run` row when its pom
+ * declares the plugin or inherits the starter parent).
+ */
+const JAVA_SOURCE_DIR = join('src', 'main', 'java');
+/** A pathological tree must not turn one list request into a full source scan. */
+const MAX_JAVA_FILES = 400;
+/** `public static void main(String[] args)`, in the spellings people use. */
+const JAVA_MAIN =
+  /(?:public\s+static|static\s+public)\s+void\s+main\s*\(\s*(?:final\s+)?String\s*(?:\[\s*\]|\.\.\.)\s*\w+\s*\)/;
+const JAVA_PACKAGE = /^\s*package\s+([\w.]+)\s*;/m;
+
+/** Every `.java` file below `base`, breadth-first and within a budget. */
+async function javaSources(base) {
+  const found = [];
+  const queue = [''];
+  while (queue.length > 0 && found.length < MAX_JAVA_FILES) {
+    const relative = queue.shift();
+    const absolute = relative === '' ? base : join(base, relative);
+    let entries;
+    try {
+      entries = await readdir(absolute, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        if (entry.name.startsWith('.') || SKIP_DIRS.has(entry.name)) continue;
+        queue.push(relative === '' ? entry.name : join(relative, entry.name));
+        continue;
+      }
+      // Module and package descriptors are never entry points.
+      if (!entry.name.endsWith('.java')) continue;
+      if (entry.name === 'module-info.java' || entry.name === 'package-info.java') continue;
+      found.push(relative === '' ? entry.name : join(relative, entry.name));
+      if (found.length >= MAX_JAVA_FILES) break;
+    }
+  }
+  return found;
+}
+
+/** The `main` classes of every Maven project, in one group. */
+export async function javaGroups(root, known = []) {
+  const dirs = [...new Set(['', ...known, ...(await dirsWithFile(root, 'pom.xml', 2))])];
+  const scripts = [];
+  const seen = new Set();
+  const onPath = { mvn: programOnPath('mvn'), mvnd: programOnPath('mvnd') };
+  for (const relative of dirs) {
+    let pom;
+    try {
+      pom = await readFile(join(root, relative, 'pom.xml'), 'utf8');
+    } catch {
+      continue;
+    }
+    const artifact = /<artifactId>\s*([^<\s]+)\s*<\/artifactId>/.exec(pom)?.[1] ?? 'pom';
+    const label = relative === '' ? artifact : `${relative} · ${artifact}`;
+    const file = relative === '' ? '' : ` -f ${shellPath(join(relative, 'pom.xml'))}`;
+    const wrapper = mavenWrapper(root, relative);
+    const runners = mavenRunners(wrapper, onPath);
+    const runner = runners[0];
+    const command = runnerCommand(runner, wrapper);
+    const base = join(root, relative, JAVA_SOURCE_DIR);
+    for (const source of await javaSources(base)) {
+      let text;
+      try {
+        text = await readFile(join(base, source), 'utf8');
+      } catch {
+        continue;
+      }
+      if (!JAVA_MAIN.test(text)) continue;
+      // The fully-qualified name is the identity: two packages may each hold a
+      // `Main`, and a row's name is what a saved configuration is keyed by.
+      const simple = basename(source, '.java');
+      const pkg = JAVA_PACKAGE.exec(text)?.[1];
+      const className = pkg === undefined ? simple : `${pkg}.${simple}`;
+      if (seen.has(className)) continue;
+      seen.add(className);
+      scripts.push({
+        name: className,
+        label,
+        // `compile` first: `exec:java` runs whatever is in `target/classes`, and a
+        // stale or missing class there is the one way this row looks "broken".
+        // No `-q`: `exec:java` reports the application's stdout at INFO level, so
+        // a quiet build swallows everything the program prints.
+        command: `${command}${file} compile exec:java -Dexec.mainClass=${className}`,
+        category: 'java',
+        runner,
+        runners,
+      });
+    }
+  }
+  if (scripts.length === 0) return [];
+  return [{ id: 'java', kind: 'java', name: 'Java', dir: '', scripts }];
+}
+
+/** Gradle projects in one group, mirroring the Maven group. */export async function gradleGroups(root, known = []) {
   const dirs = [...new Set(['', ...known, ...(await dirsWithFile(root, 'build.gradle', 2)), ...(await dirsWithFile(root, 'build.gradle.kts', 2))])];
   const scripts = [];
   for (const relative of dirs) {

@@ -142,7 +142,7 @@ window.__ModuleLoader__.load({
               ? data.groups
                   .map((group) => ({
                     id: String(group?.id ?? ''),
-                    kind: ['go', 'maven', 'gradle'].includes(group?.kind) ? group.kind : 'npm',
+                    kind: ['go', 'maven', 'java', 'gradle'].includes(group?.kind) ? group.kind : 'npm',
                     name: typeof group?.name === 'string' ? group.name : '',
                     dir: typeof group?.dir === 'string' ? group.dir : '',
                     scripts: Array.isArray(group?.scripts) ? sortScripts(group.scripts) : [],

@@ -280,12 +280,21 @@ export async function spawnService(ctx, sessionId, request, root) {
 
   let command;
   let direct = null;
-  if (request.kind === 'go' || request.kind === 'maven' || request.kind === 'gradle') {
+  if (
+    request.kind === 'go' ||
+    request.kind === 'maven' ||
+    request.kind === 'java' ||
+    request.kind === 'gradle'
+  ) {
     let base = String(request.command ?? '');
     // A Maven row may carry a chosen runner in its configuration; apply it here
     // too, so a start request that still holds the discovered command runs what
     // the user picked rather than what discovery picked.
-    if (request.kind === 'maven' && typeof override?.runner === 'string' && override.runner !== '') {
+    if (
+      (request.kind === 'maven' || request.kind === 'java') &&
+      typeof override?.runner === 'string' &&
+      override.runner !== ''
+    ) {
       base = withRunner(base, override.runner, wrapperOfCommand(root, base));
     }
     command = extraArgs === '' ? base : `${base} ${extraArgs}`;
@@ -324,7 +333,10 @@ export async function spawnService(ctx, sessionId, request, root) {
   // inherited. Precedence: the JDK picked in the launch configuration, then an
   // explicit `JAVA_HOME` there, then what the project resolves to (`.idea`,
   // pom, `~/.jdks`).
-  if (env !== undefined && (request.kind === 'maven' || request.kind === 'gradle')) {
+  if (
+    env !== undefined &&
+    (request.kind === 'maven' || request.kind === 'java' || request.kind === 'gradle')
+  ) {
     const configured = typeof override?.jdk === 'string' ? override.jdk.trim() : '';
     const javaHome =
       configured !== ''

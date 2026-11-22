@@ -14,9 +14,10 @@ window.__ModuleLoader__.load({
     function ConfigEditor({ sessionId, script, dir, labels, jdkInfo, onSaved, onCancel }) {
       const scriptName = script.original ?? script.name;
       const kind = String(script.category ?? '');
-      // Maven rows choose their runner and JDK; Gradle shares the JDK field but
-      // has no runner choice, and npm scripts get none of it.
-      const isMaven = kind === 'maven';
+      // Maven rows choose their runner and JDK; Java rows run through the same
+      // runner, so they take both too. Gradle shares the JDK field alone, and
+      // npm scripts get none of it.
+      const isMaven = kind === 'maven' || kind === 'java';
       const isJvm = isMaven || kind === 'gradle';
       const [label, setLabel] = React.useState(script.variantLabel ?? '');
       const [args, setArgs] = React.useState(script.args ?? '');

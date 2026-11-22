@@ -172,6 +172,28 @@ JVM 项目没有脚本清单，能"运行"的是**构建工具的目标**。所�
 
 还没做：纯 `javac`/`java` 的散装工程（没有构建工具就没有可靠的主类发现），以及 `Makefile`。
 
+## Java 启动类
+
+Maven 工程里"能运行的东西"不只在 pom 里：`src/main/java` 下带 `public static void main` 的类，
+就是 IDEA 里那个绿三角。它们单独成一组 `Java`：
+
+- 扫 `src/main/java` 下所有 `.java`（有预算，最多 400 个文件），认 `public static void main`
+  （`String[]`、`String...`、`final`、`static public` 这些写法都算），`module-info.java` /
+  `package-info.java` 跳过；
+- 行的名字用**全限定类名**（`com.earphone.craft.Start`）：不同包里各有一个 `Main` 是常事，
+  而行名是配置的键，必须唯一；
+- 命令是 `<runner> [-f pom] compile exec:java -Dexec.mainClass=<全限定名>`：`compile` 先跑
+  （`exec:java` 只认 `target/classes`，不编译就会跑到旧类或什么都没有），classpath 由 Maven
+  按 pom 算——等价于 IDEA 的绿三角；
+- **不带 `-q`**：`exec:java` 把应用输出当 INFO 日志打，`-q` 会连它一起吞掉。实测过：
+  `-q` 下程序打印的 `hello-from-main` 一行都看不到，去掉就有；
+- 这些行走的是 Maven 的 runner，所以「运行器」「JDK」两个字段一样适用；
+- Spring Boot 工程的启动类照样会被扫出来（`exec:java` 一般也跑得起来），而它的 pom 声明了
+  `spring-boot-maven-plugin` 或继承 `spring-boot-starter-parent` 时，还会多一行
+  `spring-boot:run`——两条路都在，和 IDEA 里一样；
+- 只对 Maven 工程做（`pom.xml` 所在目录）。纯 Gradle 工程的主类要靠 `application` 插件 /
+  `gradle run` 才定位得到，纯 `javac` 工程没有 classpath 来源，都还没做。
+
 ## JVM 用哪个 JDK
 
 Maven / Gradle 跑在 Host 继承来的 `JAVA_HOME` 上（这台机器是机器级的 `openjdk-21.0.1`），而项目要的
@@ -336,7 +358,7 @@ Host 半侧按职责拆开（普通 ESM，`import` 直接引）：
 | `client.data.js` | 197 | 运行时识别、图标、排序与过滤 |
 | `client.css.js` | 194 | 两张样式表 |
 | `client.store.js` | 281 | store、emit、取数 hook、完成的运行、toast 队列 |
-| `client.editor.js` | 388 | 按脚本类型变的启动配置编辑器、输出视图 |
+| `client.editor.js` | 389 | 按脚本类型变的启动配置编辑器、输出视图 |
 | `client.actions.js` | 395 | 固定、启动、分组标题、菜单项、两步确认按钮 |
 | `client.panel.js` | 480 | 侧栏面板与标题 |
 | `client.menu.js` | 262 | 头部入口与下拉覆盖层 |
