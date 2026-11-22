@@ -85,6 +85,7 @@ window.__ModuleLoader__.load({
     const STATE_ROUTE = '/services/state/';
     const START_ROUTE = '/services/start/';
     const STOP_ROUTE = '/services/stop/';
+    const RESTART_ROUTE = '/services/restart/';
     const CONFIG_ROUTE = '/services/config/';
     const PIN_ROUTE = '/services/pin/';
     const UI_ROUTE = '/services/ui/';
@@ -97,6 +98,16 @@ window.__ModuleLoader__.load({
       } catch {
         /* the state poll reports what actually happened */
       }
+    }
+
+    /**
+     * Stop one run and start the same script again in a single Host call. The
+     * reply is the replacement's id, which is what lets a row tell "restarting"
+     * apart from "the old run is still the current one".
+     */
+    async function restartService(sessionId, id) {
+      const created = await postJson(RESTART_ROUTE + encodeURIComponent(String(sessionId)), { id });
+      return created?.service;
     }
 
     async function postJson(url, body) {
@@ -145,7 +156,7 @@ window.__ModuleLoader__.load({
      */
 
 
-      return { store, emit, setOpen, postJson, stopService, useStoreRevision, useScripts, useServices, STATE_ROUTE, START_ROUTE, STOP_ROUTE, CONFIG_ROUTE, PIN_ROUTE, UI_ROUTE, OUTPUT_ROUTE };
+      return { store, emit, setOpen, postJson, stopService, restartService, useStoreRevision, useScripts, useServices, STATE_ROUTE, START_ROUTE, STOP_ROUTE, RESTART_ROUTE, CONFIG_ROUTE, PIN_ROUTE, UI_ROUTE, OUTPUT_ROUTE };
     }
 
     return { createStore };

@@ -24,17 +24,22 @@ import {
   workspaceGlobs,
 } from './discover.js';
 import {
-  findMarkedPids,
-  killTree,
   listServices,
-  RUNNING,
+  restartService,
   serviceOutput,
-  serviceKey,
   spawnService,
-  forgetLaunch,
-  readRegistry,
-  writeRegistry,
+  stopService,
 } from './processes.js';
+/** The public shape of one run; a record also carries its handle, which cannot be sent. */
+export function describeService(record) {
+  return {
+    id: record.id,
+    name: record.name,
+    command: record.command,
+    dir: record.dir,
+    state: record.state,
+  };
+}
 export async function readBody(request) {
   const chunks = [];
   let total = 0;
@@ -77,7 +82,7 @@ export function createHandler(ctx) {
     const slash = rest.indexOf('/');
     const action = slash === -1 ? rest : rest.slice(0, slash);
     const rawId = slash === -1 ? '' : rest.slice(slash + 1);
-    const ACTIONS = ['list', 'start', 'stop', 'state', 'output', 'config', 'pin', 'ui'];
+    const ACTIONS = ['list', 'start', 'stop', 'restart', 'state', 'output', 'config', 'pin', 'ui'];
     if (!ACTIONS.includes(action)) {
       reply(response, 404, { error: 'not-found' });
       return;
@@ -149,19 +154,11 @@ export function createHandler(ctx) {
         return;
       }
       const record = started.record;
-      reply(response, 200, {
-        service: {
-          id: record.id,
-          name: record.name,
-          command: record.command,
-          dir: record.dir,
-          state: record.state,
-        },
-      });
+      reply(response, 200, { service: describeService(record) });
       return;
     }
 
-    if (action === 'stop') {
+    if (action === 'stop' || action === 'restart') {
       let body = {};
       try {
         body = JSON.parse(await readBody(request));
@@ -169,21 +166,43 @@ export function createHandler(ctx) {
         reply(response, 400, { error: 'bad-body' });
         return;
       }
-      const record = RUNNING.get(serviceKey(dir, String(body.id ?? '')));
-      if (record === undefined) {
-        reply(response, 404, { error: 'unknown-service' });
+      const id = String(body.id ?? '');
+      if (id === '') {
+        reply(response, 400, { error: 'bad-id' });
         return;
       }
-      try {
-        record.handle?.terminate();
-        killTree(findMarkedPids(record.id));
-        await forgetLaunch(record.id);
-        record.state = 'stopping';
-        record.finishedAt = Date.now();
+      if (action === 'stop') {
+        const stopped = await stopService(dir, id);
+        if (stopped.error === 'unknown-service') {
+          reply(response, 404, stopped);
+          return;
+        }
+        if (stopped.error !== undefined) {
+          reply(response, 500, stopped);
+          return;
+        }
         reply(response, 200, { ok: true });
-      } catch (error) {
-        reply(response, 500, { error: 'stop-failed', detail: String(error?.message ?? error) });
+        return;
       }
+      const restarted = await restartService(ctx, sessionId, dir, id);
+      if (restarted.error === 'unknown-service') {
+        reply(response, 404, restarted);
+        return;
+      }
+      if (restarted.error === 'not-running') {
+        // The poll the browser already has is about to show this; refusing here
+        // keeps a restart from resurrecting a run that has just exited.
+        reply(response, 409, restarted);
+        return;
+      }
+      if (restarted.error !== undefined) {
+        reply(response, 500, restarted);
+        return;
+      }
+      reply(response, 200, {
+        service: describeService(restarted.record),
+        previous: restarted.previous,
+      });
       return;
     }
 

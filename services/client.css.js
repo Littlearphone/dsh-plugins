@@ -59,6 +59,15 @@ window.__ModuleLoader__.load({
 .dsh-svc-stop.is-armed,.dsh-svc-stop.is-armed:hover,.dsh-svc-stop.is-armed:focus-visible{width:auto;padding:0 7px;gap:4px;border-color:color-mix(in srgb,var(--dsw-alias-state-error-primary) 60%,transparent);background:color-mix(in srgb,var(--dsw-alias-state-error-primary) 24%,transparent);color:var(--dsw-alias-state-error-primary);}
 .dsh-svc-stop-label{white-space:nowrap;font-size:11px;line-height:18px;}
 .dsh-svc-stop svg{width:10px;height:10px;display:block;}
+/* Restart is the neutral twin of stop: same 20px control, but in the business
+   colour because it ends one run only to start it again. It expands into a
+   labelled confirm while armed, exactly like stop. */
+.dsh-svc-restart{flex:none;align-self:center;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;width:20px;height:20px;padding:0;border:.5px solid color-mix(in srgb,var(--dsw-alias-state-business-primary) 45%,transparent);border-radius:var(--dsw-radius-sm);background:color-mix(in srgb,var(--dsw-alias-state-business-primary) 8%,transparent);color:var(--dsw-alias-state-business-primary);font:inherit;font-size:11px;line-height:18px;cursor:pointer;}
+.dsh-svc-restart:hover,.dsh-svc-restart:focus-visible{border-color:color-mix(in srgb,var(--dsw-alias-state-business-primary) 70%,transparent);background:color-mix(in srgb,var(--dsw-alias-state-business-primary) 16%,transparent);color:var(--dsw-alias-state-business-primary);}
+.dsh-svc-restart.is-armed,.dsh-svc-restart.is-armed:hover,.dsh-svc-restart.is-armed:focus-visible{width:auto;padding:0 7px;gap:4px;border-color:color-mix(in srgb,var(--dsw-alias-state-business-primary) 65%,transparent);background:color-mix(in srgb,var(--dsw-alias-state-business-primary) 22%,transparent);color:var(--dsw-alias-state-business-primary);}
+.dsh-svc-restart-label{white-space:nowrap;font-size:11px;line-height:18px;}
+.dsh-svc-restart svg{width:10px;height:10px;display:block;}
+.dsh-svc-stop:disabled,.dsh-svc-restart:disabled{opacity:.6;cursor:default;}
 .dsh-svc-run-button:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary);}
 .dsh-svc-drawer{display:flex;flex-direction:column;gap:4px;padding:6px 8px;border:1px solid var(--dsw-alias-border-l1);border-radius:8px;background:var(--dsw-alias-bg-layer-2);}
 .dsh-svc-drawer-head{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:10px;color:var(--dsw-alias-label-secondary);}

@@ -9,7 +9,7 @@ window.__ModuleLoader__.load({
     const h = React.createElement;
 
     function createMenu(d) {
-      const { t, useLocaleRevision, CSS, store, setOpen, useServices, useStoreRevision, useScripts, filterGroups, KIND, menuItems, stopService, useArmedStop, useCollapsedGroups, openPanel } = d;
+      const { t, useLocaleRevision, CSS, store, setOpen, useServices, useStoreRevision, useScripts, filterGroups, KIND, menuItems, stopService, restartService, useArmedAction, useCollapsedGroups, openPanel } = d;
 
         /**
          * Header entry: toggles the dropdown. It also publishes the Session and
@@ -101,7 +101,7 @@ window.__ModuleLoader__.load({
           const [state, load] = useScripts(store.open ? store.sessionId : undefined);
           const [collapsed, toggleGroup] = useCollapsedGroups();
           const services = useServices(store.open ? store.sessionId : undefined);
-          const [armedStop, armStop, disarmStop] = useArmedStop();
+          const [armed, arm, disarm] = useArmedAction();
 
           React.useEffect(() => {
             if (store.open === false) {
@@ -168,9 +168,14 @@ window.__ModuleLoader__.load({
                     toggleGroup,
                     runningByCommand,
                     (id) => void stopService(store.sessionId, id),
-                    armedStop,
-                    armStop,
-                    disarmStop,
+                    (id) => {
+                      // The next state poll is the report; a failed restart
+                      // leaves the old run in place, which the row already shows.
+                      void restartService(store.sessionId, id).catch(() => {});
+                    },
+                    armed,
+                    arm,
+                    disarm,
                   )
                 : [h('div', { key: 'nomatch', className: 'dsh-svc-empty' }, t('menu.noMatch'))]
               : [

@@ -17,6 +17,11 @@
 点脚本的启动按钮 → `POST /services/start/<sessionId>` → Host 用 `ctx.subprocess.spawn` 起进程，
 stdout/stderr 用 collect 模式收着，浏览器轮询 `state` 与 `output`。
 
+运行中的行（侧栏面板和下拉里都一样）还有**重启**按钮：同样先按一次进入「确认重启」，
+再按一次才执行 → `POST /services/restart/<sessionId>`。Host 按标记杀掉旧进程树后**立刻**
+用启动时留在记录上的启动描述拉起同一个脚本，不等待旧进程自己报告退出，所以不存在
+「停止慢就先等着，再点启动」的那段空档。
+
 **启动方式按类型区分**（这是不同指令的启动条件不同）：
 
 | 类型 | 实际执行 | 工作目录 |
@@ -32,12 +37,14 @@ stdout/stderr 用 collect 模式收着，浏览器轮询 `state` 与 `output`。
 
 - **非 Windows**：直接 `spawn('<pm>', ['run', name, ...])`，不经过任何 shell，名字里有
   什么都不会被解释；
-- **Windows**：npm / pnpm / yarn 是 `.cmd` 垫片，Node 只能通过 `cmd.exe` 才能启动它们，
-  所以这一条路仍然过 shell，但名字按目标 shell 转义（cmd 用双引号、PowerShell 用单引号、
-  POSIX 用 `'\''`），`npm run "build&update"` 里的 `&` 因此是字面量。
-
-Windows 上的残留边界是 `%VAR%`：cmd 在引号内也会展开百分号，而命令行下没有可靠的转义写法。
-真要在名字里用 `%` 得走非 Windows，或者把该脚本改名。
+- **Windows / pnpm**：pnpm 在 Node 旁边会装一个真正的 `pnpm.exe`。能找到它时直接用它，
+  名字作为 argv 元素传递，`&`、空格、引号都原样到达 pnpm；标记改走
+  `--config.DSH_SVC=<id>`，既留在命令行上供 `findMarkedPids` 找到，又不会传给脚本。
+- **Windows / npm、yarn（`.cmd` 垫片回退）**：Node 只能通过 `cmd.exe` 启动 `.cmd`，
+  而这条 subprocess 通道会反斜杠转义命令串里的双引号——`npm run "check"` 到 pnpm/npm
+  手里会变成带字面引号的名字。所以普通名字直接不加引号（`npm run check`），需要保护的
+  名字仍保留引号作为尽力而为；`%VAR%` 的限制也仍然存在。要跑带 `&` 的名字，用 pnpm，
+  或者把名字改成普通字符。
 
 ## 生命周期：重装、卸载、关闭 dsh 都要收干净
 
@@ -54,6 +61,22 @@ Windows 上只打 `cmd` 的话，`pnpm → node → vite` 会变成占着端口�
 
 三条实测：`stop` 后带标记进程归零；`remove_bundle` 时同样归零；伪造一条注册表 + 一个带标记的
 孤儿进程，重新安装后孤儿被杀、注册表被清空。
+
+## 重启：一次确认，Host 内完成
+
+`restart` 不是客户端把「停止 → 启动」串起来，而是 Host 侧的一条路由，原因有两个：
+
+- **不等人**：停止可能要等 shell 的 grace 期，而重启要的是「现在换一个新进程」。杀进程树
+  （`taskkill /T /F`）本身是同步的，所以杀掉后立即用记录上的 `launch` 描述重新
+  `spawnService`，不等旧 handle 的 `done`；
+- **请求已经不在浏览器手里**：启动时用过的 variant（参数、环境、工作目录）只有 Host 记录里
+  还有，重启必须复用它，不能靠客户端再猜一次。
+
+每条 `RUNNING` 记录因此多一个 `launch` 字段（`name`/`command`/`source`/`dir`/`kind`/
+`configId`/`cwd`）。重启会先把旧 id 从注册表移除，再登记新 id，避免落盘的注册表指向一个
+已经死掉的运行。重启后是**新 id**，面板据此把「正在重启」的转圈换成新记录；旧记录的状态
+不影响新记录。
+
 ## 为什么发现逻辑在 Host
 
 浏览器读不到工作区文件；而相对路径路由在任何端口都能用（`dsh web` 的端口是随机的，写死 origin 会失效）。
@@ -204,7 +227,7 @@ dsh --profile web plugin install "github:Littlearphone/dsh-plugins#path:/service
 ```
 
 或用 `plugin_manager` 的 `install_bundle`，目标传上面两种字符串之一。
-以上两种写法都实测装成过（`application: applied`，版本 0.1.1）。
+以上两种写法都实测装成过（`application: applied`，版本 0.1.2）。
 ## 启动变体（IDEA 式）
 
 一条脚本可以挂**多条启动配置**，像 IDEA 的 run configuration 那样：`dev:all` 可以同时有
@@ -247,14 +270,14 @@ Host 半侧按职责拆开（普通 ESM，`import` 直接引）：
 
 | 文件 | 行数 | 职责 |
 |---|---|---|
-| `client.js` | 330 | 入口：locale、注册、chunk 装载与拼装 |
+| `client.js` | 338 | 入口：locale、注册、chunk 装载与拼装 |
 | `client.data.js` | 173 | 运行时识别、图标、排序与过滤 |
-| `client.css.js` | 161 | 两张样式表 |
-| `client.store.js` | 153 | store、emit、四个取数 hook、路由常量 |
+| `client.css.js` | 170 | 两张样式表 |
+| `client.store.js` | 164 | store、emit、四个取数 hook、路由常量 |
 | `client.editor.js` | 325 | 启动配置编辑器 |
-| `client.actions.js` | 244 | 固定、启动、分组标题、菜单项 |
-| `client.panel.js` | 480 | 侧栏面板与标题 |
-| `client.menu.js` | 250 | 头部入口与下拉覆盖层 |
+| `client.actions.js` | 370 | 固定、启动、分组标题、菜单项、两步确认按钮 |
+| `client.panel.js` | 477 | 侧栏面板与标题 |
+| `client.menu.js` | 255 | 头部入口与下拉覆盖层 |
 
 拆分的两个硬约束（都踩过）：
 
@@ -265,8 +288,8 @@ Host 半侧按职责拆开（普通 ESM，`import` 直接引）：
 2. **chunk 的 rev 跟着入口走**。只改 chunk 不改入口，`?rev=` 不变，浏览器继续用旧
    chunk；改 chunk 时必须同时动一下入口，否则测的是旧代码。
 
-验证：`node scripts/check.mjs` + `scripts/ui-probe.ps1`（下拉列出脚本、面板打开、
-14 张看板卡不受影响）。
+验证：`node scripts/check.mjs` + `scripts/ui-probe.mjs`（下拉列出脚本、面板打开、
+15 张看板卡不受影响）。
 
 ## 已知取舍
 

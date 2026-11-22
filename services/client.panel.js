@@ -9,7 +9,7 @@ window.__ModuleLoader__.load({
     const h = React.createElement;
 
     function createPanel(d) {
-      const { BUILD, t, useLocaleRevision, CSS, store, useServices, useStoreRevision, useScripts, UI_ROUTE, RuntimeBadge, sortScripts, ConfigEditor, OutputView, BRAND_ICONS, launch, togglePin, postJson, stopService, groupHeading, useArmedStop, useCollapsedGroups } = d;
+      const { BUILD, t, useLocaleRevision, CSS, store, emit, useServices, useStoreRevision, useScripts, UI_ROUTE, RuntimeBadge, sortScripts, ConfigEditor, OutputView, BRAND_ICONS, launch, togglePin, postJson, stopService, restartService, groupHeading, serviceChip, armedActionButton, useArmedAction, useRestarting, useCollapsedGroups } = d;
 
         /** Right-sidebar tab: the list, with its directory and a refresh control. */
         /**
@@ -33,16 +33,17 @@ window.__ModuleLoader__.load({
           const [pinOverride, setPinOverride] = React.useState({});
           const [openKey, setOpenKey] = React.useState('');
           const [editKey, setEditKey] = React.useState('');
-          const [armedStop, armStop, disarmStop] = useArmedStop();
+          const [armed, arm, disarm] = useArmedAction();
           // An arm belongs to one running service; once it is gone there is
           // nothing left to confirm, so drop it (no timer involved).
           React.useEffect(() => {
-            if (armedStop === '') return;
+            if (armed === '') return;
+            const armedId = armed.slice(armed.indexOf(':') + 1);
             const live = services.some(
-              (service) => service.id === armedStop && service.state === 'running',
+              (service) => service.id === armedId && service.state === 'running',
             );
-            if (!live) disarmStop();
-          }, [services, armedStop, disarmStop]);
+            if (!live) disarm();
+          }, [services, armed, disarm]);
 
           // Latest service per (command, dir): one script row shows its own run.
           const latest = new Map();
@@ -51,6 +52,12 @@ window.__ModuleLoader__.load({
             const previous = latest.get(key);
             if (previous === undefined || previous.startedAt <= service.startedAt) latest.set(key, service);
           }
+
+          // A restart's spinner lasts until the replacement id shows up in the
+          // poll, not merely until the HTTP call returns: the old run is still
+          // the latest record for a moment, and a spinner that vanishes before
+          // the new one is visible would look like nothing happened.
+          const [restarting, markRestarting, clearRestarting] = useRestarting(latest);
 
           // Clear a pending button once the run settles into the state it asked
           // for, so a spinner never sticks when the service is already there.
@@ -70,21 +77,6 @@ window.__ModuleLoader__.load({
             }
             if (changed) setPending(next);
           }, [services]);
-
-          const statusChip = (service) => {
-            if (service === undefined) return null;
-            if (service.state === 'running') {
-              return h('span', { className: 'dsh-svc-chip is-running' }, t('run.running'));
-            }
-            if (service.state === 'stopping') {
-              return h('span', { className: 'dsh-svc-chip' }, t('run.stopping'));
-            }
-            return h(
-              'span',
-              { className: 'dsh-svc-chip is-done' },
-              t('run.exited') + ' ' + String(service.exitCode ?? '?'),
-            );
-          };
 
           const rowFor = (group, script, index, showPath, instance) => {
             const key = String(script.command) + '\u0000' + String(group.dir ?? '');
@@ -125,38 +117,44 @@ window.__ModuleLoader__.load({
               );
             } else {
               actions.push(
-                h(
-                  'button',
-                  {
-                    key: 'stop',
-                    type: 'button',
-                    className:
-                      'dsh-svc-stop' +
-                      (armedStop === service.id ? ' is-armed' : '') +
-                      (phase === 'stopping' ? ' is-busy' : ''),
-                    disabled: phase === 'stopping',
-                    title: armedStop === service.id ? t('run.confirmStop') : t('run.stop'),
-                    'aria-label': armedStop === service.id ? t('run.confirmStop') : t('run.stop'),
-                    onClick: () => {
-                      if (armedStop === service.id) {
-                        disarmStop();
-                        setPending((current) => ({ ...current, [key]: 'stopping' }));
-                        void stopService(sessionId, service.id);
-                        return;
-                      }
-                      armStop(service.id);
-                    },
+                armedActionButton({
+                  key: 'restart',
+                  kind: 'restart',
+                  armed,
+                  armKey: 'restart:' + service.id,
+                  busy: restarting[key] === service.id,
+                  busyLabel: t('run.restarting'),
+                  idle: t('run.restart'),
+                  confirm: t('run.confirmRestart'),
+                  onArm: arm,
+                  onConfirm: () => {
+                    disarm();
+                    store.notice = '';
+                    markRestarting(key, service.id);
+                    void restartService(sessionId, service.id).catch((error) => {
+                      store.notice =
+                        t('run.restartFailed') + ' ' + String(error?.message ?? error);
+                      clearRestarting(key);
+                      emit();
+                    });
                   },
-                  phase === 'stopping'
-                    ? h('span', { className: 'dsh-svc-spinner is-small' })
-                    : armedStop === service.id
-                      ? h('span', { className: 'dsh-svc-stop-label' }, t('run.confirmStop'))
-                      : h(
-                        'svg',
-                        { viewBox: '0 0 16 16', 'aria-hidden': true },
-                        h('rect', { x: 4, y: 4, width: 8, height: 8, rx: 1.5, fill: 'currentColor' }),
-                      ),
-                ),
+                }),
+                armedActionButton({
+                  key: 'stop',
+                  kind: 'stop',
+                  armed,
+                  armKey: 'stop:' + service.id,
+                  busy: phase === 'stopping',
+                  busyLabel: t('run.stopping'),
+                  idle: t('run.stop'),
+                  confirm: t('run.confirmStop'),
+                  onArm: arm,
+                  onConfirm: () => {
+                    disarm();
+                    setPending((current) => ({ ...current, [key]: 'stopping' }));
+                    void stopService(sessionId, service.id);
+                  },
+                }),
               );
             }
             if (service !== undefined) {
@@ -202,7 +200,7 @@ window.__ModuleLoader__.load({
                     'span',
                     { className: 'dsh-svc-name-line', key: 'name-line' },
                     h('span', { className: 'dsh-svc-name', key: 'name' }, script.name),
-                    statusChip(service),
+                    serviceChip(service),
                     script.overridden === true
                       ? h(
                           'span',
@@ -470,7 +468,6 @@ window.__ModuleLoader__.load({
           useLocaleRevision();
           return h('span', null, t('tab.title'));
         }
-
 
       return { PanelBody, PanelTitle };
     }

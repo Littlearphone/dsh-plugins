@@ -6,9 +6,9 @@
  *
  * Discovery is the Host half's job (`GET /services/list/<sessionId>`); this half
  * only renders what it returns and hands a chosen command to the composer.
- * Executing scripts as Host-owned processes is deliberately not part of this
- * version: the harness already runs commands through the conversation, so the
- * dropdown sends the command there instead of maintaining a second lifecycle.
+ * Lifecycle calls (`start`, `stop`, `restart`) go to the Host, which owns the
+ * process and the launch descriptor a restart needs. Stop and restart are both
+ * two-step: one click arms, the second confirms.
  */
 window.__ModuleLoader__.load({
   id: '@local/services',
@@ -21,7 +21,7 @@ window.__ModuleLoader__.load({
     const NS = 'services';
     const ROUTE = '/services/list/';
     /** Shown on the refresh control so a stale page is recognisable at a glance. */
-    const BUILD = 'services 0.1.1';
+    const BUILD = 'services 0.1.2';
 
     const ZH = {
       'tab.title': '服务管理',
@@ -68,6 +68,10 @@ window.__ModuleLoader__.load({
       'edit.badEnv': '环境变量要写成 KEY=VALUE',
       'run.stop': '停止',
       'run.confirmStop': '确认停止',
+      'run.restart': '重启',
+      'run.confirmRestart': '确认重启',
+      'run.restarting': '重启中…',
+      'run.restartFailed': '重启失败：',
       'output.truncated': '（已省略较早的输出）',
       'run.output': '输出',
       'run.starting': '正在启动…',
@@ -125,6 +129,10 @@ window.__ModuleLoader__.load({
       'edit.badEnv': 'Environment must be KEY=VALUE',
       'run.stop': 'Stop',
       'run.confirmStop': 'Confirm stop',
+      'run.restart': 'Restart',
+      'run.confirmRestart': 'Confirm restart',
+      'run.restarting': 'Restarting…',
+      'run.restartFailed': 'Restart failed: ',
       'output.truncated': '(earlier output omitted)',
       'run.output': 'Output',
       'run.starting': 'Starting…',

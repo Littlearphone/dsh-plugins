@@ -10,7 +10,7 @@ window.__ModuleLoader__.load({
 
     function createActions(d) {
       const {
-        t, store, emit, setOpen, postJson, stopService, UI_ROUTE, START_ROUTE, PIN_ROUTE, PACKAGE, KIND,
+        t, store, emit, setOpen, postJson, stopService, restartService, UI_ROUTE, START_ROUTE, PIN_ROUTE, PACKAGE, KIND,
         sortScripts, RuntimeBadge,
       } = d;
 
@@ -100,16 +100,106 @@ window.__ModuleLoader__.load({
         }
 
         
+        /** The state chip a row shows next to its name; one shape on every surface. */
+        function serviceChip(service) {
+          if (service === undefined) return null;
+          if (service.state === 'running') {
+            return h('span', { className: 'dsh-svc-chip is-running' }, t('run.running'));
+          }
+          if (service.state === 'stopping') {
+            return h('span', { className: 'dsh-svc-chip' }, t('run.stopping'));
+          }
+          return h(
+            'span',
+            { className: 'dsh-svc-chip is-done' },
+            t('run.exited') + ' ' + String(service.exitCode ?? '?'),
+          );
+        }
+
+        /** Circular-arrow glyph: restart. */
+        function restartIcon() {
+          return h(
+            'svg',
+            { viewBox: '0 0 16 16', 'aria-hidden': true, fill: 'none' },
+            h('path', {
+              d: 'M13 8a5 5 0 1 1-1.5-3.6',
+              stroke: 'currentColor',
+              strokeWidth: 1.5,
+              strokeLinecap: 'round',
+            }),
+            h('path', {
+              d: 'M13 2.6v3.2H9.8',
+              stroke: 'currentColor',
+              strokeWidth: 1.5,
+              strokeLinecap: 'round',
+              strokeLinejoin: 'round',
+            }),
+          );
+        }
+
+        /** Square glyph: stop. */
+        function stopIcon() {
+          return h(
+            'svg',
+            { viewBox: '0 0 16 16', 'aria-hidden': true },
+            h('rect', { x: 4, y: 4, width: 8, height: 8, rx: 1.5, fill: 'currentColor' }),
+          );
+        }
+
+        function actionIcon(kind) {
+          return kind === 'restart' ? restartIcon() : stopIcon();
+        }
+
         /**
-         * Rows of the dropdown: click starts, and a running service exposes its
-         * stop right here so the common action needs no detour through the panel.
+         * The two-step action both surfaces use: the first press arms it, the
+         * second confirms, and the label replaces the glyph while armed. `busy`
+         * swaps the control for a spinner so an in-flight restart cannot fire
+         * twice. One arm is shared by every kind, so arming restart on one row
+         * also disarms a stop confirmation elsewhere.
          */
+        function armedActionButton(options) {
+          const { kind, armed, armKey, busy, busyLabel, idle, confirm, onArm, onConfirm } = options;
+          const isArmed = armed === armKey;
+          const label = busy && busyLabel !== undefined ? busyLabel : isArmed ? confirm : idle;
+          return h(
+            'button',
+            {
+              key: options.key,
+              type: 'button',
+              className: 'dsh-svc-' + kind + (isArmed ? ' is-armed' : '') + (busy ? ' is-busy' : ''),
+              disabled: busy,
+              title: label,
+              'aria-label': label,
+              onClick: () => {
+                if (isArmed) onConfirm();
+                else onArm(armKey);
+              },
+            },
+            busy
+              ? h('span', { className: 'dsh-svc-spinner is-small' })
+              : isArmed
+                ? h('span', { className: 'dsh-svc-' + kind + '-label' }, confirm)
+                : actionIcon(kind),
+          );
+        }
+
         /**
-         * Rows of the dropdown. The row text is inert and one icon button acts:
-         * start while idle, stop while running — so a service can be stopped from
-         * here without opening the panel, and a stray click cannot start anything.
+         * Rows of the dropdown. The row text is inert: a running service exposes
+         * restart and stop here (each with the same two-step confirm as the
+         * panel), while an idle one exposes start — so the common action needs no
+         * detour through the panel, and a stray click cannot start anything.
          */
-        function menuItems(groups, collapsed, toggle, runningByCommand, stopService, armedStop, armStop, disarmStop) {
+        function menuItems(
+          groups,
+          collapsed,
+          toggle,
+          runningByCommand,
+          stopService,
+          restartService,
+          armed,
+          arm,
+          disarm,
+        ) {
           const nodes = [];
           groups.forEach((group, groupIndex) => {
             nodes.push(groupHeading(group, true, collapsed, toggle));
@@ -136,31 +226,34 @@ window.__ModuleLoader__.load({
                     'span',
                     { className: 'dsh-svc-actions', key: 'actions' },
                     running
-                      ? h(
-                          'button',
-                          {
-                            key: 'stop',
-                            type: 'button',
-                            className: 'dsh-svc-stop' + (armedStop === runningId ? ' is-armed' : ''),
-                            title: armedStop === runningId ? t('run.confirmStop') : t('run.stop'),
-                            'aria-label': armedStop === runningId ? t('run.confirmStop') : t('run.stop'),
-                            onClick: () => {
-                              if (armedStop === runningId) {
-                                disarmStop();
-                                void stopService(runningId);
-                                return;
-                              }
-                              armStop(runningId);
+                      ? [
+                          armedActionButton({
+                            key: 'restart',
+                            kind: 'restart',
+                            armed,
+                            armKey: 'restart:' + runningId,
+                            idle: t('run.restart'),
+                            confirm: t('run.confirmRestart'),
+                            onArm: arm,
+                            onConfirm: () => {
+                              disarm();
+                              void restartService(runningId);
                             },
-                          },
-                          armedStop === runningId
-                            ? h('span', { className: 'dsh-svc-stop-label' }, t('run.confirmStop'))
-                            : h(
-                                'svg',
-                                { viewBox: '0 0 16 16', 'aria-hidden': true },
-                                h('rect', { x: 4, y: 4, width: 8, height: 8, rx: 1.5, fill: 'currentColor' }),
-                              ),
-                        )
+                          }),
+                          armedActionButton({
+                            key: 'stop',
+                            kind: 'stop',
+                            armed,
+                            armKey: 'stop:' + runningId,
+                            idle: t('run.stop'),
+                            confirm: t('run.confirmStop'),
+                            onArm: arm,
+                            onConfirm: () => {
+                              disarm();
+                              void stopService(runningId);
+                            },
+                          }),
+                        ]
                       : h(
                           'button',
                           {
@@ -188,14 +281,47 @@ window.__ModuleLoader__.load({
         }
 
         /**
-         * Two-step stop: the first press arms one service, the second confirms.
-         * The arm stays until the user confirms, cancels, or arms another row —
-         * it never expires on a timer, because a confirm that vanishes on its own
-         * is the opposite of a confirmation.
+         * Track restarts that are still waiting for their replacement. A key
+         * stays in the map while the polled list still shows the run being
+         * replaced; the first poll that names a different id clears it.
          */
-        function useArmedStop() {
+        function useRestarting(latest) {
+          const [restarting, setRestarting] = React.useState({});
+          React.useEffect(() => {
+            const entries = Object.entries(restarting);
+            if (entries.length === 0) return;
+            const next = {};
+            let changed = false;
+            for (const [key, previousId] of entries) {
+              const service = latest.get(key);
+              if (service !== undefined && service.id === previousId) next[key] = previousId;
+              else changed = true;
+            }
+            if (changed) setRestarting(next);
+          }, [latest, restarting]);
+          const mark = React.useCallback((key, id) => {
+            setRestarting((current) => ({ ...current, [key]: id }));
+          }, []);
+          const clear = React.useCallback((key) => {
+            setRestarting((current) => {
+              const next = { ...current };
+              delete next[key];
+              return next;
+            });
+          }, []);
+          return [restarting, mark, clear];
+        }
+
+        /**
+         * One armed action at a time. The key is `<action>:<service id>`, so
+         * arming a restart also drops a pending stop confirmation on another
+         * row. The arm stays until the user confirms, cancels, or arms another
+         * action — it never expires on a timer, because a confirm that vanishes
+         * on its own is the opposite of a confirmation.
+         */
+        function useArmedAction() {
           const [armed, setArmed] = React.useState('');
-          const arm = React.useCallback((id) => setArmed(id), []);
+          const arm = React.useCallback((key) => setArmed(key), []);
           const disarm = React.useCallback(() => setArmed(''), []);
           return [armed, arm, disarm];
         }
@@ -236,7 +362,7 @@ window.__ModuleLoader__.load({
         }
 
 
-      return { togglePin, launch, groupHeading, menuItems, useArmedStop, useCollapsedGroups };
+      return { togglePin, launch, groupHeading, menuItems, serviceChip, armedActionButton, useArmedAction, useRestarting, useCollapsedGroups };
     }
 
     return { createActions };
