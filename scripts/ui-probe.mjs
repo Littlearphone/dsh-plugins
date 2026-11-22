@@ -41,10 +41,14 @@ function arg(name, fallback) {
 
 const url = arg('url');
 if (url === undefined) {
-  console.error('usage: node scripts/ui-probe.mjs --url "<tokenized url>" [--session <title>] [--shot <png>] [--executable <chromium>]');
+  console.error('usage: node scripts/ui-probe.mjs --url "<tokenized url>" [--workspace <name>] [--session <title>] [--shot <png>] [--executable <chromium>]');
   process.exit(2);
 }
 const sessionTitle = arg('session', '任务列表与会话关联设计');
+// Sessions live under a workspace in the sidebar, and a collapsed workspace
+// renders none of its rows. Expanding it first is what makes the probe work
+// when the GUI was last left on another workspace.
+const workspaceName = arg('workspace', 'dsh-plugins');
 const shot = arg('shot', 'probe.png');
 // Optional: a Playwright-downloaded Chromium that differs from the revision the
 // installed Playwright expects (offline machines cannot fetch the matching one).
@@ -73,8 +77,17 @@ try {
   await page.goto(url, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(6000);
 
+  // Open the workspace first if the session row is not rendered yet: a
+  // collapsed workspace lists no sessions at all.
+  const workspace = page.getByText(workspaceName, { exact: true }).first();
+  const sessionRow = page.locator(`text="${sessionTitle}"`).first();
+  if ((await sessionRow.count()) === 0 && (await workspace.count()) > 0) {
+    await workspace.click();
+    await page.waitForTimeout(900);
+  }
+
   // Open the session the plugins hang off.
-  const session = page.locator(`text="${sessionTitle}"`).first();
+  const session = sessionRow;
   await session.waitFor({ state: 'visible', timeout: 20000 }).catch(() => undefined);
   if (await session.count()) {
     await session.click();
