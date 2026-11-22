@@ -8,6 +8,31 @@
 // Edge is deliberately not used (see AGENTS.md), and the browser is always
 // closed in `finally`.
 import { chromium } from 'playwright';
+import { existsSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
+
+/**
+ * Playwright's bundled build may not match this package version (a download
+ * would be required). Reuse whichever Chromium is already installed instead;
+ * an explicit PLAYWRIGHT_CHROMIUM wins, and the bundled default is the last
+ * resort.
+ */
+function findInstalledChromium() {
+  if (process.env.PLAYWRIGHT_CHROMIUM !== undefined) return process.env.PLAYWRIGHT_CHROMIUM;
+  const root = join(process.env.LOCALAPPDATA ?? '', 'ms-playwright');
+  if (root === '' || !existsSync(root)) return undefined;
+  const candidates = readdirSync(root)
+    .filter((name) => name.startsWith('chromium-'))
+    .sort()
+    .reverse();
+  for (const name of candidates) {
+    for (const rel of ['chrome-win64/chrome.exe', 'chrome-win/chrome.exe', 'chrome-linux/chrome', 'chrome-mac/Chromium.app/Contents/MacOS/Chromium']) {
+      const candidate = join(root, name, rel);
+      if (existsSync(candidate)) return candidate;
+    }
+  }
+  return undefined;
+}
 
 function arg(name, fallback) {
   const index = process.argv.indexOf(`--${name}`);
@@ -16,14 +41,15 @@ function arg(name, fallback) {
 
 const url = arg('url');
 if (url === undefined) {
-  console.error('usage: node scripts/ui-probe.mjs --url "<tokenized url>" [--session <title>] [--shot <png>]');
+  console.error('usage: node scripts/ui-probe.mjs --url "<tokenized url>" [--session <title>] [--shot <png>] [--executable <chromium>]');
   process.exit(2);
 }
 const sessionTitle = arg('session', '任务列表与会话关联设计');
 const shot = arg('shot', 'probe.png');
 // Optional: a Playwright-downloaded Chromium that differs from the revision the
 // installed Playwright expects (offline machines cannot fetch the matching one).
-const executablePath = arg('executable');
+// Falls back to whichever build is already installed.
+const executablePath = arg('executable') ?? findInstalledChromium();
 
 const report = [];
 let failures = 0;
@@ -32,7 +58,10 @@ const check = (label, ok, detail) => {
   if (!ok) failures += 1;
 };
 
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({
+  headless: true,
+  ...(executablePath === undefined ? {} : { executablePath }),
+});
 try {
   const page = await browser.newPage({ viewport: { width: 1500, height: 950 } });
   const errors = [];
