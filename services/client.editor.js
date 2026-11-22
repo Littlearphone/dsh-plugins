@@ -15,10 +15,10 @@ window.__ModuleLoader__.load({
       const scriptName = script.original ?? script.name;
       const kind = String(script.category ?? '');
       // Maven rows choose their runner and JDK; Java rows run through the same
-      // runner, so they take both too. Gradle shares the JDK field alone, and
-      // npm scripts get none of it.
+      // runner, so they take both too. Gradle and the no-build-tool (`javac`)
+      // rows share the JDK field alone, and npm scripts get none of it.
       const isMaven = kind === 'maven' || kind === 'java';
-      const isJvm = isMaven || kind === 'gradle';
+      const isJvm = isMaven || kind === 'gradle' || kind === 'javac';
       const [label, setLabel] = React.useState(script.variantLabel ?? '');
       const [args, setArgs] = React.useState(script.args ?? '');
       const [env, setEnv] = React.useState(

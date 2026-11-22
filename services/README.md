@@ -160,7 +160,7 @@ JVM 项目没有脚本清单，能"运行"的是**构建工具的目标**。所�
     所以标准的 Spring Boot 工程一定会有一行 `spring-boot:run`。
 - 命令带 `-f <pom>`：一个工作区里十几个 pom 时，工作目录决定不了跑哪个项目，pom 文件决定。
 - 命令开头的 **Maven 可执行文件是解析出来的**：项目自带 `mvnw`/`mvnw.cmd` 就先用它（版本由项目钉住），
-  其次是 PATH 上的 `mvn`，最后是 `mvnd`（Maven Daemon，参数与 `mvn` 兼容）。IDEA 用户常常只有
+  其次是 PATH 上的 `mvn`，最后是 `mvnd`（Maven Daemon，自带一份 Maven、参数与 `mvn` 兼容）。IDEA 用户常常只有
   IDE 自带的那份 Maven、PATH 上根本没有 `mvn`——这一层兜底不是锦上添花，否则每条 Maven 行跑起来
   只有一句"不是内部或外部命令"。三样都没有时仍然写 `mvn`，让缺环境这件事直接暴露在输出里。
   想换一个：行的「编辑启动配置」里选（见「启动变体」），选定值跟着变体存。
@@ -187,12 +187,19 @@ Maven 工程里"能运行的东西"不只在 pom 里：`src/main/java` 下带 `p
   按 pom 算——等价于 IDEA 的绿三角；
 - **不带 `-q`**：`exec:java` 把应用输出当 INFO 日志打，`-q` 会连它一起吞掉。实测过：
   `-q` 下程序打印的 `hello-from-main` 一行都看不到，去掉就有；
-- 这些行走的是 Maven 的 runner，所以「运行器」「JDK」两个字段一样适用；
+- 这些行走的是 Maven 的 runner，所以「运行器」「JDK」两个字段一样适用；没有构建工具的工程同样有
+  「JDK」字段，而且启动时会把该 JDK 的 `bin` 放到 `PATH` 最前面——`javac` / `java` 才和它一致；
 - Spring Boot 工程的启动类照样会被扫出来（`exec:java` 一般也跑得起来），而它的 pom 声明了
   `spring-boot-maven-plugin` 或继承 `spring-boot-starter-parent` 时，还会多一行
   `spring-boot:run`——两条路都在，和 IDEA 里一样；
-- 只对 Maven 工程做（`pom.xml` 所在目录）。纯 Gradle 工程的主类要靠 `application` 插件 /
-  `gradle run` 才定位得到，纯 `javac` 工程没有 classpath 来源，都还没做。
+- **没有构建工具的工程不需要 Maven**：`src/main/java` 有主类、但根目录既没有 `pom.xml` 也没有
+  `build.gradle(.kts)` 时，行变成 JDK 自己的一条龙——
+  `javac -encoding UTF-8 -sourcepath src/main/java -d .dsh/classes src/main/java/demo/Hello.java
+  && java -cp .dsh/classes demo.Hello`。`-sourcepath` 让 javac 顺带编译被引用的类，
+  `-d .dsh/classes` 把产物放在插件自己的目录里，`&&` 两种 shell 都认；
+- 有 `pom.xml` 就必须有 Maven（`mvnw` / `mvn` / `mvnd` 任一个，`mvnd` 本身就是 Maven 的守护进程版，
+  自带 Maven 3.9.9）——没有的话那几行会直接报"不是内部或外部命令"，因为 classpath 只有 Maven 算得出来；
+  纯 Gradle 工程的主类要靠 `application` 插件 / `gradle run` 才定位得到，暂时不做。
 
 ## JVM 用哪个 JDK
 

@@ -31,7 +31,7 @@ window.__ModuleLoader__.load({
         icon: 'gradle',
         pattern: /(^|[\s/\\])(gradle|gradlew)\b/,
       },
-      { id: 'java', label: 'java', tint: '#5382A1', icon: 'java', pattern: /(^|[\s/\\])java\b/ },
+      { id: 'java', label: 'java', tint: '#5382A1', icon: 'java', pattern: /(^|[\s/\\])(java|javac)\b/ },
       {
         id: 'python',
         label: 'python',

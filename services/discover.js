@@ -450,27 +450,33 @@ async function javaSources(base) {
   return found;
 }
 
-/** The `main` classes of every Maven project, in one group. */
+/**
+ * The JDK's own compile-and-run pair, for a project that has no build tool at
+ * all. `-sourcepath` lets javac pull in whatever the entry file references, so
+ * one command covers a whole package tree; `-d .dsh/classes` keeps the output
+ * next to the plugin's own state instead of inventing a layout the project does
+ * not have. `&&` chains them because both shells the Host can use understand it.
+ */
+function javacCommand(source, className) {
+  const classes = join('.dsh', 'classes');
+  return (
+    `javac -encoding UTF-8 -sourcepath ${shellPath(JAVA_SOURCE_DIR)}` +
+    ` -d ${shellPath(classes)} ${shellPath(source)}` +
+    ` && java -cp ${shellPath(classes)} ${className}`
+  );
+}
+
+/** The `main` classes of a project, in one group. */
 export async function javaGroups(root, known = []) {
   const dirs = [...new Set(['', ...known, ...(await dirsWithFile(root, 'pom.xml', 2))])];
   const scripts = [];
   const seen = new Set();
   const onPath = { mvn: programOnPath('mvn'), mvnd: programOnPath('mvnd') };
-  for (const relative of dirs) {
-    let pom;
-    try {
-      pom = await readFile(join(root, relative, 'pom.xml'), 'utf8');
-    } catch {
-      continue;
-    }
-    const artifact = /<artifactId>\s*([^<\s]+)\s*<\/artifactId>/.exec(pom)?.[1] ?? 'pom';
-    const label = relative === '' ? artifact : `${relative} · ${artifact}`;
-    const file = relative === '' ? '' : ` -f ${shellPath(join(relative, 'pom.xml'))}`;
-    const wrapper = mavenWrapper(root, relative);
-    const runners = mavenRunners(wrapper, onPath);
-    const runner = runners[0];
-    const command = runnerCommand(runner, wrapper);
-    const base = join(root, relative, JAVA_SOURCE_DIR);
+  let buildTool = false;
+
+  /** `{ source, className }` for every `main` under one source root. */
+  const mainClassesIn = async (base) => {
+    const found = [];
     for (const source of await javaSources(base)) {
       let text;
       try {
@@ -483,7 +489,28 @@ export async function javaGroups(root, known = []) {
       // `Main`, and a row's name is what a saved configuration is keyed by.
       const simple = basename(source, '.java');
       const pkg = JAVA_PACKAGE.exec(text)?.[1];
-      const className = pkg === undefined ? simple : `${pkg}.${simple}`;
+      found.push({ source, className: pkg === undefined ? simple : `${pkg}.${simple}` });
+    }
+    return found;
+  };
+
+  for (const relative of dirs) {
+    let pom;
+    try {
+      pom = await readFile(join(root, relative, 'pom.xml'), 'utf8');
+    } catch {
+      continue;
+    }
+    buildTool = true;
+    const artifact = /<artifactId>\s*([^<\s]+)\s*<\/artifactId>/.exec(pom)?.[1] ?? 'pom';
+    const label = relative === '' ? artifact : `${relative} · ${artifact}`;
+    const file = relative === '' ? '' : ` -f ${shellPath(join(relative, 'pom.xml'))}`;
+    const wrapper = mavenWrapper(root, relative);
+    const runners = mavenRunners(wrapper, onPath);
+    const runner = runners[0];
+    const command = runnerCommand(runner, wrapper);
+    const entries = await mainClassesIn(join(root, relative, JAVA_SOURCE_DIR));
+    for (const { className } of entries) {
       if (seen.has(className)) continue;
       seen.add(className);
       scripts.push({
@@ -500,11 +527,32 @@ export async function javaGroups(root, known = []) {
       });
     }
   }
+
+  // A project with no build file still has entry points: compile and run them
+  // with the JDK itself, so the Java group never depends on Maven existing. A
+  // Gradle project is left alone — its dependencies only Gradle knows.
+  const gradle =
+    existsSync(join(root, 'build.gradle')) || existsSync(join(root, 'build.gradle.kts'));
+  if (!buildTool && !gradle) {
+    for (const { source, className } of await mainClassesIn(join(root, JAVA_SOURCE_DIR))) {
+      if (seen.has(className)) continue;
+      seen.add(className);
+      scripts.push({
+        name: className,
+        label: basename(root) || 'java',
+        command: javacCommand(join(JAVA_SOURCE_DIR, source), className),
+        category: 'javac',
+        runner: '',
+        runners: [],
+      });
+    }
+  }
   if (scripts.length === 0) return [];
   return [{ id: 'java', kind: 'java', name: 'Java', dir: '', scripts }];
 }
 
-/** Gradle projects in one group, mirroring the Maven group. */export async function gradleGroups(root, known = []) {
+/** Gradle projects in one group, mirroring the Maven group. */
+export async function gradleGroups(root, known = []) {
   const dirs = [...new Set(['', ...known, ...(await dirsWithFile(root, 'build.gradle', 2)), ...(await dirsWithFile(root, 'build.gradle.kts', 2))])];
   const scripts = [];
   for (const relative of dirs) {

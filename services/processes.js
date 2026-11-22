@@ -341,10 +341,18 @@ export async function spawnService(ctx, sessionId, request, root) {
     const javaHome =
       configured !== ''
         ? configured
-        : override?.env?.JAVA_HOME === undefined
-          ? await projectJavaHome(root)
-          : undefined;
-    if (javaHome !== undefined) env.JAVA_HOME = javaHome;
+        : override?.env?.JAVA_HOME !== undefined
+          ? String(override.env.JAVA_HOME)
+          : ((await projectJavaHome(root)) ?? process.env.JAVA_HOME);
+    if (javaHome !== undefined) {
+      env.JAVA_HOME = javaHome;
+      // Rows that call `javac`/`java` themselves (a project without a build tool)
+      // only see the JDK through PATH, so put the same one in front.
+      const pathKey = process.platform === 'win32' ? 'Path' : 'PATH';
+      const separator = process.platform === 'win32' ? ';' : ':';
+      const bin = join(javaHome, 'bin');
+      env[pathKey] = env[pathKey] === undefined ? bin : `${bin}${separator}${env[pathKey]}`;
+    }
   }
   const key = serviceKey(root, id);
   // Everything needed to launch this script again. A restart cannot go back to
