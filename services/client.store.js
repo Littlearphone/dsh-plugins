@@ -32,8 +32,52 @@ window.__ModuleLoader__.load({
     const TOAST_TTL_MS = 8000;
     const MAX_TOASTS = 4;
     let toastSeq = 0;
+    const toastTimers = new Map();
+
+    /**
+     * Auto-dismiss only while the page is actually in front of the user. When
+     * the window is blurred, minimised or on another desktop tab, the timer is
+     * dropped instead: an execution result that expired while nobody looked is
+     * the same as no notification at all.
+     */
+    function windowIsActive() {
+      return (
+        typeof document !== 'undefined' &&
+        document.visibilityState === 'visible' &&
+        document.hasFocus()
+      );
+    }
+
+    function clearToastTimer(id) {
+      const timer = toastTimers.get(id);
+      if (timer === undefined) return;
+      clearTimeout(timer);
+      toastTimers.delete(id);
+    }
+
+    function scheduleToastDismiss(id) {
+      if (!windowIsActive() || toastTimers.has(id)) return;
+      const timer = setTimeout(() => {
+        toastTimers.delete(id);
+        // A missed blur event must not let the timer burn through an unfocused
+        // window: drop this timer and let the focus handler arm a fresh one.
+        if (!windowIsActive()) return;
+        dismissToast(id);
+      }, TOAST_TTL_MS);
+      toastTimers.set(id, timer);
+    }
+
+    /** Start timers on focus, freeze them on blur/hide. */
+    function syncToastTimers() {
+      if (!windowIsActive()) {
+        for (const id of [...toastTimers.keys()]) clearToastTimer(id);
+        return;
+      }
+      for (const toast of store.toasts) scheduleToastDismiss(toast.id);
+    }
 
     function dismissToast(id) {
+      clearToastTimer(id);
       const next = store.toasts.filter((toast) => toast.id !== id);
       if (next.length === store.toasts.length) return;
       store.toasts = next;
@@ -42,9 +86,21 @@ window.__ModuleLoader__.load({
 
     function pushToast(toast) {
       const id = 'toast-' + (toastSeq += 1);
-      store.toasts = [...store.toasts, { ...toast, id }].slice(-MAX_TOASTS);
+      const next = [...store.toasts, { ...toast, id }];
+      if (next.length > MAX_TOASTS) {
+        for (const dropped of next.slice(0, next.length - MAX_TOASTS)) {
+          clearToastTimer(dropped.id);
+        }
+      }
+      store.toasts = next.slice(-MAX_TOASTS);
       emit();
-      setTimeout(() => dismissToast(id), TOAST_TTL_MS);
+      scheduleToastDismiss(id);
+    }
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('focus', syncToastTimers);
+      window.addEventListener('blur', syncToastTimers);
+      document.addEventListener('visibilitychange', syncToastTimers);
     }
 
     function emit() {
